@@ -298,6 +298,7 @@ class MapxusController(
                 }
             }
         })
+        mapViewProvider.getMapxusMapAsync(this)
         mapxusPositioningProvider.start()
         mapxusMap?.setLocationEnabled(true)
         mapxusMap?.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
@@ -573,7 +574,7 @@ class MapxusController(
                                         timeEstimation.value = context.resources.getString(R.string.minute, (estimatedSeconds/60).toInt())
                                     else
                                         timeEstimation.value = context.resources.getString(R.string.second, estimatedSeconds)
-                                    if(estimatedSeconds < 3) endNavigation() // end navigation when distance to destination is less than 3 seconds
+                                    if(estimatedSeconds < 3 && instructionList.size > 0) endNavigation() // end navigation when distance to destination is less than 3 seconds
                                 }
                             }
                         })

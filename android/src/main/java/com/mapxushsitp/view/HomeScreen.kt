@@ -90,6 +90,7 @@ object HomeScreen {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.S)
     @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
     @Composable
     fun composable(locale: Locale) {
@@ -235,7 +236,7 @@ object HomeScreen {
                     if (controller?.showSheet?.value == false) {
                         val currentStep = controller?.instructionIndex?.value ?: 0
                         val totalSteps = controller?.instructionList?.size ?: 1
-                        if (currentStep == totalSteps - 1 || ((controller?.timeEstimation?.value?.split(" ")?.firstOrNull() ?: "10").ifEmpty { "10" }.toIntOrNull() ?: 5) <= 4) {
+                        if (currentStep != 0 && controller.instructionList.isNotEmpty() && (currentStep == totalSteps - 1 || ((controller?.timeEstimation?.value?.split(" ")?.firstOrNull() ?: "10").ifEmpty { "10" }.toIntOrNull() ?: 10) <= 4)) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 ConfettiView(source = ConfettiSource.TOP)
                                 CustomDialog(
