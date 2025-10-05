@@ -13,31 +13,30 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "src",
-    "lib",
-    "android",
-    "ios",
-    "cpp",
-    "*.podspec",
-    "react-native.config.js",
-    "!ios/build",
-    "!android/build",
-    "!android/gradle",
-    "!android/gradlew",
-    "!android/gradlew.bat",
-    "!android/local.properties",
-    "!**/__tests__",
-    "!**/__fixtures__",
-    "!**/__mocks__",
-    "!**/.*"
+    "lib/",
+    "android/libs/*.aar",
+    "ios/",
+    "MapxusHsitp.podspec",
+    "README.md",
+    "LICENSE",
+    "package.json"
   ],
   "scripts": {
+    "build": "yarn clean && yarn build:android && yarn build:types && yarn build:js && yarn obfuscate",
+    "build:android": "scripts/build-android.sh",
+    "build:types": "bob build --target typescript",
+    "build:js": "bob build --target module",
+    "obfuscate": "javascript-obfuscator lib/module --output lib/module --config obfuscator.config.js",
+    "build:production": "yarn build && yarn clean:source-maps",
+    "clean:source-maps": "del-cli lib/**/*.map",
     "example": "yarn workspace react-native-mapxus-hsitp-example",
     "test": "jest",
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
-    "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
-    "prepare": "bob build",
+    "clean": "del-cli android/build android/libs example/android/build example/android/app/build example/ios/build lib",
+    "prepare": "yarn build:production",
+    "prepublishOnly": "yarn build:production",
+    "test:package": "node scripts/test-npm-package.js",
     "release": "release-it --only-version"
   },
   "keywords": [
@@ -165,5 +164,8 @@
     "languages": "kotlin-objc",
     "type": "fabric-view",
     "version": "0.54.3"
+  },
+  "dependencies": {
+    "javascript-obfuscator": "^4.1.1"
   }
 }
