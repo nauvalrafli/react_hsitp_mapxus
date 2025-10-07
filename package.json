@@ -14,12 +14,14 @@
   },
   "files": [
     "lib/",
-    "android/libs/*.aar",
+    "src/",
+    "android/",
     "ios/",
     "MapxusHsitp.podspec",
+    "react-native.config.js",
+    "package.json",
     "README.md",
-    "LICENSE",
-    "package.json"
+    "LICENSE"
   ],
   "scripts": {
     "build": "yarn clean && yarn build:android && yarn build:types && yarn build:js && yarn obfuscate",

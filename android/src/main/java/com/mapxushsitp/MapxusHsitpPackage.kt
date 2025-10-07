@@ -7,6 +7,7 @@ import com.facebook.react.uimanager.ViewManager
 import com.mapxus.map.mapxusmap.api.map.MapxusMapContext
 import java.util.ArrayList
 import com.facebook.react.bridge.UiThreadUtil
+import com.mapxushsitp.MapxusHsitpViewManager
 
 class MapxusHsitpViewPackage : ReactPackage {
   override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
