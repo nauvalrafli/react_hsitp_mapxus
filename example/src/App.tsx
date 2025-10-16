@@ -1,7 +1,12 @@
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Text, Button } from 'react-native';
 import { MapxusHsitpView } from 'react-native-mapxus-hsitp';
 import { PermissionsAndroid, Platform, Alert } from 'react-native';
 import { useEffect } from 'react';
+import {
+  createStaticNavigation,
+  useNavigation,
+} from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 async function requestLocationPermissions() {
   if (Platform.OS === 'android') {
@@ -30,16 +35,52 @@ async function requestLocationPermissions() {
   }
 }
 
+function HomeScreen() {
+  const navigation = useNavigation();
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <Text>Home Screen</Text>
+      <Button
+        title="Go to Broken Screen"
+        onPress={() => navigation.navigate('Broken' as never)}
+      />
+    </View>
+  );
+}
+
+function BrokenScreen() {
+  const navigation = useNavigation();
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <MapxusHsitpView color="#32a852" style={styles.box} />
+      <Button
+        title="Go to Home Screen"
+        onPress={() => navigation.navigate('Home' as never)}
+      />
+    </View>
+  );
+}
+
+const RootStack = createNativeStackNavigator({
+  screens: {
+    Home: HomeScreen,
+    Broken: BrokenScreen,
+  },
+});
+
+const Navigation = createStaticNavigation(RootStack);
+
 export default function App() {
   useEffect(() => {
     requestLocationPermissions();
   }, []);
 
-  return (
-    <View style={styles.container}>
-      <MapxusHsitpView color="#32a852" style={styles.box} />
-    </View>
-  );
+  return <Navigation />;
+  // return (
+  //   <View style={styles.container}>
+  //     <MapxusHsitpView color="#32a852" style={styles.box} />
+  //   </View>
+  // );
 }
 
 const styles = StyleSheet.create({

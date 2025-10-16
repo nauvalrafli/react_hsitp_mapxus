@@ -82,7 +82,7 @@ object HomeScreen {
     fun imperativeComposable(context: Context) : ComposeView {
         return ComposeView(context).apply {
             setViewCompositionStrategy(
-                ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed
+                ViewCompositionStrategy.DisposeOnDetachedFromWindow
             )
             setContent {
                 composable(Locale.getDefault())

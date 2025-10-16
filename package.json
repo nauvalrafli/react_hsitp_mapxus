@@ -1,12 +1,11 @@
 {
   "name": "react-native-mapxus-hsitp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "react native for mapxus hsitp",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
     ".": {
-      "source": "./src/index.tsx",
       "types": "./lib/typescript/src/index.d.ts",
       "default": "./lib/module/index.js"
     },
@@ -14,8 +13,8 @@
   },
   "files": [
     "lib/",
-    "src/",
     "android/",
+    "src/",
     "ios/",
     "MapxusHsitp.podspec",
     "react-native.config.js",
