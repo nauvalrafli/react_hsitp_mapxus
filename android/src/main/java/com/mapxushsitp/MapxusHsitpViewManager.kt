@@ -2,11 +2,13 @@ package com.mapxushsitp
 
 import android.content.Context
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import androidx.annotation.RequiresApi
 import androidx.core.view.children
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
@@ -15,19 +17,17 @@ import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.UIManagerModule
 import com.facebook.react.uimanager.ViewGroupManager
 import com.facebook.react.uimanager.annotations.ReactProp
+import com.mapbox.mapboxsdk.maps.MapView
+import com.mapxushsitp.view.HomeScreen
 
 @ReactModule(name = MapxusHsitpViewManager.NAME)
-class MapxusHsitpViewManager : ViewGroupManager<MapxusHsitpView>() {
+class MapxusHsitpViewManager : ViewGroupManager<MapxusWrapperView>() {
   override fun getName() = NAME
 
-  override fun createViewInstance(reactContext: ThemedReactContext): MapxusHsitpView {
-    return MapxusHsitpView(reactContext)
+  override fun createViewInstance(reactContext: ThemedReactContext): MapxusWrapperView {
+    return MapxusWrapperView(reactContext)
   }
 
-  @ReactProp(name = "color")
-  fun setColor(view: MapxusHsitpView?, color: String?) {
-    view?.setBackgroundColor(Color.parseColor(color))
-  }
 
   companion object {
     const val NAME = "MapxusHsitpView"
@@ -35,13 +35,49 @@ class MapxusHsitpViewManager : ViewGroupManager<MapxusHsitpView>() {
 }
 
 class MapxusWrapperFragment(private var frame: MapxusHsitpView): Fragment() {
+
   override fun onCreateView(
     inflater: LayoutInflater,
     container: ViewGroup?,
     savedInstanceState: Bundle?
   ): View? {
-    return super.onCreateView(inflater, container, savedInstanceState)
+    super.onCreateView(inflater, container, savedInstanceState)
     return frame
+  }
+
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    HomeScreen.controller?.mapView?.onCreate(savedInstanceState)
+  }
+
+  override fun onResume() {
+    super.onResume()
+    HomeScreen.controller?.mapView?.onResume()
+  }
+
+  override fun onStart() {
+    super.onStart()
+    HomeScreen.controller?.mapView?.onStart()
+  }
+
+  override fun onPause() {
+    super.onPause()
+    HomeScreen.controller?.mapView?.onPause()
+  }
+
+  override fun onDestroy() {
+    super.onDestroy()
+    HomeScreen.controller?.mapView?.onDestroy()
+  }
+
+  override fun onStop() {
+    super.onStop()
+    HomeScreen.controller?.mapView?.onStop()
+  }
+
+  override fun onLowMemory() {
+    super.onLowMemory()
+    HomeScreen.controller?.mapView?.onLowMemory()
   }
 }
 
@@ -49,10 +85,29 @@ class MapxusWrapperView(context: Context) : FrameLayout(context) {
   val mapxusView = MapxusHsitpView(context)
 
   private var fragmentCreated = false
+  val wrapperFragment = MapxusWrapperFragment(mapxusView)
 
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
-//    post(addFragment)
+    // Defer fragment creation to avoid blocking main thread
+    post {
+      if (!fragmentCreated) {
+        addFragment.run()
+      }
+    }
+  }
+
+  override fun onDetachedFromWindow() {
+    super.onDetachedFromWindow()
+    post {
+      val activity = (context as? ThemedReactContext)?.currentActivity as FragmentActivity
+      activity.supportFragmentManager
+        .beginTransaction()
+        // the id value here is the react native view id that
+        // has been assigned by the view manager system for this view instance
+        .remove(wrapperFragment)
+        .commit()
+    }
   }
 
   override fun requestLayout() {
@@ -60,16 +115,21 @@ class MapxusWrapperView(context: Context) : FrameLayout(context) {
 
   }
 
+  @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
   private val addFragment = Runnable {
     if (!fragmentCreated) {
-      val wrapperFragment = MapxusWrapperFragment(mapxusView)
       val activity = (context as? ThemedReactContext)?.currentActivity as FragmentActivity
-      activity.supportFragmentManager
-        .beginTransaction()
-        // the id value here is the react native view id that
-        // has been assigned by the view manager system for this view instance
-        .replace(id, wrapperFragment, id.toString())
-        .commit()
+      if(id == View.NO_ID) {
+        id = generateViewId()
+      }
+      if (activity.supportFragmentManager.findFragmentByTag(id.toString()) == null) {
+        activity.supportFragmentManager
+          .beginTransaction()
+          // the id value here is the react native view id that
+          // has been assigned by the view manager system for this view instance
+          .replace(id, wrapperFragment, id.toString())
+          .commitAllowingStateLoss()
+      }
 
       fragmentCreated = true
     }

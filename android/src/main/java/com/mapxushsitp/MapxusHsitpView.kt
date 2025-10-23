@@ -19,6 +19,7 @@ import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.compose.material.Colors
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.createLifecycleAwareWindowRecomposer
 import androidx.core.view.doOnAttach
 import androidx.core.view.doOnNextLayout
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +38,8 @@ class MapxusHsitpView : FrameLayout {
   val expiryDate = LocalDateTime.parse(expiryDateStr, formatter)
 
   val now = LocalDateTime.now()
+
+  val homeScreen = HomeScreen.imperativeComposable(context)
 
   fun createExpiryText(context: Context): TextView {
     return TextView(context).apply {
@@ -79,24 +82,28 @@ class MapxusHsitpView : FrameLayout {
     } else {
       if(isAttachedToWindow) {
         Log.d("REACT-MAPXUS", "ATTACHED")
-        val homeScreen: ComposeView = HomeScreen.imperativeComposable(context).apply {
+        homeScreen.apply {
           layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
           )
         }
-        addView(homeScreen)
+        if(isEmpty()) {
+          addView(homeScreen)
+        }
       } else {
         viewTreeObserver.addOnWindowAttachListener(object: ViewTreeObserver.OnWindowAttachListener {
           override fun onWindowAttached() {
             Log.d("REACT-MAPXUS", "OBSERVER ATTACHED")
-            val homeScreen: ComposeView = HomeScreen.imperativeComposable(context).apply {
+            homeScreen.apply {
               layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
               )
             }
-            addView(homeScreen)
+            if(isEmpty()) {
+              addView(homeScreen)
+            }
             viewTreeObserver.removeOnWindowAttachListener(this)
             invalidate()
           }
@@ -114,44 +121,41 @@ class MapxusHsitpView : FrameLayout {
     super.onAttachedToWindow()
     if (!now.isAfter(expiryDate)) {
       Log.d("REACT-MAPXUS", "ONATTACHED")
-      val homeScreen = HomeScreen.imperativeComposable(context).apply {
+      homeScreen.apply {
         layoutParams = LayoutParams(
           LayoutParams.MATCH_PARENT,
           LayoutParams.MATCH_PARENT
         )
       }
 
-      doOnNextLayout {
-        Log.d("REACT-MAPXUS", "Measured: ${homeScreen.width}x${homeScreen.height}")
-        Log.d("REACT-MAPXUS", "Parent: ${homeScreen.parent}")
-        Log.d("REACT-MAPXUS", "Attached: ${homeScreen.isAttachedToWindow}")
-
-        // ✅ If still 0x0, request layout again just in case
-        homeScreen.requestLayout()
-        homeScreen.invalidate()
-      }
-
       post {
         if(isEmpty()) {
           addView(homeScreen)
         }
+        
+        // Defer heavy operations to next frame
+        post {
+          val parentWidth = width
+          val parentHeight = height
+          if (parentWidth > 0 && parentHeight > 0) {
+            val widthSpec = MeasureSpec.makeMeasureSpec(parentWidth, MeasureSpec.EXACTLY)
+            val heightSpec = MeasureSpec.makeMeasureSpec(parentHeight, MeasureSpec.EXACTLY)
 
-//        homeScreen.requestLayout()
-//        homeScreen.invalidate()
+            homeScreen.measure(widthSpec, heightSpec)
+            homeScreen.layout(0, 0, parentWidth, parentHeight)
+          }
 
-        val parentWidth = width
-        val parentHeight = height
-        if (parentWidth > 0 && parentHeight > 0) {
-          val widthSpec = MeasureSpec.makeMeasureSpec(parentWidth, MeasureSpec.EXACTLY)
-          val heightSpec = MeasureSpec.makeMeasureSpec(parentHeight, MeasureSpec.EXACTLY)
+          requestLayout()
+          invalidate()
 
-          homeScreen.measure(widthSpec, heightSpec)
-          homeScreen.layout(0, 0, parentWidth, parentHeight)
+          Log.d("REACT-MAPXUS", "Measured: ${homeScreen.width}x${homeScreen.height}")
         }
-
-        requestLayout()
-        invalidate()
       }
     }
+  }
+
+  override fun onDetachedFromWindow() {
+    super.onDetachedFromWindow()
+    removeView(homeScreen);
   }
 }

@@ -266,7 +266,7 @@ object PrepareNavigation : IScreen {
                             },
                             onClick = {
                                 arNavigationViewModel.resetNavigationState()
-                                mapxusController.getMapxusMap().setLocationEnabled(true)
+                                mapxusController.getMapxusMap()?.setLocationEnabled(true)
                                 selectedStartPoint = context.resources.getString(R.string.current_location)
 
                                 mapxusController.isCurrentLocation.value = true

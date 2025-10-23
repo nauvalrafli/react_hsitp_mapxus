@@ -60,7 +60,7 @@ object PoiDetails : IScreen {
                 IconButton(
                     onClick = {
                         navController.navigateUp()
-                        mapxusController.getMapxusMap().removeMapxusPointAnnotations()
+                        mapxusController.getMapxusMap()?.removeMapxusPointAnnotations()
                     }
                 ) {
                     Icon(

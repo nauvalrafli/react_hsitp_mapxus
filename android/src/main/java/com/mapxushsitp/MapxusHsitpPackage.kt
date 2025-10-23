@@ -17,8 +17,14 @@ class MapxusHsitpViewPackage : ReactPackage {
   }
 
   override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
+    // Initialize MapxusMapContext asynchronously to avoid blocking
     UiThreadUtil.runOnUiThread {
+      try {
         MapxusMapContext.init(reactContext.applicationContext)
+      } catch (e: Exception) {
+        // Log error but don't crash the app
+        android.util.Log.e("MapxusHsitp", "Failed to initialize MapxusMapContext", e)
+      }
     }
     return emptyList()
   }

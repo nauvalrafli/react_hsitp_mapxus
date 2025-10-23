@@ -22,13 +22,6 @@ class MapxusNativeView(context: Context) : FrameLayout(context) {
 
   @RequiresApi(Build.VERSION_CODES.S)
   val homeScreen = HomeScreen.imperativeComposable(context)
-  val mapView = MapView(context)
-  val mapOptions = MapxusMapOptions().apply {
-    floorId = "ad24bdcb0698422f8c8ab53ad6bb2665"
-    zoomLevel = 19.0
-  }
-  val mapViewProvider = MapboxMapViewProvider(context, mapView, mapOptions)
-  val routePlanning = RoutePlanning.newInstance()
 
   init {
     setBackgroundColor(Color.parseColor("#0b1120"))

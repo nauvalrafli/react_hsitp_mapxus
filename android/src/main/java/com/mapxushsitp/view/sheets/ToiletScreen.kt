@@ -165,7 +165,7 @@ object ToiletScreen : IScreen {
                                 coroutine.launch {
                                     mapxusController.selectedPoi = toilet
                                     delay(200)
-                                    mapxusController.getMapxusMap().apply {
+                                    mapxusController.getMapxusMap()?.apply {
                                         var point = MapxusPointAnnotationOptions().apply {
                                             setFloorId(toilet.floorId)
                                             setPosition(LatLng(toilet.lat, toilet.lng))

@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -91,6 +92,7 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.Dispatcher
 import java.util.Locale
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -101,11 +103,11 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 class MapxusController(
-    val context: Context,
-    lifecycleOwner: LifecycleOwner,
-    val locale: Locale,
-    private val navController: NavController,
-    val arNavigationViewModel: ARNavigationViewModel
+  val context: Context,
+  val lifecycleOwner: LifecycleOwner,
+  val locale: Locale,
+  private val navController: NavController,
+  val arNavigationViewModel: ARNavigationViewModel
 ) : OnMapxusMapReadyCallback {
     val mapView = MapView(context)
     val mapOptions = MapxusMapOptions().apply {
@@ -845,8 +847,8 @@ class MapxusController(
 
         routePainter?.cleanRoute()
         useDefaultDrawableBearingIcon()
-        getMapxusMap().removeMapxusPointAnnotations()
-        getMapxusMap().selectFloorById(getMapxusMap().selectedFloor?.id ?: "")
+        getMapxusMap()?.removeMapxusPointAnnotations()
+        getMapxusMap()?.selectFloorById(getMapxusMap()?.selectedFloor?.id ?: "")
         routePlanning.destroy()
 
         mapxusMap?.mapxusUiSettings?.setSelectorCollapse(false)
@@ -1024,83 +1026,82 @@ class MapxusController(
     }
 
     override fun onMapxusMapReady(p0: MapxusMap?) {
-        Log.d("Location", "Mapxus is ready")
-        mapxusMap = p0
-        mapxusMap?.mapxusUiSettings?.isSelectorEnabled = false
-        mapxusMap?.mapxusUiSettings?.isBuildingSelectorEnabled = false
-        mapxusMap?.mapxusUiSettings?.setSelectorPosition(SelectorPosition.TOP_LEFT)
-        mapxusMap?.mapxusUiSettings?.setSelectFontColor(Color.White.hashCode())
-        mapxusMap?.mapxusUiSettings?.setSelectBoxColor(Color(0xFF4285F4).hashCode())
-        mapViewProvider.setLanguage(locale.language)
+      Log.d("Location", "Mapxus is ready")
+      mapxusMap = p0
+      mapxusMap?.mapxusUiSettings?.isSelectorEnabled = false
+      mapxusMap?.mapxusUiSettings?.isBuildingSelectorEnabled = false
+      mapxusMap?.mapxusUiSettings?.setSelectorPosition(SelectorPosition.TOP_LEFT)
+      mapxusMap?.mapxusUiSettings?.setSelectFontColor(Color.White.hashCode())
+      mapxusMap?.mapxusUiSettings?.setSelectBoxColor(Color(0xFF4285F4).hashCode())
+      mapViewProvider.setLanguage(locale.language)
 
-        mapxusMap?.addOnMapClickedListener(object: OnMapClickedListener {
-            override fun onMapClick(
-                p0: LatLng,
-                p1: MapxusSite
-            ) {
-                if(mapxusMap?.selectedVenueId != null) {
-                    selectedVenue = venues.find { it.venueId == p1.venue?.id }
-                    if(navController.currentDestination?.route == VenueScreen.routeName || selectedVenue?.venueId != p1.venue?.id) {
-                        selectedPoi = null
-                        navController.navigate(VenueDetails.routeName)
-                    }
-                    isFloorSelectorShown.value = true
-                } else {
-                    isFloorSelectorShown.value = false
-                }
+      mapxusMap?.addOnMapClickedListener(object: OnMapClickedListener {
+        override fun onMapClick(
+          p0: LatLng,
+          p1: MapxusSite
+        ) {
+          if(mapxusMap?.selectedVenueId != null) {
+            selectedVenue = venues.find { it.venueId == p1.venue?.id }
+            if(navController.currentDestination?.route == VenueScreen.routeName || selectedVenue?.venueId != p1.venue?.id) {
+              selectedPoi = null
+              navController.navigate(VenueDetails.routeName)
             }
+            isFloorSelectorShown.value = true
+          } else {
+            isFloorSelectorShown.value = false
+          }
+        }
 
-        })
-        mapView.getMapAsync(object: OnMapReadyCallback {
-            override fun onMapReady(mMap: MapboxMap) {
-                Log.d("Location", "MapboxMap is ready")
-                routePainter = RoutePainter(context, mMap, p0)
-                coroutineScope.launch {
-                    delay(3000)
-                    withContext(Dispatchers.Main) {
-                        useDefaultDrawableBearingIcon()
-                        mapxusMap?.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
-                    }
-                }
-                mMap.setMinZoomPreference(18.0)
-                mapboxMap = mMap
+      })
+      mapView.getMapAsync(object: OnMapReadyCallback {
+        override fun onMapReady(mMap: MapboxMap) {
+          Log.d("Location", "MapboxMap is ready")
+          routePainter = RoutePainter(context, mMap, p0)
+          coroutineScope.launch {
+            delay(3000)
+            withContext(Dispatchers.Main) {
+//                        useDefaultDrawableBearingIcon()
+              mapxusMap?.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
             }
-        })
-        mapxusPositioningProvider.addListener(object: IndoorLocationProviderListener {
-            override fun onCompassChanged(angle: Float, sensorAccuracy: Int) {
+          }
+          mMap.setMinZoomPreference(18.0)
+          mapboxMap = mMap
+        }
+      })
+      mapxusPositioningProvider.addListener(object: IndoorLocationProviderListener {
+        override fun onCompassChanged(angle: Float, sensorAccuracy: Int) {
 
-            }
+        }
 
-            override fun onIndoorLocationChange(indoorLocation: IndoorLocation?) {
-                Log.d("Location", "Indoor Location Change")
-                currentLocation = RoutePlanningPoint(
-                    indoorLocation?.longitude ?: 0.0,
-                    indoorLocation?.latitude ?: 0.0,
-                    indoorLocation?.floor?.id
-                )
-                if(indoorLocation?.floor?.id != null) {
-                    userCurrentFloor.value = indoorLocation?.floor?.id
-                }
-                useDefaultDrawableBearingIcon()
-            }
+        override fun onIndoorLocationChange(indoorLocation: IndoorLocation?) {
+          Log.d("Location", "Indoor Location Change")
+          currentLocation = RoutePlanningPoint(
+            indoorLocation?.longitude ?: 0.0,
+            indoorLocation?.latitude ?: 0.0,
+            indoorLocation?.floor?.id
+          )
+          if(indoorLocation?.floor?.id != null) {
+            userCurrentFloor.value = indoorLocation?.floor?.id
+          }
+          useDefaultDrawableBearingIcon()
+        }
 
-            override fun onProviderError(errorInfo: com.mapxus.map.mapxusmap.positioning.ErrorInfo) {
-                Log.d("Location", "Provider Error: ${errorInfo.errorMessage}")
-            }
+        override fun onProviderError(errorInfo: com.mapxus.map.mapxusmap.positioning.ErrorInfo) {
+          Log.d("Location", "Provider Error: ${errorInfo.errorMessage}")
+        }
 
-            override fun onProviderStarted() {
-                Log.d("Location", "Started")
-                mapxusMap?.setLocationProvider(mapxusPositioningProvider)
-            }
+        override fun onProviderStarted() {
+          Log.d("Location", "Started")
+        }
 
-            override fun onProviderStopped() {
-                Log.d("Location", "Stopped")
-            }
+        override fun onProviderStopped() {
+          Log.d("Location", "Stopped")
+        }
 
-        })
-        mapxusPositioningProvider.start()
-        mapxusMap?.setLocationEnabled(true)
-        mapxusMap?.setLocationProvider(mapxusPositioningProvider)
+      })
+      mapxusPositioningProvider.start()
+      mapxusMap?.setLocationEnabled(true)
+      mapxusMap?.setLocationProvider(mapxusPositioningProvider)
     }
 
 
