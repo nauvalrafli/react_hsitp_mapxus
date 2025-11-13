@@ -3,7 +3,6 @@ package com.mapxushsitp.service
 import android.app.Activity
 import android.content.Context
 import android.speech.tts.TextToSpeech
-import toMeterText
 import java.util.*
 
 class TextToVoice(context: Context) : TextToSpeech.OnInitListener {

@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.ImageButton
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -36,7 +37,7 @@ class ToiletScreenFragment : Fragment() {
 
     private var toiletListAdapter: ToiletListAdapter? = null
     private var selectedFilter : ToiletType = ToiletType.ALL
-    private val sharedViewModel: MapxusSharedViewModel by activityViewModels()
+    private val sharedViewModel: MapxusSharedViewModel by viewModels({ requireParentFragment() })
 
     override fun onCreateView(
         inflater: LayoutInflater,

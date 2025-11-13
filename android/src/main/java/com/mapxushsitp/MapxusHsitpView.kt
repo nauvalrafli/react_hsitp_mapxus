@@ -69,7 +69,7 @@ class MapxusHsitpView : FrameLayout {
     val tag = fragmentTag()
     val existing = activity.supportFragmentManager.findFragmentByTag(tag)
     if (existing == null) {
-//      val fragment = XmlActivity.newInstance()
+      val fragment = XmlFragment()
       activity.supportFragmentManager.commit(allowStateLoss = true) {
         setReorderingAllowed(true)
         replace(fragmentContainerId, fragment, tag)

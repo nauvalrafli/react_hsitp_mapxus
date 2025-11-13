@@ -6,14 +6,16 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import com.mapxushsitp.R
+import kotlin.getValue
 
 class ShowRouteFragment : Fragment() {
 
     private lateinit var backButton: View
-    private val sharedViewModel: MapxusSharedViewModel by activityViewModels()
+    private val sharedViewModel: MapxusSharedViewModel by viewModels({ requireParentFragment() })
 
     override fun onCreateView(
         inflater: LayoutInflater,

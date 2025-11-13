@@ -10,6 +10,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -24,6 +25,7 @@ import com.mapxus.map.mapxusmap.api.services.model.poi.PoiDetailResult
 import com.mapxus.map.mapxusmap.api.services.model.poi.PoiOrientationResult
 import com.mapxus.map.mapxusmap.api.services.model.poi.PoiResult
 import com.mapxus.map.mapxusmap.api.services.model.poi.PoiCategoryResult
+import kotlin.getValue
 
 class SearchResultFragment : Fragment() {
 
@@ -35,7 +37,7 @@ class SearchResultFragment : Fragment() {
     private lateinit var emptyState: LinearLayout
     private lateinit var notFoundState: LinearLayout
 
-    val sharedViewModel: MapxusSharedViewModel by activityViewModels()
+    private val sharedViewModel: MapxusSharedViewModel by viewModels({ requireParentFragment() })
 
     private var searchResultsAdapter: SearchResultsAdapter? = null
 

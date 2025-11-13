@@ -4,11 +4,9 @@ import android.app.Application
 import android.content.Context
 import android.location.Location
 import android.util.Log
-import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Toast
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
@@ -16,9 +14,6 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.lifecycleScope
-import com.mapxushsitp.view.sheets.VenueDetails
-import com.mapxushsitp.view.sheets.VenueScreen
-import com.mapxushsitp.R
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.mapxus.map.mapxusmap.api.map.FollowUserMode
 import com.mapxus.map.mapxusmap.api.map.MapViewProvider
@@ -56,17 +51,14 @@ import com.mapxus.positioning.positioning.api.MapxusLocation
 import com.mapxus.positioning.positioning.api.MapxusPositioningClient
 import com.mapxus.positioning.positioning.api.MapxusPositioningListener
 import com.mapxus.positioning.positioning.api.PositioningState
+import com.mapxushsitp.R
+import com.mapxushsitp.service.toMeterText
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
-import org.maplibre.android.maps.OnMapReadyCallback
-import toMeterText
 import java.util.Locale
-import kotlin.collections.find
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -304,13 +296,13 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                     p1: MapxusSite
                 ) {
                     if(mapxusMap?.selectedVenueId != null) {
-                        if(venues.value.isEmpty()) {
+                        if(venues.value?.isEmpty() == true) {
                             val vs = VenueSearch.newInstance()
                             vs.setVenueSearchResultListener { updateVenues(it.venueInfoList) }
                             vs.searchVenueByOption(VenueSearchOption())
                         }
 
-                        setSelectedVenue(venues.value.find { it.id == p1.venue?.id })
+                        setSelectedVenue(venues.value?.find { it.id == p1.venue?.id })
                     }
                 }
             })
@@ -533,8 +525,18 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
         val request = RoutePlanningQueryRequest().apply {
             val points = mutableListOf<RoutePlanningPoint>()
 
-            points.add(RoutePlanningPoint(instructionList.value.get(instructionIndex.value).indoorPoints.get(0).lon, instructionList.value.get(instructionIndex.value).indoorPoints.get(0).lat, instructionList.value.get(instructionIndex.value).indoorPoints.get(0).floorId))
-            points.add(RoutePlanningPoint(instructionList.value.get(instructionList.value.size - 1).indoorPoints.get(0).lon, instructionList.value.get(instructionList.value.size - 1).indoorPoints.get(0).lat, instructionList.value.get(instructionList.value.size - 1).indoorPoints.get(0).floorId))
+            points.add(
+              RoutePlanningPoint(
+                instructionList.value?.get(instructionIndex.value ?: 0)?.indoorPoints?.get(0)?.lon ?: 0.0,
+                instructionList.value?.get(instructionIndex.value ?: 0)?.indoorPoints?.get(0)?.lat ?: 0.0,
+                instructionList.value?.get(instructionIndex.value ?: 0)?.indoorPoints?.get(0)?.floorId
+              )
+            )
+            points.add(
+              RoutePlanningPoint(
+                instructionList.value?.get(instructionList.value?.size?.minus(1) ?: 0)?.indoorPoints?.get(0)?.lon ?: 0.0,
+                instructionList.value?.get(instructionList.value?.size?.minus(1) ?: 0)?.indoorPoints?.get(0)?.lat ?: 0.0,
+                instructionList.value?.get(instructionList.value?.size?.minus(1) ?: 0)?.indoorPoints?.get(0)?.floorId))
             this.points = points
         }
         routePlanning.route(request)
@@ -542,14 +544,14 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
 
     fun nextStep() {
         if((instructionIndex.value ?: 0) < (instructionList.value ?: listOf()).size - 1) {
-            _instructionIndex.value += 1
+          _instructionIndex.value = _instructionIndex.value?.plus(1)
             updateRoutePlanning()
         }
     }
 
     fun previousStep() {
         if((instructionIndex.value ?: 0) > 0) {
-            _instructionIndex.value -= 1
+          _instructionIndex.value = _instructionIndex.value?.minus(1)
             updateRoutePlanning()
         }
     }

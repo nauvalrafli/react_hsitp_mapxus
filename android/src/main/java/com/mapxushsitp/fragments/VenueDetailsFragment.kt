@@ -12,6 +12,7 @@ import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
 import androidx.navigation.fragment.findNavController
 import com.mapxushsitp.service.getTranslation
@@ -19,6 +20,7 @@ import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import com.mapxushsitp.R
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
+import kotlin.getValue
 
 class VenueDetailsFragment : Fragment() {
 
@@ -31,7 +33,7 @@ class VenueDetailsFragment : Fragment() {
     private lateinit var restroomCategory: View
 
     // Shared ViewModel
-    private val sharedViewModel: MapxusSharedViewModel by activityViewModels()
+    private val sharedViewModel: MapxusSharedViewModel by viewModels({ requireParentFragment() })
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -86,10 +88,10 @@ class VenueDetailsFragment : Fragment() {
 
     private fun observeSharedViewModel() {
         // Observe selected venue from shared ViewModel
-        sharedViewModel.selectedVenue.observe(viewLifecycleOwner, Observer { venue ->
+        sharedViewModel.selectedBuilding.observe(viewLifecycleOwner, Observer { venue ->
             venue?.let {
-                venueName.text = it.nameMap.getTranslation(sharedViewModel.locale)
-                venueAddress.text = it.addressMap.getTranslation(sharedViewModel.locale).street
+                venueName.text = it.buildingNamesMap?.getTranslation(sharedViewModel.locale)
+                venueAddress.text = it.addressMap?.getTranslation(sharedViewModel.locale)?.street
             }
         })
     }

@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
 import androidx.navigation.fragment.findNavController
 import androidx.viewpager2.widget.ViewPager2
@@ -21,6 +22,7 @@ import com.mapxus.map.mapxusmap.api.services.model.BuildingSearchOption
 import com.mapxus.map.mapxusmap.api.services.model.VenueSearchOption
 import com.mapxus.map.mapxusmap.api.services.model.building.IndoorBuildingInfo
 import com.mapxus.map.mapxusmap.api.services.model.venue.VenueInfo
+import kotlin.getValue
 
 class VenueScreenFragment : Fragment() {
 
@@ -29,7 +31,7 @@ class VenueScreenFragment : Fragment() {
     private var venueAdapter: VenueAdapter? = null
 
     // Shared ViewModel
-    private val sharedViewModel: MapxusSharedViewModel by activityViewModels()
+    private val sharedViewModel: MapxusSharedViewModel by viewModels({ requireParentFragment() })
 
     override fun onCreateView(
         inflater: LayoutInflater,
