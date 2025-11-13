@@ -8,5 +8,9 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="blue">#2196F3</color>
+    <color name="soft_blue">#D4E7FF</color>
     <color name="indoor_line">#097EBD</color>
+    <color name="primary_blue">#4285F4</color>
+    <color name="light_gray">#F5F5F5</color>
+    <color name="purple">#7E57C2</color>
 </resources>

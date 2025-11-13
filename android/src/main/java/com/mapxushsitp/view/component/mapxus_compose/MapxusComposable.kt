@@ -1,5 +1,7 @@
 package com.mapxushsitp.view.component.mapxus_compose
 
+import android.graphics.drawable.shapes.Shape
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
@@ -7,10 +9,16 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,16 +26,25 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.PersonPinCircle
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.rounded.GpsFixed
+import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.NearMe
+import androidx.compose.material.icons.rounded.PersonPinCircle
+import androidx.compose.material.icons.rounded.ViewInAr
 import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.CaretProperties
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.RichTooltip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,17 +63,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.mapxus.map.mapxusmap.api.map.FollowUserMode
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mapxushsitp.R
 import com.mapxushsitp.arComponents.ARNavigationViewModel
+import com.mapxushsitp.confettiComponents.ConfettiSource
+import com.mapxushsitp.confettiComponents.ConfettiView
 import com.mapxushsitp.data.static.floorList
+import com.mapxus.map.mapxusmap.api.map.FollowUserMode
+import com.mapxus.map.mapxusmap.api.map.model.CameraPosition
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.selects.select
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -116,7 +143,7 @@ fun MapxusComposable(
                     controller.getMapxusMap().followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
                     coroutineScope.launch {
                         delay(500)
-                        controller.mapboxMap?.cameraPosition = com.mapbox.mapboxsdk.camera.CameraPosition.Builder().zoom(zoomLevel ?: 19.0).build()
+                        controller.mapboxMap?.cameraPosition = org.maplibre.android.camera.CameraPosition.Builder().zoom(zoomLevel ?: 19.0).build()
                     }
                 },
                 modifier = Modifier

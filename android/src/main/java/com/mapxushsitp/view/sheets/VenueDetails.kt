@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.TextFieldColors
-import androidx.compose.material.TextFieldDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
@@ -103,28 +101,6 @@ object VenueDetails : IScreen {
                 }
             }
 
-//            OutlinedTextField(
-//                value = "",
-//                onValueChange = {},
-//                placeholder = { Text("Search") },
-//                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-//                enabled = false,
-//                modifier = Modifier
-//                    .fillMaxWidth()
-//                    .padding(8.dp)
-//                    .clickable { navController.navigate(SearchResult.routeName) },
-//                shape = CircleShape,
-//                colors = TextFieldDefaults.outlinedTextFieldColors(
-//                    disabledTextColor = Color.Transparent,
-//                    disabledBorderColor = Color.DarkGray,
-//                    disabledPlaceholderColor = Color.Gray,
-//                    disabledLeadingIconColor = Color.Gray,
-//                    disabledLabelColor = Color.Transparent,
-//                    unfocusedBorderColor = Color(0xFF4285F4),
-//                    focusedBorderColor = Color(0xFF4285F4),
-//                )
-//            )
-
             OutlinedTextField(
                 value = "",
                 onValueChange = {},
@@ -136,15 +112,15 @@ object VenueDetails : IScreen {
                     .padding(8.dp)
                     .clickable { navController.navigate(SearchResult.routeName) }, // open search page
                 shape = CircleShape,
-//                colors = TextFieldDefaults.outlinedTextFieldColors(
-//                    disabledTextColor = Color.Transparent,
-//                    disabledBorderColor = Color.DarkGray,
-//                    disabledPlaceholderColor = Color.Gray,
-//                    disabledLeadingIconColor = Color.Gray,
-//                    disabledLabelColor = Color.Transparent,
-//                    unfocusedBorderColor = Color(0xFF4285F4),
-//                    focusedBorderColor = Color(0xFF4285F4),
-//                )
+                colors = TextFieldDefaults.outlinedTextFieldColors(
+                    disabledTextColor = Color.Transparent,
+                    disabledBorderColor = Color.DarkGray,
+                    disabledPlaceholderColor = Color.Gray,
+                    disabledLeadingIconColor = Color.Gray,
+                    disabledLabelColor = Color.Transparent,
+                    unfocusedBorderColor = Color(0xFF4285F4),
+                    focusedBorderColor = Color(0xFF4285F4),
+                )
             )
 
             // Categories Grid

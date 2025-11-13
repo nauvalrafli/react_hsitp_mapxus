@@ -3,6 +3,7 @@ package com.mapxushsitp.view.component.mapxus_compose
 import android.annotation.SuppressLint
 import android.content.Context
 import android.location.Location
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
@@ -31,19 +32,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
+import com.mapxushsitp.arComponents.ARNavigationViewModel
+import com.mapxushsitp.data.model.MapPoi
+import com.mapxushsitp.data.model.SerializableNavigationInstruction
+import com.mapxushsitp.data.model.SerializableRoutePoint
+import com.mapxushsitp.data.model.Venue
+import com.mapxushsitp.data.static.venues
+import com.mapxushsitp.view.sheets.VenueDetails
+import com.mapxushsitp.view.sheets.VenueScreen
+import com.mapxushsitp.R
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
-import com.mapbox.mapboxsdk.camera.CameraPosition
-import com.mapbox.mapboxsdk.camera.CameraUpdateFactory
-import com.mapbox.mapboxsdk.location.LocationComponentOptions
-import com.mapbox.mapboxsdk.location.modes.RenderMode
-import com.mapbox.mapboxsdk.maps.MapView
-import com.mapbox.mapboxsdk.maps.MapboxMap
-import com.mapbox.mapboxsdk.maps.OnMapReadyCallback
+import com.google.android.gms.location.Priority
 import com.mapxus.map.mapxusmap.api.map.FollowUserMode
 import com.mapxus.map.mapxusmap.api.map.MapxusMap
 import com.mapxus.map.mapxusmap.api.map.MapxusMap.OnMapClickedListener
@@ -61,7 +64,7 @@ import com.mapxus.map.mapxusmap.api.services.model.planning.InstructionDto
 import com.mapxus.map.mapxusmap.api.services.model.planning.RoutePlanningPoint
 import com.mapxus.map.mapxusmap.api.services.model.planning.RoutePlanningQueryRequest
 import com.mapxus.map.mapxusmap.api.services.model.planning.RoutePlanningResult
-import com.mapxus.map.mapxusmap.impl.MapboxMapViewProvider
+import com.mapxus.map.mapxusmap.impl.MapLibreMapViewProvider
 import com.mapxus.map.mapxusmap.overlay.model.RoutePainterResource
 import com.mapxus.map.mapxusmap.overlay.navi.NavigationPathDto
 import com.mapxus.map.mapxusmap.overlay.navi.RouteAdsorber
@@ -75,24 +78,21 @@ import com.mapxus.positioning.positioning.api.MapxusLocation
 import com.mapxus.positioning.positioning.api.MapxusPositioningClient
 import com.mapxus.positioning.positioning.api.MapxusPositioningListener
 import com.mapxus.positioning.positioning.api.PositioningState
-import com.mapxushsitp.R
-import com.mapxushsitp.arComponents.ARNavigationViewModel
-import com.mapxushsitp.data.model.MapPoi
-import com.mapxushsitp.data.model.SerializableNavigationInstruction
-import com.mapxushsitp.data.model.SerializableRoutePoint
-import com.mapxushsitp.data.model.Venue
-import com.mapxushsitp.data.static.venues
-import com.mapxushsitp.service.generateSpeakText
-import com.mapxushsitp.service.toMeterText
-import com.mapxushsitp.view.sheets.VenueDetails
-import com.mapxushsitp.view.sheets.VenueScreen
+import generateSpeakText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.Dispatcher
+import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.camera.CameraUpdateFactory
+import org.maplibre.android.location.LocationComponentOptions
+import org.maplibre.android.location.modes.RenderMode
+import org.maplibre.android.maps.MapLibreMap
+import org.maplibre.android.maps.MapView
+import org.maplibre.android.maps.OnMapReadyCallback
+import toMeterText
 import java.util.Locale
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -102,30 +102,31 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-class MapxusController(
-  val context: Context,
-  val lifecycleOwner: LifecycleOwner,
-  val locale: Locale,
-  private val navController: NavController,
-  val arNavigationViewModel: ARNavigationViewModel
-) : OnMapxusMapReadyCallback {
-    val mapView = MapView(context)
-    val mapOptions = MapxusMapOptions().apply {
+open class MapxusController(
+    val context: Context,
+    lifecycleOwner: LifecycleOwner,
+    val locale: Locale,
+    private val navController: NavController,
+    val arNavigationViewModel: ARNavigationViewModel
+) {
+    open val mapView = MapView(context)
+    open val mapOptions = MapxusMapOptions().apply {
         floorId = "ad24bdcb0698422f8c8ab53ad6bb2665"
         zoomLevel = 19.0
     }
-    val mapViewProvider = MapboxMapViewProvider(context, mapView, mapOptions)
+    open val mapViewProvider = MapLibreMapViewProvider(context, mapView, mapOptions)
     val routePlanning = RoutePlanning.newInstance()
 
     val coroutineScope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher())
 
-    val mapxusPositioningProvider : MapxusPositioningProvider = MapxusPositioningProvider(lifecycleOwner, context)
+    open val mapxusPositioningClient = MapxusPositioningClient.getInstance(lifecycleOwner, context)
+    open val mapxusPositioningProvider : MapxusPositioningProvider = MapxusPositioningProvider(mapxusPositioningClient)
 
     var routePainter : RoutePainter? = null
     val isCurrentLocation = mutableStateOf(false)
 
     private var mapxusMap : MapxusMap? = null
-    var mapboxMap : MapboxMap? = null
+    var mapboxMap : MapLibreMap? = null
 
     var selectedPoi: MapPoi? = null
         set(value) {
@@ -184,11 +185,91 @@ class MapxusController(
         isFirst.value = sharedPreferences.getBoolean("isFirst", true)
 //        accuracyAdsorptionInput.value = sharedPreferences.getInt("adsorption", 3).toString()
         isSpeaking.value = speakingConfig
+        mapViewProvider.getMapxusMapAsync(object : OnMapxusMapReadyCallback {
+            override fun onMapxusMapReady(p0: MapxusMap?) {
+                Log.d("Location", "Mapxus is ready")
+                mapxusMap = p0
+                mapxusMap?.mapxusUiSettings?.isSelectorEnabled = false
+                mapxusMap?.mapxusUiSettings?.isBuildingSelectorEnabled = false
+                mapxusMap?.mapxusUiSettings?.setSelectorPosition(SelectorPosition.TOP_LEFT)
+                mapxusMap?.mapxusUiSettings?.setSelectFontColor(Color.White.hashCode())
+                mapxusMap?.mapxusUiSettings?.setSelectBoxColor(Color(0xFF4285F4).hashCode())
+                mapViewProvider.setLanguage(locale.language)
+
+                mapxusMap?.addOnMapClickedListener(object: OnMapClickedListener {
+                    override fun onMapClick(
+                        p0: LatLng,
+                        p1: MapxusSite
+                    ) {
+                        if(mapxusMap?.selectedVenueId != null) {
+                            selectedVenue = venues.find { it.venueId == p1.venue?.id }
+                            if(navController.currentDestination?.route == VenueScreen.routeName || selectedVenue?.venueId != p1.venue?.id) {
+                                selectedPoi = null
+                                navController.navigate(VenueDetails.routeName)
+                            }
+                            isFloorSelectorShown.value = true
+                        } else {
+                            isFloorSelectorShown.value = false
+                        }
+                    }
+
+                })
+                mapView.getMapAsync(object: OnMapReadyCallback {
+                    override fun onMapReady(p0: MapLibreMap) {
+                        Log.d("Location", "MapboxMap is ready")
+                        routePainter = RoutePainter(context, p0, mapxusMap)
+                        coroutineScope.launch {
+                            delay(3000)
+                            withContext(Dispatchers.Main) {
+                                useDefaultDrawableBearingIcon()
+                                mapxusMap?.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
+                            }
+                        }
+                        p0.setMinZoomPreference(18.0)
+                        mapboxMap = p0
+                    }
+                })
+                mapxusPositioningProvider.addListener(object: IndoorLocationProviderListener {
+                    override fun onCompassChanged(angle: Float, sensorAccuracy: Int) {
+
+                    }
+
+                    override fun onIndoorLocationChange(indoorLocation: IndoorLocation?) {
+                        Log.d("Location", "Indoor Location Change")
+                        currentLocation = RoutePlanningPoint(
+                            indoorLocation?.longitude ?: 0.0,
+                            indoorLocation?.latitude ?: 0.0,
+                            indoorLocation?.floor?.id
+                        )
+                        if(indoorLocation?.floor?.id != null) {
+                            userCurrentFloor.value = indoorLocation?.floor?.id
+                        }
+                    }
+
+                    override fun onProviderError(errorInfo: com.mapxus.map.mapxusmap.positioning.ErrorInfo) {
+                        Log.d("Location", "Provider Error: ${errorInfo.errorMessage}")
+                    }
+
+                    override fun onProviderStarted() {
+                        Log.d("Location", "Started")
+                        mapxusMap?.setLocationProvider(mapxusPositioningProvider)
+                    }
+
+                    override fun onProviderStopped() {
+                        Log.d("Location", "Stopped")
+                    }
+
+                })
+                mapxusPositioningProvider.start()
+                mapxusMap?.setLocationEnabled(true)
+                mapxusMap?.setLocationProvider(mapxusPositioningProvider)
+            }
+        })
         tts = TextToSpeech(context) { }
         Handler(Looper.getMainLooper()).postDelayed(Runnable({
             tts.setLanguage(if(locale.language.contains("zh")) locale else Locale("en-US"))
         }), 1000)
-        mapxusPositioningProvider.updatePositioningListener(object : MapxusPositioningListener {
+        mapxusPositioningClient.addPositioningListener(object : MapxusPositioningListener {
             override fun onStateChange(positionerState: PositioningState) {
                 when (positionerState) {
                     PositioningState.STOPPED -> {
@@ -259,7 +340,7 @@ class MapxusController(
                     }
 
                     if(mapxusLocation.mapxusFloor != null) {
-                        mapxusPositioningProvider.updateFloor(mapxusLocation.mapxusFloor)
+                        mapxusPositioningClient.changeFloor(mapxusLocation.mapxusFloor)
                     }
 
                     if(routeAdsorber != null && isNavigating) {
@@ -300,8 +381,9 @@ class MapxusController(
                 }
             }
         })
-        mapViewProvider.getMapxusMapAsync(this)
+        mapxusPositioningClient.setDebugEnabled(true)
         mapxusPositioningProvider.start()
+        mapxusPositioningClient.start()
         mapxusMap?.setLocationEnabled(true)
         mapxusMap?.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
     }
@@ -349,7 +431,7 @@ class MapxusController(
                         }
                         if(result.status != 0) {
                             Log.d("Location", "Error: ${result}")
-                            Toast.makeText(context, "Error: ${result}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Error: ${result.errorMessage}", Toast.LENGTH_SHORT).show()
                             return
                         }
                         if(result.routeResponseDto == null) {
@@ -382,7 +464,6 @@ class MapxusController(
     }
 
     fun drawRoute() {
-        Log.d("DrawRoute", "${isLoading.value}")
         if(isLoading.value) return
         isLoading.value = true
         isNavigating = true
@@ -452,8 +533,6 @@ class MapxusController(
                             }
                         }
 
-
-
                         pathDto.instructions.forEachIndexed { index, instruction ->
                             // For backup from me - AR Coordinates
 //                            instruction.indoorPoints.firstOrNull()?.let { point ->
@@ -480,43 +559,13 @@ class MapxusController(
                                 } else {
                                     0.0
                                 }
-
-                                // for backup from me - version 1
-//                                arInstructionPoints.add(
-//                                    SerializableRoutePoint(
-//                                        lat = point.lat,
-//                                        lon = point.lon,
-//                                        heading = (heading + 360) % 360,
-//                                        floorId = point.floorId ?: ""
-//                                    )
-//                                )
-
-                                // for backup from me - version 2
                                 arInstructionPoints.add(
                                     SerializableRoutePoint(
                                         lat = point.lat,
                                         lon = point.lon,
-                                        heading = (heading + 360) % 360,
                                         floorId = point.floorId ?: ""
                                     )
                                 )
-
-                                // for backup from me - version 3
-//                                arInstructionPoints.add(
-//                                    SerializableRoutePoint(
-//                                        lat = point.lat,
-//                                        lon = point.lon,
-//                                        heading = (instruction.heading + 360) % 360,
-//                                        floorId = point.floorId ?: ""
-//                                    )
-//                                )
-
-                                arInstructionPoints.forEachIndexed { index, p ->
-                                    Log.w("ARCoreHeading", "Instruction Point with new Heading $index: lat: ${p.lat}, lon: ${p.lon}, heading: ${p.heading}, headingCompass: ${bearingToDirection(p.heading)}")
-                                }
-
-                                Log.e("ARCoreHeading", "heading main: $heading, compass: ${bearingToDirection(heading)}")
-                                Log.d("ARCoreHeadingMapxusMap", "instruction heading: ${instruction.heading}, compass: ${bearingToDirection(instruction.heading)}")
                             }
 
                             instruction.floorId.let { floorId ->
@@ -576,7 +625,7 @@ class MapxusController(
                                         timeEstimation.value = context.resources.getString(R.string.minute, (estimatedSeconds/60).toInt())
                                     else
                                         timeEstimation.value = context.resources.getString(R.string.second, estimatedSeconds)
-                                    if(estimatedSeconds < 3 && instructionList.size > 0) endNavigation() // end navigation when distance to destination is less than 3 seconds
+                                    if(estimatedSeconds < 3) endNavigation() // end navigation when distance to destination is less than 3 seconds
                                 }
                             }
                         })
@@ -602,16 +651,8 @@ class MapxusController(
                         Log.e("ARCoreDebug", "Navigation Start Point: $arStartPoint")
                         Log.e("ARCoreDebug", "Navigation End Point: $arEndPoint")
 
-                        arInstructionPoints.forEachIndexed { index, p ->
-                            Log.e("ARCoreDebug", "Navigation Point $index: lat: ${p.lat}, Lon: ${p.lon}, heading: ${p.heading}, headingCompass: ${bearingToDirection(p.heading)}")
-                            Log.e("ArrowPlaced", "Navigation Point $index: ${p.lat}, ${p.lon}")
-                        }
-                        arInstructionNavigationList.forEachIndexed { index, p ->
-                            Log.e("ARCoreDebug", "Instruction $index: ${p.instruction}, ${p.distance}, ${p.floorId}")
-                        }
                     } catch (e: Error) {
                         isLoading.value = false
-                        Log.d("DrawRoute", "${isLoading.value} $e")
                         Toast.makeText(context, "Unable to get route, please check locations", Toast.LENGTH_LONG).show()
                     } finally {
                         isLoading.value = false
@@ -647,47 +688,52 @@ class MapxusController(
             routePlanning.route(request)
             routePlanning.setRoutePlanningListener(object: RoutePlanningResultListener {
                 override fun onGetRoutePlanningResult(result: RoutePlanningResult?) {
-                    if(result == null) {
-                        Toast.makeText(context, "Error: No route found", Toast.LENGTH_LONG).show()
-                        return
-                    }
-                    if(result.status != 0) {
-                        Toast.makeText(context, "Error: ${result}", Toast.LENGTH_SHORT).show()
-                        Log.d("Location", "Error: ${result}")
-                        return
-                    }
-                    if(result.routeResponseDto == null) {
-                        Toast.makeText(context, "Error: No route found", Toast.LENGTH_LONG).show()
-                        return
-                    }
-                    if((accuracyAdsorptionInput.value.toIntOrNull() ?: 0) > 0) {
-                        routeAdsorber = RouteAdsorber(
-                            NavigationPathDto(result.routeResponseDto.paths.get(0)),
-                            accuracyAdsorptionInput.value.toDouble(),
-                            5
-                        )
-                    } else {
-                        routeAdsorber = null
-                        mapxusPositioningProvider.setRouteAdsorbers(null)
-                    }
-                    mapxusPositioningProvider.setRouteAdsorbers(routeAdsorber)
-                    routePainter?.paintRouteUsingResult(result.routeResponseDto.paths.get(0), result.routeResponseDto.paths.get(0).indoorPoints, isAutoZoom = false)
-                    routePainter?.setRoutePainterResource(RoutePainterResource().setHiddenTranslucentPaths(true).setIndoorLineColor(context.resources.getColor(R.color.indoor_line, null)));
-                    if(instructionIndex.value < instructionList.size - 1) {
-                        if(mapxusMap?.selectedFloor?.id != instructionList[instructionIndex.value].floorId)
-                            mapxusMap?.selectFloorById(instructionList[instructionIndex.value].floorId ?: "")
-                        updateNavigationText()
-                        val words = generateSpeakText(titleNavigationStep.value, instructionList[instructionIndex.value].distance, locale)
-                        if(isSpeaking.value) tts.speak(words, TextToSpeech.QUEUE_FLUSH, null, null)
-                    } else if(instructionIndex.value >= instructionList.size - 1) {
-                        instructionIndex.value = instructionList.size - 1
-                    } else {
-                        instructionIndex.value = 0
-                    }
-                    icon.value = getStepIcon(instructionList[instructionIndex.value].sign)
-                    mapboxMap?.animateCamera(CameraUpdateFactory.bearingTo(result.routeResponseDto.paths[0].instructions[0].heading))
+                    try {
+                        if(result == null) {
+                            Toast.makeText(context, "Error: No route found", Toast.LENGTH_LONG).show()
+                            return
+                        }
+                        if(result.status != 0) {
+                            Toast.makeText(context, "Error: ${result}", Toast.LENGTH_SHORT).show()
+                            Log.d("Location", "Error: ${result}")
+                            return
+                        }
+                        if(result.routeResponseDto == null) {
+                            Toast.makeText(context, "Error: No route found", Toast.LENGTH_LONG).show()
+                            return
+                        }
+                        if((accuracyAdsorptionInput.value.toIntOrNull() ?: 0) > 0) {
+                            routeAdsorber = RouteAdsorber(
+                                NavigationPathDto(result.routeResponseDto.paths.get(0)),
+                                accuracyAdsorptionInput.value.toDouble(),
+                                5
+                            )
+                        } else {
+                            routeAdsorber = null
+                            mapxusPositioningProvider.setRouteAdsorbers(null)
+                        }
+                        mapxusPositioningProvider.setRouteAdsorbers(routeAdsorber)
+                        routePainter?.paintRouteUsingResult(result.routeResponseDto.paths.get(0), result.routeResponseDto.paths.get(0).indoorPoints, isAutoZoom = false)
+                        routePainter?.setRoutePainterResource(RoutePainterResource().setHiddenTranslucentPaths(true).setIndoorLineColor(context.resources.getColor(R.color.indoor_line, null)));
+                        if(instructionIndex.value < instructionList.size - 1) {
+                            if(mapxusMap?.selectedFloor?.id != instructionList[instructionIndex.value].floorId)
+                                mapxusMap?.selectFloorById(instructionList[instructionIndex.value].floorId ?: "")
+                            updateNavigationText()
+                            val words = generateSpeakText(titleNavigationStep.value, instructionList[instructionIndex.value].distance, locale)
+                            if(isSpeaking.value) tts.speak(words, TextToSpeech.QUEUE_FLUSH, null, null)
+                        } else if(instructionIndex.value >= instructionList.size - 1 && instructionList.size > 0) {
+                            instructionIndex.value = instructionList.size - 1
+                        } else {
+                            instructionIndex.value = 0
+                        }
+                        icon.value = getStepIcon(instructionList[instructionIndex.value].sign)
+                        mapboxMap?.animateCamera(CameraUpdateFactory.bearingTo(result.routeResponseDto.paths[0].instructions[0].heading))
 //                    mapboxMap?.cameraPosition = CameraPosition.Builder().bearing(result.routeResponseDto.paths[0].instructions[0].heading).zoom(19.0).build()
-                    isLoading.value = false
+                        isLoading.value = false
+                    } catch(e: Exception) {
+                        isLoading.value = false
+                        Toast.makeText(context, "Unable to get route, please check locations", Toast.LENGTH_LONG).show()
+                    }
                 }
             })
         } catch (e: Error) {
@@ -724,12 +770,11 @@ class MapxusController(
     }
 
     fun previousStep() {
-        if(instructionIndex.value > 0) {
-            instructionIndex.value -= 1;
-            arNavigationViewModel.removeAlignedIndex(instructionIndex.value)
-            icon.value = getStepIcon(instructionList[instructionIndex.value].sign)
-            redrawRoute()
-        }
+        instructionIndex.value -= 1;
+//        arNavigationViewModel.resetPreviousNavigationState(instructionIndex.value)
+//        arNavigationViewModel.resetPreviousNavigationState()
+        icon.value = getStepIcon(instructionList[instructionIndex.value].sign)
+        redrawRoute()
     }
 
     // for backup from me - original with mofication
@@ -742,7 +787,7 @@ class MapxusController(
             calculateHeading(it.lat, it.lon, destinationLat, destinationLon)
         }
 
-        arStartPoint = SerializableRoutePoint(point?.longitude ?: 0.0, point?.latitude ?: 0.0, heading = calculateHeading ?: 0.0,mapxusMap?.selectedFloor?.id ?: "")
+        arStartPoint = SerializableRoutePoint(point?.longitude ?: 0.0, point?.latitude ?: 0.0, mapxusMap?.selectedFloor?.id ?: "")
         selectingCenter.value = false
         Log.e("ARCoreHeading", "heading: ${arStartPoint}")
     }
@@ -847,8 +892,8 @@ class MapxusController(
 
         routePainter?.cleanRoute()
         useDefaultDrawableBearingIcon()
-        getMapxusMap()?.removeMapxusPointAnnotations()
-        getMapxusMap()?.selectFloorById(getMapxusMap()?.selectedFloor?.id ?: "")
+        getMapxusMap().removeMapxusPointAnnotations()
+        getMapxusMap().selectFloorById(getMapxusMap().selectedFloor?.id ?: "")
         routePlanning.destroy()
 
         mapxusMap?.mapxusUiSettings?.setSelectorCollapse(false)
@@ -863,7 +908,6 @@ class MapxusController(
         isNavigating = false
         showSheet.value = true
         isLoading.value = false
-        arNavigationViewModel.resetNavigationState()
     }
 
     fun calculateHeading(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
@@ -900,7 +944,6 @@ class MapxusController(
 
     fun useDefaultDrawableBearingIcon() {
         coroutineScope.launch {
-            delay(1000)
             withContext(Dispatchers.Main) {
                 mapboxMap?.locationComponent?.applyStyle(
                     LocationComponentOptions.builder(context)
@@ -961,10 +1004,21 @@ class MapxusController(
         val fusedClient = LocationServices.getFusedLocationProviderClient(context)
 
         val request: LocationRequest =
-            LocationRequest.create().apply {
-                interval = 2000L
-                fastestInterval = 1000L
-                priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // Android 12+ (API 31+) → use Builder
+                LocationRequest.Builder(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    2000L // interval in ms
+                ).setMinUpdateIntervalMillis(1000L) // fastest interval
+                    .build()
+            } else {
+                // Legacy API 24–30 → use create()
+                @Suppress("DEPRECATION")
+                LocationRequest.create().apply {
+                    interval = 2000L
+                    fastestInterval = 1000L
+                    priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+                }
             }
 
         fusedClient.requestLocationUpdates(request, object : LocationCallback() {
@@ -1023,85 +1077,6 @@ class MapxusController(
                 }
             }
         }, Looper.getMainLooper())
-    }
-
-    override fun onMapxusMapReady(p0: MapxusMap?) {
-      Log.d("Location", "Mapxus is ready")
-      mapxusMap = p0
-      mapxusMap?.mapxusUiSettings?.isSelectorEnabled = false
-      mapxusMap?.mapxusUiSettings?.isBuildingSelectorEnabled = false
-      mapxusMap?.mapxusUiSettings?.setSelectorPosition(SelectorPosition.TOP_LEFT)
-      mapxusMap?.mapxusUiSettings?.setSelectFontColor(Color.White.hashCode())
-      mapxusMap?.mapxusUiSettings?.setSelectBoxColor(Color(0xFF4285F4).hashCode())
-      mapViewProvider.setLanguage(locale.language)
-
-      mapxusMap?.addOnMapClickedListener(object: OnMapClickedListener {
-        override fun onMapClick(
-          p0: LatLng,
-          p1: MapxusSite
-        ) {
-          if(mapxusMap?.selectedVenueId != null) {
-            selectedVenue = venues.find { it.venueId == p1.venue?.id }
-            if(navController.currentDestination?.route == VenueScreen.routeName || selectedVenue?.venueId != p1.venue?.id) {
-              selectedPoi = null
-              navController.navigate(VenueDetails.routeName)
-            }
-            isFloorSelectorShown.value = true
-          } else {
-            isFloorSelectorShown.value = false
-          }
-        }
-
-      })
-      mapView.getMapAsync(object: OnMapReadyCallback {
-        override fun onMapReady(mMap: MapboxMap) {
-          Log.d("Location", "MapboxMap is ready")
-          routePainter = RoutePainter(context, mMap, p0)
-          coroutineScope.launch {
-            delay(3000)
-            withContext(Dispatchers.Main) {
-//                        useDefaultDrawableBearingIcon()
-              mapxusMap?.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
-            }
-          }
-          mMap.setMinZoomPreference(18.0)
-          mapboxMap = mMap
-        }
-      })
-      mapxusPositioningProvider.addListener(object: IndoorLocationProviderListener {
-        override fun onCompassChanged(angle: Float, sensorAccuracy: Int) {
-
-        }
-
-        override fun onIndoorLocationChange(indoorLocation: IndoorLocation?) {
-          Log.d("Location", "Indoor Location Change")
-          currentLocation = RoutePlanningPoint(
-            indoorLocation?.longitude ?: 0.0,
-            indoorLocation?.latitude ?: 0.0,
-            indoorLocation?.floor?.id
-          )
-          if(indoorLocation?.floor?.id != null) {
-            userCurrentFloor.value = indoorLocation?.floor?.id
-          }
-          useDefaultDrawableBearingIcon()
-        }
-
-        override fun onProviderError(errorInfo: com.mapxus.map.mapxusmap.positioning.ErrorInfo) {
-          Log.d("Location", "Provider Error: ${errorInfo.errorMessage}")
-        }
-
-        override fun onProviderStarted() {
-          Log.d("Location", "Started")
-        }
-
-        override fun onProviderStopped() {
-          Log.d("Location", "Stopped")
-        }
-
-      })
-      mapxusPositioningProvider.start()
-      mapxusMap?.setLocationEnabled(true)
-      mapxusMap?.setLocationProvider(mapxusPositioningProvider)
     }
 
 

@@ -54,10 +54,9 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.LinearProgressIndicator
-import androidx.compose.material.OutlinedButton
-import androidx.compose.material.Surface
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
@@ -73,6 +72,10 @@ import androidx.compose.material.icons.rounded.GpsFixed
 import androidx.compose.material.icons.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -125,7 +128,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.mapxushsitp.arComponents.ARNavigationViewModel
-import com.mapxushsitp.arComponents.ARView
 import com.mapxushsitp.compassComponents.CalibrationSensorManager
 import com.mapxushsitp.compassComponents.CompassViewModel
 import com.mapxushsitp.confettiComponents.ConfettiSource
@@ -150,10 +152,11 @@ import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.android.gms.location.FusedLocationProviderClient
 import java.util.Locale
 
-
 class HomeActivity : ComponentActivity(), SensorEventListener {
 
     var controller : MapxusController? = null
+//    private lateinit var motionSensor: MotionSensorClass
+//    private lateinit var compassClass: CompassClass
     private lateinit var compassViewModel: CompassViewModel
     private lateinit var calibrationSensorManager: CalibrationSensorManager
     private lateinit var mapxusSensorManager: SensorManager
@@ -194,6 +197,7 @@ class HomeActivity : ComponentActivity(), SensorEventListener {
 
     lateinit var fusedLocationClient: FusedLocationProviderClient
 
+    @RequiresApi(Build.VERSION_CODES.S)
     @SuppressLint("Range", "UseCompatLoadingForDrawables")
     @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -215,7 +219,207 @@ class HomeActivity : ComponentActivity(), SensorEventListener {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContent {
-            HomeScreen.composable(Locale.getDefault())
+            MyApplicationTheme(darkTheme = false) {
+                val context = LocalContext.current
+                val lifecycleOwner = LocalLifecycleOwner.current
+                val arNavigationViewModel: ARNavigationViewModel = viewModel()
+                val motionSensorViewModel: MotionSensorViewModel = viewModel()
+                val compassViewModel: CompassViewModel = viewModel()
+                val calibrationSensorManager = CalibrationSensorManager(context)
+                val navController = rememberNavController()
+                val coroutineScope = rememberCoroutineScope()
+
+                val sheetState = rememberBottomSheetScaffoldState()
+
+                var isCalibrated by remember { mutableStateOf(false) }
+                var countdown by remember { mutableStateOf<Int?>(null) }
+                var progressSeconds by remember { mutableStateOf(0) }
+
+                val isMotionSensorActiveOrNot by motionSensorViewModel.isFacingUp
+
+                controller = MapxusController(LocalContext.current, LocalLifecycleOwner.current, locale, navController, arNavigationViewModel)
+
+                val notificationPermission = rememberMultiplePermissionsState(
+                    permissions = listOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                )
+
+                LaunchedEffect(true) {
+                    if (!notificationPermission.allPermissionsGranted) {
+                        notificationPermission.launchMultiplePermissionRequest()
+                    }
+                }
+
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    val targetHeight = if (arNavigationViewModel.isShowingAndClosingARNavigation.value) 0.5f else 0f
+                    val animatedHeightFraction by animateFloatAsState(
+                        targetValue = targetHeight,
+                        animationSpec = tween(durationMillis = 600),
+                        label = "ARHeightFraction"
+                    )
+                    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+                    val animatedHeight = screenHeight * animatedHeightFraction
+                    val arHeight = if (arNavigationViewModel.isShowingAndClosingARNavigation.value) animatedHeight else 0.dp
+                    val isShowing = arNavigationViewModel.isShowingAndClosingARNavigation.value
+
+                    LaunchedEffect(true) {
+                        sheetState.bottomSheetState.expand()
+                        navController.navigate(VenueScreen.routeName)
+                    }
+
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        BottomSheetScaffold(
+                            scaffoldState = sheetState,
+                            sheetContainerColor = Color.White,
+                            sheetPeekHeight = if (controller?.showSheet?.value != false) 300.dp else 0.dp,
+                            sheetContent = {
+                                Surface() {
+                                    if(controller?.showSheet?.value != false) {
+                                        NavHost(
+                                            navController,
+                                            startDestination = VenueScreen.routeName
+                                        ) {
+                                            composable(VenueScreen.routeName) {
+                                                VenueScreen.Screen(toiletTitle = "", navController, mapxusController = controller!!, sheetState, arNavigationViewModel)
+                                            }
+                                            composable(VenueDetails.routeName) {
+                                                VenueDetails.Screen(toiletTitle = "", navController, mapxusController = controller!!, sheetState, arNavigationViewModel)
+                                            }
+                                            composable(ToiletScreen.routeName) {
+                                                ToiletScreen.Screen(toiletTitle = "", navController, mapxusController = controller!!, sheetState, arNavigationViewModel)
+                                            }
+                                            composable(PoiDetails.routeName.plus("/{type}")) { backStackEntry ->
+                                                val type = backStackEntry.arguments?.getString("type")
+                                                PoiDetails.Screen(toiletTitle = type ?: "", navController, mapxusController = controller!!, sheetState, arNavigationViewModel)
+                                            }
+                                            composable(PrepareNavigation.routeName) {
+                                                PrepareNavigation.Screen(toiletTitle = "", navController, mapxusController = controller!!, sheetState, arNavigationViewModel)
+                                            }
+                                            composable(PositionMark.routeName) {
+                                                PositionMark.Screen(toiletTitle = "", navController, mapxusController = controller!!, sheetState, arNavigationViewModel)
+                                            }
+                                            composable(PrepareNavigation.routeName) {
+                                                PrepareNavigation.Screen(toiletTitle = "", navController, mapxusController = controller!!, sheetState, arNavigationViewModel)
+                                            }
+                                            composable(route = Navigation.SettingsView.route) {
+                                                SettingsView(arNavigationViewModel, motionSensorViewModel)
+                                            }
+                                            composable(route = SearchResult.routeName) {
+                                                SearchResult.Screen(toiletTitle = "", navController, mapxusController = controller!!, sheetState, arNavigationViewModel)
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            modifier = Modifier.padding(innerPadding),
+                        ) {
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                Box(modifier = Modifier.height(animatedHeight).fillMaxWidth()) {
+                                    controller?.let { ctrl ->
+                                        val start = ctrl.startingPoint
+                                        val end = ctrl.destinationPoint
+                                        if (start != null && end != null) {
+//                                            ARView(
+//                                                modifier = Modifier.fillMaxSize(),
+//                                                arModifier = Modifier.fillMaxSize(),
+//                                                instructionPoints = ctrl.arInstructionPoints,
+//                                                instructionList = ctrl.arInstructionNavigationList,
+//                                                yourLocation = start,
+//                                                destination = end,
+//                                                instructionIndex = ctrl.instructionIndex.value,
+//                                                arNavigationViewModel = arNavigationViewModel,
+//                                                motionSensorViewModel = motionSensorViewModel,
+//                                                compassViewModel = compassViewModel,
+//                                                isActivatingAR = arNavigationViewModel.isActivatingAR.value
+//                                            )
+                                        }
+                                    }
+                                }
+
+                                controller?.let { it1 -> MapxusComposable(
+                                    modifier = Modifier.fillMaxWidth().fillMaxHeight(1F),
+                                    controller = it1,
+                                    arNavigationViewModel,
+                                    true
+                                ) }
+                            }
+                        }
+
+                        if (controller?.showSheet?.value == false) {
+                            val currentStep = controller?.instructionIndex?.value ?: 0
+                            val totalSteps = controller?.instructionList?.size ?: 1
+                            if (isLastStepOrLowTimeEstimation(currentStep, totalSteps, controller)) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    ConfettiView(source = ConfettiSource.TOP)
+                                    CustomDialog(
+                                        setShowDialog = { it ->
+                                            it
+                                        },
+                                        onPreviousClick = { controller?.previousStep() },
+                                        onFinished = { controller?.nextStep() }
+                                    )
+                                }
+                            } else {
+                                Column(
+                                    modifier = Modifier.padding(16.dp)
+                                ) {
+                                    SwipeableRouteCard(
+                                        arNavigationViewModel = arNavigationViewModel,
+                                        title = controller?.titleNavigationStep?.value ?: "",
+                                        subtitle = controller?.distanceNavigationStep?.value ?: "",
+                                        currentStep = controller?.instructionIndex?.value ?: 0,
+                                        totalSteps = controller?.instructionList?.size ?: 1,
+                                        timeEstimation = controller?.timeEstimation?.value ?: "",
+                                        icon = controller?.icon?.value,
+                                        onPreviousClick = { controller?.previousStep() },
+                                        onNextClick = {
+//                                        navController.navigate("venueDetails")
+                                            controller?.nextStep()
+                                        },
+                                        onFinished = {
+
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                    }
+
+//                    ArriveAtTheDestination(currentStep = controller?.instructionIndex?.value ?: 0, totalSteps = controller?.instructionList?.size ?: 1, arNavigationViewModel)
+                }
+
+                BackHandler() {
+                    if(controller?.showSheet?.value == false) {
+                        controller?.routePainter?.cleanRoute()
+                        controller?.showSheet?.value = true
+                    } else if (navController.currentDestination?.route == VenueScreen.routeName) {
+                        finish()
+                    }
+                }
+
+                if(controller?.isSensorUnreliable?.value == true) CompassUnreliableWarning()
+
+//                ShowWalkthrough()
+                if(controller?.isFirst?.value == true) MapxusOnboardingOverlay(onFinish = {
+                    controller?.sharedPreferences?.edit()?.apply {
+                        putBoolean("isFirst", false)
+                        apply()
+                    }
+                    controller?.isFirst?.value = false
+                }, onDismiss = {
+                    controller?.sharedPreferences?.edit()?.apply {
+                        putBoolean("isFirst", false)
+                        apply()
+                    }
+                    controller?.isFirst?.value = false
+                })
+            }
         }
     }
 
@@ -243,6 +447,44 @@ class HomeActivity : ComponentActivity(), SensorEventListener {
     override fun onLowMemory() {
         super.onLowMemory()
         controller?.mapView?.onLowMemory()
+    }
+
+    fun isLastStepOrLowTimeEstimation(
+        currentStep: Int,
+        totalSteps: Int,
+        controller: MapxusController?
+    ): Boolean {
+        // First condition: check if we're at the last step
+        if (currentStep >= totalSteps - 1) {
+            return true
+        }
+
+        // Second condition: check time estimation safely
+        return try {
+            val timeEstimation = controller?.timeEstimation?.value
+
+            // Return false if timeEstimation is null or empty
+            if (timeEstimation.isNullOrBlank()) {
+                return false
+            }
+
+            val firstTimeValue = timeEstimation.split(" ").firstOrNull()
+
+            // Return false if no first value found
+            if (firstTimeValue.isNullOrBlank()) {
+                return false
+            }
+
+            val timeValue = firstTimeValue.toIntOrNull()
+
+            // Return false if conversion failed, otherwise check if <= 4
+            timeValue?.let { it <= 4 } ?: false
+
+        } catch (e: Exception) {
+            // Log the exception if needed
+            // logger.warn("Error parsing time estimation", e)
+            false
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.S)
@@ -515,47 +757,6 @@ fun ArriveAtDestination(
     }
 }
 
-@Composable
-private fun ArriveAtDestinationAlertDialog(controller: MapxusController) {
-    androidx.compose.material.AlertDialog(
-        title = {
-            Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Text("Kudos!.", fontSize = 26.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
-            }
-        },
-        text = {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                Text("You've arrived at the destination!.", fontSize = 14.sp, fontWeight = FontWeight.Normal, textAlign = TextAlign.Center)
-            }
-        },
-        onDismissRequest = {
-
-        },
-        buttons = {
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = {
-                    controller.previousStep()
-                }) {
-                    Text("↺ Go previous", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF0a47a9))
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                TextButton(onClick = {
-                    controller.nextStep()
-                }) {
-                    Text("Finish", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF4285F4))
-                }
-            }
-        },
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        backgroundColor = Color.White,
-        contentColor = Color.Unspecified,
-        properties = DialogProperties()
-    )
-}
-
 @RequiresApi(Build.VERSION_CODES.S)
 @Composable
 fun CustomDialog(setShowDialog: (Boolean) -> Unit, onPreviousClick: (() -> Unit)? = null, onFinished: (() -> Unit)? = null) {
@@ -800,7 +1001,7 @@ fun MapxusOnboardingOverlay(
     onFinish: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val pagerState = rememberPagerState(pageCount = { 3 })
+    val pagerState = rememberPagerState(pageCount = { 4 })
 
     Box(
         modifier = Modifier
@@ -854,9 +1055,10 @@ fun MapxusOnboardingOverlay(
                         state = pagerState,
                     ) { page ->
                         when (page) {
-                            0 -> PageWayfinding()
-                            1 -> PageCalibrate()
-                            2 -> PageBrowsing(onFinish = onFinish)
+                            0 -> PagePreciseLocation()
+                            1 -> PageWayfinding()
+                            2 -> PageCalibrate()
+                            3 -> PageBrowsing(onFinish = onFinish)
                         }
                     }
 
@@ -894,6 +1096,62 @@ fun MapxusOnboardingOverlay(
 //                        .clickable { onDismiss() }
 //                )
 
+            }
+        }
+    }
+}
+
+@Composable
+private fun PagePreciseLocation() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(
+            imageVector = Icons.Rounded.GpsFixed,
+            contentDescription = "Precise Location",
+            tint = Color(0xFF4285F4),
+            modifier = Modifier.size(48.dp)
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text("Precise Location Required", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            "For indoor positioning to work properly, you need to enable precise location.\n\n" +
+                    "This allows Mapxus Positioning SDK 2.0.0+ to accurately determine your location indoors with 5-meter accuracy.\n\n" +
+                    "Please ensure \"Precise\" location is selected in your device settings.",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Light,
+            color = Color.Black,
+            textAlign = TextAlign.Center,
+            lineHeight = 18.sp
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF4285F4).copy(alpha = 0.1f)
+            )
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = "Important",
+                    tint = Color(0xFF4285F4),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Without precise location, indoor positioning will not work and you may see ERROR_LOCATION_SERVICE_DISABLED errors.",
+                    style = TextStyle(fontSize = 11.sp),
+                    color = Color.Black
+                )
             }
         }
     }
@@ -1355,18 +1613,18 @@ fun BrowsingStep(onNext: () -> Unit) {
         )
 
         // Search bar preview
-//        OutlinedTextField(
-//            value = "",
-//            onValueChange = { },
-//            placeholder = { Text("Search locations...") },
-//            leadingIcon = {
-//                Icon(Icons.Default.Search, contentDescription = null)
-//            },
-//            modifier = Modifier
-//                .fillMaxWidth()
-//                .padding(bottom = 16.dp),
-//            enabled = false
-//        )
+        OutlinedTextField(
+            value = "",
+            onValueChange = { },
+            placeholder = { Text("Search locations...") },
+            leadingIcon = {
+                Icon(Icons.Default.Search, contentDescription = null)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            enabled = false
+        )
 
 //        // Category filters preview
 //        LazyRow(

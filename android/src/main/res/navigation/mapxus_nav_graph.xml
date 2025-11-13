@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/mapxus_nav_graph"
+    app:startDestination="@id/venueScreen">
+
+    <fragment
+        android:id="@+id/venueScreen"
+        android:name="com.mapxushsitp.fragments.VenueScreenFragment"
+        android:label="Venue">
+        <action
+            android:id="@+id/action_venueScreen_to_venueDetails"
+            app:destination="@id/venueDetails" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/venueDetails"
+        android:name="com.mapxushsitp.fragments.VenueDetailsFragment"
+        android:label="VenueDetails">
+        <action
+            android:id="@+id/action_venueDetails_to_searchResult"
+            app:destination="@id/searchResult" />
+        <action
+            android:id="@+id/action_venueDetails_to_toiletScreen"
+            app:destination="@id/toiletScreen" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/searchResult"
+        android:name="com.mapxushsitp.fragments.SearchResultFragment"
+        android:label="SearchResult">
+        <action
+            android:id="@+id/action_searchResult_to_poiDetails"
+            app:destination="@id/poiDetails" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/toiletScreen"
+        android:name="com.mapxushsitp.fragments.ToiletScreenFragment"
+        android:label="ToiletScreen">
+        <action
+            android:id="@+id/action_toiletScreen_to_poiDetails"
+            app:destination="@id/poiDetails" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/poiDetails"
+        android:name="com.mapxushsitp.fragments.PoiDetailsFragment"
+        android:label="PoiDetails">
+        <action
+            android:id="@+id/action_poiDetails_to_prepareNavigation"
+            app:destination="@id/prepareNavigation" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/prepareNavigation"
+        android:name="com.mapxushsitp.fragments.PrepareNavigationFragment"
+        android:label="PrepareNavigation">
+        <action
+            android:id="@+id/action_prepareNavigation_to_showRoute"
+            app:destination="@id/showRoute" />
+        <action
+            android:id="@+id/action_prepareNavigation_to_positionMark"
+            app:destination="@id/positionMark" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/showRoute"
+        android:name="com.mapxushsitp.fragments.ShowRouteFragment"
+        android:label="ShowRoute" />
+
+    <fragment
+        android:id="@+id/positionMark"
+        android:name="com.mapxushsitp.fragments.PositionMarkFragment"
+        android:label="PositionMark" />
+
+    <fragment
+        android:id="@+id/settingsView"
+        android:name="com.mapxushsitp.fragments.SettingsViewFragment"
+        android:label="SettingsView" />
+
+</navigation>
+

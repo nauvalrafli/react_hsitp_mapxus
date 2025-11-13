@@ -20,8 +20,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.Divider
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.Accessible
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.rounded.Accessible
 import androidx.compose.material.icons.rounded.Man
@@ -30,11 +31,13 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Woman
 import androidx.compose.material3.BottomSheetScaffoldState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,15 +53,15 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.mapxushsitp.arComponents.ARNavigationViewModel
+import com.mapxushsitp.data.model.MapPoi
+import com.mapxushsitp.service.getTranslation
+import com.mapxushsitp.view.component.mapxus_compose.MapxusController
 import com.mapxus.map.mapxusmap.api.services.PoiSearch
 import com.mapxus.map.mapxusmap.api.services.PoiSearch.PoiResponseListener
 import com.mapxus.map.mapxusmap.api.services.model.PoiSearchOption
 import com.mapxus.map.mapxusmap.api.services.model.poi.PoiInfo
 import com.mapxus.map.mapxusmap.api.services.model.poi.PoiResult
-import com.mapxushsitp.arComponents.ARNavigationViewModel
-import com.mapxushsitp.data.model.MapPoi
-import com.mapxushsitp.service.getTranslation
-import com.mapxushsitp.view.component.mapxus_compose.MapxusController
 
 object SearchResult : IScreen {
     override val routeName: String = "search_result"
@@ -148,19 +151,18 @@ object SearchResult : IScreen {
                             Icon(Icons.Rounded.Search, contentDescription = "Search")
                         }
                     },
-//                    colors = TextFieldDefaults.colors(
-//                        unfocusedContainerColor = Color.Transparent,
-//                        focusedContainerColor = Color.Transparent,
-//                        focusedIndicatorColor = Color(0xFF4285F4),
-//                        unfocusedIndicatorColor = Color(0xFF4285F4)
-//                    ),
+                    colors = TextFieldDefaults.colors(
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color(0xFF4285F4),
+                        unfocusedIndicatorColor = Color(0xFF4285F4)
+                    ),
                     keyboardOptions = KeyboardOptions.Default.copy(
                         imeAction = ImeAction.Search
                     ),
                     keyboardActions = KeyboardActions(
                         onSearch = {
                             isLoading.value = true
-                            filteredResults.clear()
                             val opts = PoiSearchOption().apply {
                                 this.setVenueId(mapxusController.selectedVenue?.venueId)
                                 this.setKeywords(query)
@@ -227,7 +229,7 @@ object SearchResult : IScreen {
                         val toiletIcon = when (filteredResults[index].nameMap?.getTranslation(mapxusController.locale) ?: "") {
                             "Male Toilet" -> Icons.Rounded.Man
                             "Female Toilet" -> Icons.Rounded.Woman
-                            "Accessible Toilet" -> Icons.Rounded.Accessible
+                            "Accessible Toilet" -> Icons.Rounded.Accessible // ♿ Accessible icon
                             else -> Icons.Rounded.Place // fallback
                         }
                         Icon(toiletIcon, contentDescription = null, tint = Color(0xFF4285F4), modifier = Modifier.size(24.dp))
@@ -238,7 +240,7 @@ object SearchResult : IScreen {
                             Text(filteredResults[index].floor ?: "", fontSize = 12.sp, fontWeight = FontWeight.Light, style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    Divider()
+                    HorizontalDivider()
                 }
         }
     }

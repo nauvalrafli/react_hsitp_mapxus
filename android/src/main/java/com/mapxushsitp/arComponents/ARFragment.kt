@@ -1,7 +1,9 @@
 package com.mapxushsitp.arComponents
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.util.Log
@@ -20,9 +22,9 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
-import com.mapxushsitp.arComponents.ARNavigationViewModel
-import com.mapxushsitp.data.model.SerializableNavigationInstruction
+import com.mapxushsitp.data.model.SerializableRouteInstruction
 import com.mapxushsitp.data.model.SerializableRoutePoint
+import com.google.android.filament.Engine
 import com.google.ar.core.Anchor
 import com.google.ar.core.Config
 import com.google.ar.core.Pose
@@ -31,7 +33,9 @@ import com.google.ar.core.TrackingState
 import dev.romainguy.kotlin.math.Float3
 import io.github.sceneview.ar.ARSceneView
 import io.github.sceneview.ar.node.AnchorNode
+import io.github.sceneview.loaders.MaterialLoader
 import io.github.sceneview.loaders.ModelLoader
+import io.github.sceneview.node.CylinderNode
 import io.github.sceneview.node.ModelNode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
@@ -56,7 +60,7 @@ class FourthLocalARFragment : Fragment(), CoroutineScope by MainScope() {
     private var secondInstructionIndex = mutableIntStateOf(0)
     private lateinit var destination: SerializableRoutePoint
     private lateinit var yourLocation: SerializableRoutePoint
-    private val instructionList = mutableListOf<SerializableNavigationInstruction>()
+    private val instructionList = mutableListOf<SerializableRouteInstruction>()
     private val instructionPoints = mutableListOf<SerializableRoutePoint>()
 
     private val arrowNodes = mutableListOf<AnchorNode>()
@@ -69,6 +73,8 @@ class FourthLocalARFragment : Fragment(), CoroutineScope by MainScope() {
     private var hasShownFirstArrow: Boolean = false
     private var pendingArrowIndex: Int? = null
     private var lastTrackingState: TrackingState? = null
+
+    private lateinit var ctx: Context
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -111,6 +117,11 @@ class FourthLocalARFragment : Fragment(), CoroutineScope by MainScope() {
                 startARSetup()
             }
         }
+    }
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        ctx = context
     }
 
     override fun onCreateView(
@@ -168,8 +179,31 @@ class FourthLocalARFragment : Fragment(), CoroutineScope by MainScope() {
             )
         }
 
+        // For testing
+//        trackingStatusTextView = TextView(context).apply {
+//            setBackgroundColor(Color.Red.hashCode())
+//            text = "TESTING TESTING TESTING TESTING TESTING TESTING"
+//            textSize = 50F
+//            visibility = View.VISIBLE
+//        }
+
+        // ✅ Next Route Button
+//        nextRouteBtn = Button(context).apply {
+//            text = "Next Route"
+//            isEnabled = false
+//            visibility = View.INVISIBLE
+//            layoutParams = FrameLayout.LayoutParams(
+//                FrameLayout.LayoutParams.WRAP_CONTENT,
+//                FrameLayout.LayoutParams.WRAP_CONTENT
+//            ).apply {
+//                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+//                bottomMargin = 80
+//            }
+//        }
+
         frameLayout.addView(sceneView)
         frameLayout.addView(trackingStatusTextView)
+//        frameLayout.addView(nextRouteBtn)
 
         Log.d("ARCoreDebug", "📦 trackingStatusTextView added to layout")
 
@@ -178,15 +212,7 @@ class FourthLocalARFragment : Fragment(), CoroutineScope by MainScope() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            // ✅ Add models or anchor nodes here
-            delay(100) // Optional: give ARSceneView a bit more time
-
-            view.post {
-                requestMissingPermissions()
-            }
-        }
+        requestMissingPermissions()
     }
 
     override fun onPause() {
@@ -214,7 +240,7 @@ class FourthLocalARFragment : Fragment(), CoroutineScope by MainScope() {
             destination = bundle.getSerializable("destination") as? SerializableRoutePoint
                 ?: throw IllegalArgumentException("Missing destination")
 
-            val instructionListSerializable = bundle.getSerializable("instructionList") as? ArrayList<SerializableNavigationInstruction>
+            val instructionListSerializable = bundle.getSerializable("instructionList") as? ArrayList<SerializableRouteInstruction>
             val instructionPointsSerializable = bundle.getSerializable("instructionPoints") as? ArrayList<SerializableRoutePoint>
 
             if (!instructionListSerializable.isNullOrEmpty()) {
@@ -327,6 +353,8 @@ class FourthLocalARFragment : Fragment(), CoroutineScope by MainScope() {
                 text = "Please move your Android phone slowly!"
                 visibility = View.VISIBLE
             }
+//            nextRouteBtn.isEnabled = false
+//            nextRouteBtn.visibility = View.INVISIBLE
             return
         }
 
@@ -343,6 +371,8 @@ class FourthLocalARFragment : Fragment(), CoroutineScope by MainScope() {
                     if (camera.trackingState == TrackingState.TRACKING) {
                         trackingStatusTextView.visibility = View.INVISIBLE
                     }
+//                    nextRouteBtn.isEnabled = true
+//                    nextRouteBtn.visibility = View.VISIBLE
                 }
             }
             TrackingState.PAUSED -> {
@@ -359,6 +389,8 @@ class FourthLocalARFragment : Fragment(), CoroutineScope by MainScope() {
                     text = "❗ Tracking Paused ➾ $message"
                     visibility = View.VISIBLE
                 }
+//                nextRouteBtn.isEnabled = false
+//                nextRouteBtn.visibility = View.INVISIBLE
             }
             TrackingState.STOPPED -> {
                 Log.e("ARCoreDebug", "🛑 Tracking stopped")
@@ -366,15 +398,173 @@ class FourthLocalARFragment : Fragment(), CoroutineScope by MainScope() {
                     text = "❌ Tracking Stopped ➾ Please try again."
                     visibility = View.VISIBLE
                 }
+//                nextRouteBtn.isEnabled = false
+//                nextRouteBtn.visibility = View.INVISIBLE
             }
             else -> {
                 trackingStatusTextView.apply {
                     text = "Unknown tracking state"
                     visibility = View.VISIBLE
                 }
+//                nextRouteBtn.isEnabled = false
+//                nextRouteBtn.visibility = View.INVISIBLE
             }
         }
     }
+
+    private fun nextRouteButton() : View {
+        // Button
+        val button = Button(context).apply {
+            text = if (instructionIndex <= 0) { "Show Route \uD83D\uDCCD" } else { "Next Route 📍"}
+            setPadding(160, 20, 160, 20)
+            setTextColor(Color.Black.hashCode())
+            textSize = 18f
+            isAllCaps = false
+
+            // ✅ Create a rounded background drawable
+            background = GradientDrawable().apply {
+                setColor(Color.White.hashCode())
+                cornerRadius = 100F  // 🎯 Set the radius in pixels
+                setStroke(2, Color.White.copy(alpha = 0.3F).hashCode()) // Optional: border color
+            }
+            paddingBottom
+
+            setOnClickListener {
+                if (instructionIndex < instructionPoints.size) {
+                    val session = sceneView.session ?: return@setOnClickListener
+                    val frame = sceneView.frame ?: return@setOnClickListener
+
+                    // ✅ Remove previous arrow and road nodes
+                    arrowNodes.forEach { sceneView.removeChildNode(it) }
+                    arrowNodes.clear()
+
+                    roadCircleNodes.forEach { sceneView.removeChildNode(it) }
+                    roadCircleNodes.clear()  // <- remove previously drawn road
+                    drawnRoadSegments.clear()
+
+                    val originLat = yourLocation.lat
+                    val originLon = yourLocation.lon
+                    val baseY = frame.camera.pose.ty() - 1.5f
+
+                    // Calculate all local positions once
+                    val localPositions = instructionPoints.map { point ->
+                        val dx = (point.lon - originLon) * 111_000.0 * cos(Math.toRadians(originLat))
+                        val dz = (point.lat - originLat) * 111_000.0
+                        Pair(dx.toFloat(), -dz.toFloat())
+                    }
+
+                    val (x, z) = localPositions[instructionIndex]
+                    if (!listOf(x, baseY, z).all { it.isFinite() }) {
+                        Log.w("ARCoreDebug", "⚠️ Invalid local position for arrow $instructionIndex")
+                        return@setOnClickListener
+                    }
+
+                    val anchorPose = Pose(floatArrayOf(x, baseY, z), floatArrayOf(0f, 0f, 0f, 1f))
+                    val anchor = session.createAnchor(anchorPose)
+
+                    // ✅ Calculate yaw toward next point
+                    var yaw = 0f
+                    if (instructionIndex < localPositions.size - 1) {
+                        val (x1, z1) = localPositions[instructionIndex]
+                        val (x2, z2) = localPositions[instructionIndex + 1] // FIXED INDEX
+                        val dx = x2 - x1
+                        val dz = z2 - z1
+                        yaw = Math.toDegrees(atan2(dx.toDouble(), dz.toDouble())).toFloat()
+                    }
+
+                    // 🧭 Add arrow facing next point
+                    addArrowWithYaw(anchor, instructionIndex, yaw)
+
+                    // ✅ Draw path from previous to current
+                    if (instructionIndex >= 0 && instructionIndex < instructionPoints.size - 1) {
+                        val prev = instructionPoints[instructionIndex]
+                        val current = instructionPoints[instructionIndex + 1]
+                        launch {
+                            drawRoadBetween(prev, current, originLat, originLon, baseY)
+                        }
+                    } else if (instructionIndex == instructionPoints.size - 1) {
+                        val point = instructionPoints[instructionIndex]
+                        launch {
+                            drawRoadBetween(point, point, originLat, originLon, baseY)
+                        }
+                    } else {
+                        Log.w("InstructionPath", "❌ Invalid index: $instructionIndex")
+                    }
+
+                    // 🔊 Text-to-speech
+                    val currentInstruction = instructionList.getOrNull(instructionIndex)?.instruction
+                    val currentInstructionDistance = instructionList.getOrNull(instructionIndex)?.distance
+                    if (!currentInstruction.isNullOrBlank()) {
+                        Log.d("ARCoreDebug", "🔊 Speaking instruction: $currentInstruction")
+                        if (currentInstructionDistance != null && currentInstruction != "Arrive at destination") {
+                            textToSpeech.speak(
+                                "$currentInstruction, and follow the path for ${if (currentInstructionDistance > 1) "meters" else "meter"}",
+                                TextToSpeech.QUEUE_FLUSH,
+                                null,
+                                null
+                            )
+                        } else if (currentInstruction == "Arrive at destination") {
+                            textToSpeech.speak(
+                                "Kudos! You have arrived at the destination.",
+                                TextToSpeech.QUEUE_FLUSH,
+                                null,
+                                null
+                            )
+                        }
+                    }
+
+                    instructionIndex++
+                    updateNextRouteButtonText()
+                } else {
+                    Toast.makeText(context, "🎉 You’ve reached your destination!", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            // ✅ Layout params to stick to bottom-center
+            val params = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                bottomMargin = 60
+            }
+
+            layoutParams = params
+        }
+
+        return button
+    }
+
+//    private fun addArrowWithYaw(anchor: Anchor, index: Int, yaw: Float) {
+//        val instruction = instructionList.getOrNull(index)?.instruction ?: "Straight"
+//        val isDestination = instruction.equals("Arrive at destination", ignoreCase = true)
+//        val modelPath = if (isDestination) "models/arrive_at_destination.glb" else "models/direction_arrow.glb"
+//
+//        modelLoader.loadModelInstanceAsync(modelPath) { modelInstance ->
+//            if (modelInstance == null) {
+//                Log.e("ARCoreDebug", "❌ Failed to load model at index $index")
+//                return@loadModelInstanceAsync
+//            }
+//
+//            val modelNode = ModelNode(modelInstance).apply {
+//                scale = if (isDestination) Float3(0.1f) else Float3(3.0f)
+//                position = Float3(0f, 0.5f, 0f)
+//
+//                // 🔄 Adjust yaw because model faces +X by default
+//                val correctedYaw = (yaw - 90f + 360f) % 360f
+//                rotation = Float3(0f, correctedYaw, 0f)
+//
+//                Log.d("ARCoreDebug", "🧭 Arrow $index rotation = $correctedYaw°")
+//            }
+//
+//            val anchorNode = AnchorNode(sceneView.engine, anchor).apply {
+//                addChildNode(modelNode)
+//            }
+//
+//            sceneView.addChildNode(anchorNode)
+//            arrowNodes.add(anchorNode)
+//        }
+//    }
 
     private fun addArrowWithYaw(anchor: Anchor?, index: Int, yaw: Float) {
         if (anchor == null) {
@@ -409,6 +599,97 @@ class FourthLocalARFragment : Fragment(), CoroutineScope by MainScope() {
             arrowNodes.add(anchorNode)
         }
     }
+
+//    private suspend fun drawRoadBetween(
+//        start: SerializableRoutePoint,
+//        end: SerializableRoutePoint,
+//        originLat: Double,
+//        originLon: Double,
+//        baseY: Float
+//    ) {
+//        val session = sceneView.session ?: return
+//        val frame = sceneView.frame ?: return
+//
+//        val deltaLat = end.lat - start.lat
+//        val deltaLon = end.lon - start.lon
+//        val dist = distanceInMeters(start.lat, start.lon, end.lat, end.lon)
+//        val steps = max(1, (dist / 1.0).toInt())
+//
+//        for (step in 0 until steps) {
+//            delay(30)
+//
+//            try {
+//                val currentSession = sceneView.session ?: continue
+//                val currentFrame = sceneView.frame ?: continue
+//                val pose = currentFrame.camera.pose
+//
+//                if (pose == null || currentFrame.camera.trackingState != TrackingState.TRACKING) {
+//                    Log.w("ARCoreDebug", "⚠️ Skipped drawing road at step $step due to camera not tracking")
+//                    continue
+//                }
+//
+//                val t = step.toFloat() / steps
+//                val lat = start.lat + deltaLat * t
+//                val lon = start.lon + deltaLon * t
+//                val dLat = lat - originLat
+//                val dLon = lon - originLon
+//
+//                val localX = dLon * 111000f * cos(Math.toRadians(originLat)).toFloat()
+//                val localZ = -dLat * 111000f
+//
+//                if (!listOf(localX, baseY, localZ).all { true }) {
+//                    Log.w("ARCoreDebug", "⚠️ Skipped step $step due to non-finite coordinates")
+//                    continue
+//                }
+//
+//                val roadPose = Pose(
+//                    floatArrayOf(localX.toFloat(), baseY, localZ.toFloat()),
+//                    floatArrayOf(0f, 0f, 0f, 1f)
+//                )
+//
+//                if (currentFrame.camera.trackingState == TrackingState.TRACKING) {
+//                    val anchor = currentSession.createAnchor(roadPose)
+//
+//                    modelLoader.loadModelInstanceAsync("models/road_circle.glb") { model ->
+//                        if (model != null) {
+//                            val node = ModelNode(model).apply {
+//                                scale = Float3(0.1f)
+//                                position = Float3(0f, 0f, 0f)
+//                            }
+//
+//                            val anchorNode = AnchorNode(sceneView.engine, anchor).apply {
+//                                addChildNode(node)
+//                            }
+//                            sceneView.addChildNode(anchorNode)
+//                            roadCircleNodes.add(anchorNode)
+//
+//                            // Start blinking animation one by one
+//                            lifecycleScope.launch {
+//                                delay(step * 120L) // ⏱ Delay increases with step index (sequential)
+//                                repeat(3) {
+//                                    node.isVisible = false
+//                                    delay(200)
+//                                    node.isVisible = true
+//                                    delay(200)
+//                                }
+//
+//                                // Optional pulse after blinking
+//                                val originalScale = node.scale
+//                                node.scale = originalScale * 1.2f
+//                                delay(100)
+//                                node.scale = originalScale
+//                            }
+//                        } else {
+//                            Log.e("ARCoreDebug", "⚠️ Failed to load road circle at step $step")
+//                        }
+//                    }
+//                }
+//            } catch (e: Exception) {
+//                Log.e("ARCoreDebug", "❌ drawRoadBetween crash at step $step: ${e.localizedMessage}", e)
+//                continue
+//            }
+//        }
+//    }
 
     private suspend fun drawRoadBetween(
         start: SerializableRoutePoint,
@@ -494,6 +775,190 @@ class FourthLocalARFragment : Fragment(), CoroutineScope by MainScope() {
         }
     }
 
+    private suspend fun drawRoadBetweenWithCylinderNode(
+        start: SerializableRoutePoint,
+        end: SerializableRoutePoint,
+        originLat: Double,
+        originLon: Double,
+        baseY: Float,
+        engine: Engine,
+        materialLoader: MaterialLoader,
+        context: Context
+    ) {
+        val session = sceneView.session ?: return
+        val frame = sceneView.frame ?: return
+
+        val deltaLat = end.lat - start.lat
+        val deltaLon = end.lon - start.lon
+        val dist = distanceInMeters(start.lat, start.lon, end.lat, end.lon)
+        val steps = max(1, (dist / 1.0).toInt())
+
+        for (step in 0 until steps) {
+            delay(30)
+
+            try {
+                val currentSession = sceneView.session ?: continue
+                val currentFrame = sceneView.frame ?: continue
+                val pose = currentFrame.camera.pose
+
+                if (pose == null || currentFrame.camera.trackingState != TrackingState.TRACKING) {
+                    if (step == 0) {
+                        Toast.makeText(context, "Waiting for AR tracking...", Toast.LENGTH_SHORT).show()
+                    }
+                    Log.w("ARCoreDebug", "⚠️ Skipped drawing road at step $step due to camera not tracking")
+                    continue
+                }
+
+                val t = step.toFloat() / steps
+                val lat = start.lat + deltaLat * t
+                val lon = start.lon + deltaLon * t
+                val dLat = lat - originLat
+                val dLon = lon - originLon
+
+                val localX = dLon * 111000f * cos(Math.toRadians(originLat)).toFloat()
+                val localZ = -dLat * 111000f
+
+                // replace the incorrect .all { it.hashCode() } line with:
+                if (!localX.isFinite() || !baseY.isFinite() || !localZ.isFinite()) {
+                    Log.w("ARCoreDebug", "⚠️ Skipped step $step due to non-finite coordinates")
+                    continue
+                }
+
+                val roadPose = Pose(
+                    floatArrayOf(localX.toFloat(), baseY, localZ.toFloat()),
+                    floatArrayOf(0f, 0f, 0f, 1f)
+                )
+
+                val anchor = try {
+                    currentSession.createAnchor(roadPose)
+                } catch (e: Exception) {
+                    Log.e("ARCoreDebug", "⚠️ Failed to create road anchor: ${e.message}")
+                    continue
+                }
+
+                // 🟦 Create a flat blue cylinder as road segment
+                val cylinderNode = CylinderNode(
+                    engine = engine,
+                    radius = 0.20f, // thinner than 0.2 for cleaner road
+                    height = 0.01f, // very flat like a circle
+                    materialInstance = materialLoader.createColorInstance(
+                        color = Color(0f, 0f, 1f, 1f), // Blue RGBA
+                        metallic = 0.5f,
+                        roughness = 0.4f,
+                        reflectance = 0.5f
+                    )
+                ).apply {
+                    transform(
+                        position = Float3(0f, 0f, 0f),
+                        rotation = Float3(0f, 0f, 0f)
+                    )
+                }
+
+                val anchorNode = AnchorNode(sceneView.engine, anchor).apply {
+                    addChildNode(cylinderNode)
+                }
+
+                sceneView.addChildNode(anchorNode)
+                roadCircleNodes.add(anchorNode)
+
+                // Optional: sequential blinking animation (like before)
+                lifecycleScope.launch {
+                    delay(step * 120L)
+                    repeat(3) {
+                        cylinderNode.isVisible = false
+                        delay(200)
+                        cylinderNode.isVisible = true
+                        delay(200)
+                    }
+                }
+
+            } catch (e: Exception) {
+                Log.e("ARCoreDebug", "❌ drawRoadBetween crash at step $step: ${e.localizedMessage}", e)
+                continue
+            }
+        }
+    }
+
+//    private fun isShowingARNavigationArrowOneByOne(index: Int) {
+//        val camera = sceneView.frame
+//
+//        if (camera?.camera?.trackingState == TrackingState.TRACKING) {
+//            Log.e("ARCoreDebug", "$index")
+//
+//            if (index < instructionPoints.size) {
+//                val session = sceneView.session ?: return
+//                val frame = sceneView.frame ?: return
+//
+//                // ✅ Remove previous arrow and road nodes
+//                arrowNodes.forEach { sceneView.removeChildNode(it) }
+//                arrowNodes.clear()
+//
+//                roadCircleNodes.forEach { sceneView.removeChildNode(it) }
+//                roadCircleNodes.clear()  // <- remove previously drawn road
+//                drawnRoadSegments.clear()
+//
+//                val originLat = yourLocation.lat
+//                val originLon = yourLocation.lon
+//                val baseY = frame.camera.pose.ty() - 1.5f
+//
+//                // Calculate all local positions once
+//                val localPositions = instructionPoints.map { point ->
+//                    val dx = (point.lon - originLon) * 111_000.0 * cos(Math.toRadians(originLat))
+//                    val dz = (point.lat - originLat) * 111_000.0
+//                    Pair(dx.toFloat(), -dz.toFloat())
+//                }
+//
+//                val (x, z) = localPositions[index]
+//                if (!listOf(x, baseY, z).all { it.isFinite() }) {
+//                    Log.w("ARCoreDebug", "⚠️ Invalid local position for arrow $index")
+//                    return
+//                }
+//
+//                val anchorPose = Pose(floatArrayOf(x, baseY, z), floatArrayOf(0f, 0f, 0f, 1f))
+//                val cameraState = frame.camera
+//                if (cameraState.trackingState != TrackingState.TRACKING) {
+//                    Log.w("ARCoreDebug", "🚫 Cannot create anchor — camera is not tracking!")
+//                    return
+//                }
+//
+//                val anchor = session.createAnchor(anchorPose)
+//
+//                // ✅ Calculate yaw toward next point
+//                var yaw = 0f
+//                if (index < localPositions.size - 1) {
+//                    val (x1, z1) = localPositions[index]
+//                    val (x2, z2) = localPositions[index + 1] // FIXED INDEX
+//                    val dx = x2 - x1
+//                    val dz = z2 - z1
+//                    yaw = Math.toDegrees(atan2(dx.toDouble(), dz.toDouble())).toFloat()
+//                }
+//
+//                // 🧭 Add arrow facing next point
+//                addArrowWithYaw(anchor, index, yaw)
+//
+//                // ✅ Draw path from previous to current
+//                if (index >= 0 && index < instructionPoints.size - 1) {
+//                    val prev = instructionPoints[index]
+//                    val current = instructionPoints[index + 1]
+//                    launch {
+//                        drawRoadBetween(prev, current, originLat, originLon, baseY)
+//                    }
+//                } else if (index == instructionPoints.size - 1) {
+//                    val point = instructionPoints[index]
+//                    launch {
+//                        drawRoadBetween(point, point, originLat, originLon, baseY)
+//                    }
+//                } else {
+//                    Log.w("InstructionPath", "❌ Invalid index: $index")
+//                }
+//
+////                updateNextRouteButtonText()
+//            } else {
+////            Toast.makeText(context, "Start reached your destination!", Toast.LENGTH_SHORT).show()
+//            }
+//        }
+//    }
+
     private fun isShowingARNavigationArrowOneByOne(index: Int) {
         val session = sceneView.session ?: run {
             Log.w("ARCoreDebug", "❌ Session is null")
@@ -568,10 +1033,34 @@ class FourthLocalARFragment : Fragment(), CoroutineScope by MainScope() {
         if (index in 0 until instructionPoints.size - 1) {
             val prev = instructionPoints[index]
             val next = instructionPoints[index + 1]
-            launch { drawRoadBetween(prev, next, originLat, originLon, baseY) }
+            launch {
+//                drawRoadBetween(prev, next, originLat, originLon, baseY)
+                drawRoadBetweenWithCylinderNode(
+                    start = prev,
+                    end = next,
+                    originLat = originLat,
+                    originLon = originLon,
+                    baseY = baseY,
+                    engine = sceneView.engine,
+                    materialLoader = sceneView.materialLoader,
+                    context = ctx
+                )
+            }
         } else if (index == instructionPoints.size - 1) {
             val point = instructionPoints[index]
-            launch { drawRoadBetween(point, point, originLat, originLon, baseY) }
+            launch {
+//                drawRoadBetween(point, point, originLat, originLon, baseY)
+                drawRoadBetweenWithCylinderNode(
+                    start = point,
+                    end = point,
+                    originLat = originLat,
+                    originLon = originLon,
+                    baseY = baseY,
+                    engine = sceneView.engine,
+                    materialLoader = sceneView.materialLoader,
+                    context = ctx
+                )
+            }
         }
     }
 
@@ -651,5 +1140,25 @@ class FourthLocalARFragment : Fragment(), CoroutineScope by MainScope() {
         val c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return R * c
     }
+
+//    companion object {
+//        fun newInstance(
+//            yourLocation: SerializableRoutePoint,
+//            destination: SerializableRoutePoint,
+//            instructionIndex: Int,
+//            instructionList: ArrayList<SerializableRouteInstruction>,
+//            instructionPoints: ArrayList<SerializableRoutePoint?>
+//        ): FourthLocalARFragment {
+//            return FourthLocalARFragment().apply {
+//                arguments = Bundle().apply {
+//                    putInt("instructionIndex", instructionIndex)
+//                    putSerializable("yourLocation", yourLocation)
+//                    putSerializable("destination", destination)
+//                    putSerializable("instructionList", ArrayList(instructionList)) // 👈 Convert to ArrayList
+//                    putSerializable("instructionPoints", ArrayList(instructionPoints)) // 👈 Convert to ArrayList
+//                }
+//            }
+//        }
+//    }
 
 }

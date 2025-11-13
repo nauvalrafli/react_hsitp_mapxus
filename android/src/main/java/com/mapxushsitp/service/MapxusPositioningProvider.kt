@@ -9,7 +9,6 @@ import com.mapxus.map.mapxusmap.overlay.navi.RouteAdsorber
 import com.mapxus.map.mapxusmap.positioning.IndoorLocation
 import com.mapxus.map.mapxusmap.positioning.IndoorLocationProvider
 import com.mapxus.positioning.positioning.api.ErrorInfo
-import com.mapxus.positioning.positioning.api.MapxusFloor
 import com.mapxus.positioning.positioning.api.MapxusLocation
 import com.mapxus.positioning.positioning.api.MapxusPositioningClient
 import com.mapxus.positioning.positioning.api.MapxusPositioningListener
@@ -23,13 +22,11 @@ import java.util.concurrent.Executors
 import kotlin.math.abs
 
 class MapxusPositioningProvider(
-    lifecycleOwner: LifecycleOwner,
-    context: Context
+    private val positioningClient: MapxusPositioningClient
 ) : IndoorLocationProvider() {
     private var started = false
     var isInHeadingMode: Boolean = false
     private var routeAdsorber: RouteAdsorber? = null
-    val positioningClient: MapxusPositioningClient = MapxusPositioningClient.getInstance(lifecycleOwner, context)
 
     private val coroutineScope: CoroutineScope =
         CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher())
@@ -43,6 +40,7 @@ class MapxusPositioningProvider(
     }
 
     override fun start() {
+//        positioningClient?.addPositioningListener(mapxusPositioningListener)
         positioningClient?.start()
         started = true
     }
@@ -50,6 +48,7 @@ class MapxusPositioningProvider(
     override fun stop() {
         if (positioningClient != null) {
             positioningClient!!.stop()
+//            positioningClient.removePositioningListener(mapxusPositioningListener);
         }
         started = false
     }
@@ -58,7 +57,8 @@ class MapxusPositioningProvider(
         return started
     }
 
-    private var mapxusPositioningListener: MapxusPositioningListener =
+
+    private val mapxusPositioningListener: MapxusPositioningListener =
         object : MapxusPositioningListener {
             override fun onStateChange(positionerState: PositioningState) {
                 when (positionerState) {
@@ -120,16 +120,6 @@ class MapxusPositioningProvider(
                 }
             }
         }
-
-    fun updatePositioningListener(listener: MapxusPositioningListener) {
-        positioningClient.removePositioningListener(mapxusPositioningListener)
-        mapxusPositioningListener = listener;
-        positioningClient.addPositioningListener(mapxusPositioningListener)
-    }
-
-    fun updateFloor(floor: MapxusFloor) {
-        positioningClient.changeFloor(floor)
-    }
 
     companion object {
         private val TAG: String = MapxusPositioningProvider::class.java.simpleName

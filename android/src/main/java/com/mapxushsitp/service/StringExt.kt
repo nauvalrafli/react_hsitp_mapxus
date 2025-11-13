@@ -1,10 +1,10 @@
 package com.mapxushsitp.service
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import com.mapxushsitp.data.model.Venue
 import com.mapxus.map.mapxusmap.api.common.MultilingualObject
+import com.mapxus.map.mapxusmap.api.services.model.building.Address
+import com.mapxushsitp.data.model.Venue
 import java.util.Locale
 
 fun Double.limitDecimal(limit: Int = 8): String {
@@ -12,6 +12,17 @@ fun Double.limitDecimal(limit: Int = 8): String {
 }
 
 fun MultilingualObject<String>.getTranslation(locale: Locale): String {
+    return when {
+        locale.language == "zh" && (locale.country.equals("TW", true) || locale.country.equals("HK", true)) ->
+            this.zhHant ?: this.zhHans ?: this.en ?: this.default
+        locale.language == "zh" ->
+            this.zhHans ?: this.zhHant ?: this.en ?: this.default
+        else ->
+            this.en ?: this.default
+    }
+}
+
+fun MultilingualObject<Address>.getTranslation(locale: Locale): Address {
     return when {
         locale.language == "zh" && (locale.country.equals("TW", true) || locale.country.equals("HK", true)) ->
             this.zhHant ?: this.zhHans ?: this.en ?: this.default

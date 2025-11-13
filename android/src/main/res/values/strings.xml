@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AR Toilet Navigation</string>
     <string name="title_activity_home">HomeActivity</string>
@@ -30,4 +29,8 @@
     <string name="meter">m</string>
     <string name="minute">%1$d min left</string>
     <string name="second">%1$d sec left</string>
+    <string name="explore_by_building">Explore by Building</string>
+    <string name="search">Search</string>
+    <string name="search_result">Search Result</string>
+    <string name="floor_information">Floor information</string>
 </resources>

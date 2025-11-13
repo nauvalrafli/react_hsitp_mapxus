@@ -1,5 +1,7 @@
 package com.mapxushsitp.data.model
 
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
 import java.io.Serializable
 
 data class PathDto(
@@ -44,7 +46,6 @@ data class InstructionDto(
 data class SerializableRoutePoint(
     val lat: Double,
     val lon: Double,
-    val heading: Double,
     val floorId: String
 ) : Serializable
 
@@ -53,5 +54,18 @@ data class SerializableNavigationInstruction(
     val distance: Double,
     val floorId: String
 ) : Serializable
+
+data class SerializableRouteInstruction(
+    val instruction: String,
+    val distance: Double,
+    val floorId: String
+) : Serializable
+
+@Parcelize
+data class ParcelizeRoutePoint(
+    val lat: Double,
+    val lon: Double,
+    val floorId: String
+) : Parcelable
 
 

@@ -2,55 +2,30 @@ package com.mapxushsitp.view.sheets
 
 import android.util.Log
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.OutlinedTextField
-import androidx.compose.material.TextFieldColors
-import androidx.compose.material.TextFieldDefaults
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Remove
-import androidx.compose.material3.BottomSheetScaffoldState
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import com.mapxus.map.mapxusmap.api.services.constant.RoutePlanningVehicle
-import com.mapxus.map.mapxusmap.api.services.model.planning.RoutePlanningPoint
-import com.mapxushsitp.R
 import com.mapxushsitp.arComponents.ARNavigationViewModel
 import com.mapxushsitp.data.model.MapPoi
 import com.mapxushsitp.data.model.SerializableRoutePoint
@@ -58,6 +33,9 @@ import com.mapxushsitp.gpsComponents.GPSHelper
 import com.mapxushsitp.service.DynamicStringResource
 import com.mapxushsitp.service.getTranslation
 import com.mapxushsitp.view.component.mapxus_compose.MapxusController
+import com.mapxushsitp.R
+import com.mapxus.map.mapxusmap.api.services.constant.RoutePlanningVehicle
+import com.mapxus.map.mapxusmap.api.services.model.planning.RoutePlanningPoint
 
 data class DropdownItem(
     val displayText: String,
@@ -165,50 +143,10 @@ object PrepareNavigation : IScreen {
                         .fillMaxWidth()
                         .padding(bottom = 8.dp)
                 ) {
-                    val containerColor = Color(0xFFF5F5F5)
-
-//                    OutlinedTextField(
-//                        value = selectedStartPoint,
-//                        onValueChange = { selectedStartPoint = it },
-//                        readOnly = true,
-//                        modifier = Modifier
-//                            .fillMaxWidth()
-//                            .menuAnchor(),
-//                        placeholder = { Text(stringResource(R.string.select_start_point)) },
-//                        leadingIcon = {
-//                            Icon(
-//                                Icons.Default.LocationOn,
-//                                contentDescription = "Start",
-//                                tint = Color(0xFF4285F4)
-//                            )
-//                        },
-//                        trailingIcon = {
-//                            Icon(
-//                                Icons.Default.KeyboardArrowDown,
-//                                contentDescription = "Expand"
-//                            )
-//                        },
-//                        containerColor = Color(0xFFF5F5F5),
-//                        unfocusedBorderColor = Color.Transparent,
-//                        colors = OutlinedTextFieldDefaults.colors(
-//                                focusedContainerColor = Color(0xFFF5F5F5),
-//                                unfocusedContainerColor = Color(0xFFF5F5F5),
-//                                disabledContainerColor = Color(0xFFF5F5F5),
-//                                errorContainerColor = Color.Red,
-//                                unfocusedBorderColor = Color.Transparent
-//                            ),
-//                        shape = RoundedCornerShape(8.dp)
-//                    )
-
                     OutlinedTextField(
                         value = selectedStartPoint,
-                        readOnly = true,
                         onValueChange = { selectedStartPoint = it },
-                        textStyle = TextStyle(
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Normal
-                        ),
-                        maxLines = 2,
+                        readOnly = true,
                         modifier = Modifier
                             .fillMaxWidth()
                             .menuAnchor(),
@@ -226,14 +164,11 @@ object PrepareNavigation : IScreen {
                                 contentDescription = "Expand"
                             )
                         },
-                        shape = RoundedCornerShape(8.dp),
-//                        colors = TextFieldDefaults.outlinedTextFieldColors(
-//                            focusedContainerColor = Color(0xFFF5F5F5),
-//                            unfocusedContainerColor = Color(0xFFF5F5F5),
-//                            disabledContainerColor = Color(0xFFF5F5F5),
-//                            errorContainerColor = Color.Red,
-//                            unfocusedBorderColor = Color.Transparent
-//                        )
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                            containerColor = Color(0xFFF5F5F5),
+                            unfocusedBorderColor = Color.Transparent
+                        ),
+                        shape = RoundedCornerShape(8.dp)
                     )
 
                     ExposedDropdownMenu(
@@ -265,8 +200,7 @@ object PrepareNavigation : IScreen {
                                 }
                             },
                             onClick = {
-                                arNavigationViewModel.resetNavigationState()
-                                mapxusController.getMapxusMap()?.setLocationEnabled(true)
+                                mapxusController.getMapxusMap().setLocationEnabled(true)
                                 selectedStartPoint = context.resources.getString(R.string.current_location)
 
                                 mapxusController.isCurrentLocation.value = true
@@ -313,7 +247,6 @@ object PrepareNavigation : IScreen {
                 }
 
                 // Destination Field (Non-editable)
-                val containerColor1 = Color(0xFFF5F5F5)
                 OutlinedTextField(
                     value = "${DynamicStringResource(destinationPoi?.type ?: "")}, ${destinationPoi?.floorName ?: ""}, ${mapxusController.selectedVenue?.venueName?.getTranslation(mapxusController.locale) ?: ""}",
                     onValueChange = { },
@@ -326,40 +259,14 @@ object PrepareNavigation : IScreen {
                             tint = Color(0xFF4285F4)
                         )
                     },
-                    shape = RoundedCornerShape(8.dp),
-                    textStyle = TextStyle(
-                        color = Color.Black,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Normal
-                    )
+                    colors = TextFieldDefaults.outlinedTextFieldColors(
+                        containerColor = Color(0xFFF5F5F5),
+                        unfocusedBorderColor = Color.Transparent,
+                        disabledTextColor = Color.Black,
+                        disabledLeadingIconColor = Color(0xFF4285F4)
+                    ),
+                    shape = RoundedCornerShape(8.dp)
                 )
-//                OutlinedTextField(
-//                    value = "${DynamicStringResource(destinationPoi?.type ?: "")}, ${destinationPoi?.floorName ?: ""}, ${mapxusController.selectedVenue?.venueName?.getTranslation(mapxusController.locale) ?: ""}",
-//                    onValueChange = { },
-//                    modifier = Modifier.fillMaxWidth(),
-//                    enabled = false,
-//                    leadingIcon = {
-//                        Icon(
-//                            Icons.Default.LocationOn,
-//                            contentDescription = "Destination",
-//                            tint = Color(0xFF4285F4)
-//                        )
-//                    },
-//                    unfocusedBorderColor = Color.Transparent,
-//                    disabledTextColor = Color.Black,
-//                    disabledLeadingIconColor = Color(0xFF4285F4),
-////                    colors = OutlinedTextFieldDefaults.colors(
-////                            unfocusedTextColor = Color.Transparent,
-////                            disabledTextColor = Color.Black,
-////                            focusedContainerColor = Color(0xFFF5F5F5),
-////                            unfocusedContainerColor = Color(0xFFF5F5F5),
-////                            disabledContainerColor = Color(0xFFF5F5F5),
-////                            errorContainerColor = Color.Red,
-////                            unfocusedBorderColor = Color.Transparent,
-////                            disabledLeadingIconColor = Color(0xFF4285F4),
-////                        ),
-//                    shape = RoundedCornerShape(8.dp)
-//                )
             }
 
             // Route type selection and Go button (shown when start point is selected)
@@ -439,7 +346,7 @@ object PrepareNavigation : IScreen {
                                             mapxusController.calculateHeading(it.lat, it.lon, mapxusController.destinationPoint?.lat ?: 0.0, mapxusController.destinationPoint?.lon ?: 0.0)
                                         }
 
-                                        mapxusController.arStartPoint = SerializableRoutePoint(lat, lon, heading = calculateHeading ?: 0.0,"")
+                                        mapxusController.arStartPoint = SerializableRoutePoint(lat, lon, "")
                                         Log.d("UserLocation", "Latitude: $lat, Longitude: $lon")
                                         Log.w("ARCoreHeading", "starting point: ${mapxusController.startingPoint}")
                                     } else {
@@ -499,51 +406,51 @@ object PrepareNavigation : IScreen {
             }
 
             // TextField
-//            OutlinedTextField(
-//                value = value,
-//                onValueChange = { newValue ->
-//                    // Allow empty string or valid integers only
-//                    if (newValue.isEmpty() || newValue.matches(Regex("^\\d+$"))) {
-//                        onValueChange(newValue)
-//                    }
-//                },
-//                label = { Text(stringResource(R.string.accuracy)) },
-//                placeholder = { Text(stringResource(R.string.accuracy)) },
-//                suffix = { Text(stringResource(R.string.meter)) },
-//                keyboardOptions = KeyboardOptions(
-//                    keyboardType = KeyboardType.Number,
-//                    imeAction = ImeAction.Done
-//                ),
-//                keyboardActions = KeyboardActions(
-//                    onDone = {
-//                        // Auto-correct to range when user finishes editing
-//                        val intValue = value.toIntOrNull()
-//                        if (intValue != null) {
-//                            val correctedValue = intValue.coerceIn(minValue, maxValue)
-//                            onValueChange(correctedValue.toString())
-//                        } else if (value.isNotEmpty()) {
-//                            // If invalid input, set to minimum
-//                            onValueChange(minValue.toString())
-//                        }
-//                    }
-//                ),
-//                singleLine = true,
-//                modifier = Modifier
-//                    .weight(1f)
-//                    .onFocusChanged { focusState ->
-//                        // Auto-correct when field loses focus
-//                        if (!focusState.isFocused && value.isNotEmpty()) {
-//                            val intValue = value.toIntOrNull()
-//                            if (intValue != null) {
-//                                val correctedValue = intValue.coerceIn(minValue, maxValue)
-//                                onValueChange(correctedValue.toString())
-//                            } else {
-//                                // If invalid input, set to minimum
-//                                onValueChange(minValue.toString())
-//                            }
-//                        }
-//                    }
-//            )
+            OutlinedTextField(
+                value = value,
+                onValueChange = { newValue ->
+                    // Allow empty string or valid integers only
+                    if (newValue.isEmpty() || newValue.matches(Regex("^\\d+$"))) {
+                        onValueChange(newValue)
+                    }
+                },
+                label = { Text(stringResource(R.string.accuracy)) },
+                placeholder = { Text(stringResource(R.string.accuracy)) },
+                suffix = { Text(stringResource(R.string.meter)) },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        // Auto-correct to range when user finishes editing
+                        val intValue = value.toIntOrNull()
+                        if (intValue != null) {
+                            val correctedValue = intValue.coerceIn(minValue, maxValue)
+                            onValueChange(correctedValue.toString())
+                        } else if (value.isNotEmpty()) {
+                            // If invalid input, set to minimum
+                            onValueChange(minValue.toString())
+                        }
+                    }
+                ),
+                singleLine = true,
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { focusState ->
+                        // Auto-correct when field loses focus
+                        if (!focusState.isFocused && value.isNotEmpty()) {
+                            val intValue = value.toIntOrNull()
+                            if (intValue != null) {
+                                val correctedValue = intValue.coerceIn(minValue, maxValue)
+                                onValueChange(correctedValue.toString())
+                            } else {
+                                // If invalid input, set to minimum
+                                onValueChange(minValue.toString())
+                            }
+                        }
+                    }
+            )
 
             // Plus button
             IconButton(

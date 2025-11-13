@@ -1,0 +1,90 @@
+<!-- res/layout/item_route_instruction.xml -->
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/card_instruction"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardElevation="4dp"
+    app:cardCornerRadius="12dp"
+    android:background="@android:color/white">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="12dp">
+
+        <!-- Swipe Banner -->
+<!--        <TextView-->
+<!--            android:id="@+id/swipe_banner"-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:text="Swipe for next route/floor"-->
+<!--            android:textColor="@android:color/white"-->
+<!--            android:backgroundTint="@color/purple_700"-->
+<!--            android:background="@drawable/bg_swipe_banner"-->
+<!--            android:padding="6dp"-->
+<!--            android:textStyle="bold"-->
+<!--            android:textSize="12sp"-->
+<!--            app:layout_constraintTop_toTopOf="parent"-->
+<!--            app:layout_constraintStart_toStartOf="parent"-->
+<!--            app:layout_constraintEnd_toEndOf="parent" />-->
+
+        <!-- Left Arrow -->
+        <ImageView
+            android:id="@+id/btn_prev"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_arrow_left"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/step_indicator"
+            android:contentDescription="Previous" />
+
+        <!-- Direction Text -->
+        <TextView
+            android:id="@+id/tv_instruction"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textStyle="bold"
+            android:textSize="14sp"
+            app:layout_constraintStart_toEndOf="@id/btn_prev"
+            app:layout_constraintEnd_toStartOf="@id/btn_next"
+            app:layout_constraintBottom_toTopOf="@id/step_indicator"
+            />
+
+        <!-- Right Arrow -->
+        <ImageView
+            android:id="@+id/btn_next"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_arrow_right"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/step_indicator"
+            android:contentDescription="Next" />
+
+        <!-- Subtext -->
+        <TextView
+            android:id="@+id/tv_building"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="12sp"
+            android:textColor="#888888"
+            app:layout_constraintTop_toBottomOf="@id/tv_instruction"
+            app:layout_constraintStart_toStartOf="@id/tv_instruction"
+            app:layout_constraintEnd_toEndOf="@id/tv_instruction" />
+
+        <!-- Step Indicator -->
+        <ProgressBar
+            android:id="@+id/step_indicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            style="@android:style/Widget.ProgressBar.Small"
+            app:layout_constraintTop_toBottomOf="@id/tv_building"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.cardview.widget.CardView>

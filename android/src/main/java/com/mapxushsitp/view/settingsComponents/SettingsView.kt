@@ -7,10 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-//noinspection UsingMaterialAndMaterial3Libraries
-import androidx.compose.material.Scaffold
-import androidx.compose.material.Switch
-import androidx.compose.material.Text
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,16 +18,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.room.util.TableInfo.Column
 import com.mapxushsitp.arComponents.ARNavigationViewModel
 import com.mapxushsitp.motionSensor.MotionSensorViewModel
 
-@SuppressLint("UnusedMaterialScaffoldPaddingParameter")
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun SettingsView(arNavigationViewModel: ARNavigationViewModel, motionSensorViewModel: MotionSensorViewModel) {
     var isEnablingMotionSensor by rememberSaveable { mutableStateOf(false) }
 
-    Scaffold {
+    Scaffold { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Motion Sensor", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
