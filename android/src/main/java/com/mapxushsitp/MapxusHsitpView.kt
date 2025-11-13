@@ -1,7 +1,6 @@
 package com.mapxushsitp
 
 import android.content.Context
-import android.graphics.Color
 import android.os.Build
 import android.util.AttributeSet
 import android.util.Log
@@ -17,6 +16,7 @@ class MapxusHsitpView : FrameLayout {
 
   private val fragmentContainerId = View.generateViewId()
   private var fragmentAttached = false
+  private var container: FrameLayout? = null
 
   constructor(context: Context) : super(context) {
     Log.d("REACT-MAPXUS", "CONSTRUCT")
@@ -39,16 +39,14 @@ class MapxusHsitpView : FrameLayout {
 
   private fun initView(context: Context) {
     setBackgroundColor(android.graphics.Color.TRANSPARENT)
-    if (findViewById<View>(fragmentContainerId) == null) {
-      val container = FrameLayout(context).apply {
-        id = fragmentContainerId
-        layoutParams = LayoutParams(
-          LayoutParams.MATCH_PARENT,
-          LayoutParams.MATCH_PARENT
-        )
-      }
-      addView(container)
+    container = FrameLayout(context).apply {
+      id = fragmentContainerId
+      layoutParams = LayoutParams(
+        LayoutParams.MATCH_PARENT,
+        LayoutParams.MATCH_PARENT
+      )
     }
+    addView(container)
   }
 
   override fun onAttachedToWindow() {
@@ -69,10 +67,20 @@ class MapxusHsitpView : FrameLayout {
     val tag = fragmentTag()
     val existing = activity.supportFragmentManager.findFragmentByTag(tag)
     if (existing == null) {
+      if(container?.width == 0 || container?.height == 0) {
+        container?.layoutParams = LayoutParams(
+          LayoutParams.MATCH_PARENT,
+          LayoutParams.MATCH_PARENT
+        )
+      }
       val fragment = XmlFragment()
-      activity.supportFragmentManager.commit(allowStateLoss = true) {
-        setReorderingAllowed(true)
-        replace(fragmentContainerId, fragment, tag)
+      activity.runOnUiThread {
+        activity.supportFragmentManager.beginTransaction().apply {
+          setReorderingAllowed(true)
+          replace(fragmentContainerId, fragment, tag)
+          commit()
+        }
+        Log.d("REACT-MAPXUS", "Parent: $width*$height; container: ${container?.width}x${container?.height} $fragmentContainerId")
       }
     }
     fragmentAttached = true
