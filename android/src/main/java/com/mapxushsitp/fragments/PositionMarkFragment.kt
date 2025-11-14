@@ -8,6 +8,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
+import androidx.navigation.navGraphViewModels
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import com.mapxushsitp.R
 import com.google.android.material.button.MaterialButton
@@ -17,7 +18,7 @@ import kotlin.getValue
 class PositionMarkFragment : Fragment() {
 
     private lateinit var setStartLocationButton: MaterialButton
-  private val sharedViewModel: MapxusSharedViewModel by viewModels({ requireParentFragment() })
+  private val sharedViewModel: MapxusSharedViewModel by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,

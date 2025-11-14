@@ -52,7 +52,7 @@ function BrokenScreen() {
   const navigation = useNavigation();
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <MapxusHsitpView color="#32a852" style={styles.box} />
+      <MapxusHsitpView color="#ababab" style={styles.box} />
       <Button
         title="Go to Home Screen"
         onPress={() => navigation.navigate('Home' as never)}

@@ -10,6 +10,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
+import androidx.navigation.navGraphViewModels
 import com.mapxushsitp.service.getTranslation
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import com.mapxushsitp.R
@@ -32,7 +33,7 @@ class PoiDetailsFragment : Fragment() {
     private lateinit var shareButton: ImageButton
     private lateinit var facilitiesChip: Chip
     private lateinit var directionButton: MaterialButton
-    private val sharedViewModel: MapxusSharedViewModel by viewModels({ requireParentFragment() })
+    private val sharedViewModel: MapxusSharedViewModel by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,

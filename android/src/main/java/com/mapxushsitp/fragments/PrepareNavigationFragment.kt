@@ -9,8 +9,10 @@ import android.widget.AutoCompleteTextView
 import android.widget.LinearLayout
 import android.widget.PopupMenu
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
+import androidx.navigation.navGraphViewModels
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import com.mapxushsitp.R
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -35,7 +37,7 @@ class PrepareNavigationFragment : Fragment() {
 
     private var selectedRouteType : String = RoutePlanningVehicle.FOOT
     private var selectedStartPoint = ""
-  private val sharedViewModel: MapxusSharedViewModel by viewModels({ requireParentFragment() })
+  private val sharedViewModel: MapxusSharedViewModel by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,

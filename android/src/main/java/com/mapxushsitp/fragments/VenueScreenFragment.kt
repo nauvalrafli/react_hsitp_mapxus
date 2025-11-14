@@ -12,6 +12,7 @@ import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
 import androidx.navigation.fragment.findNavController
+import androidx.navigation.navGraphViewModels
 import androidx.viewpager2.widget.ViewPager2
 import com.mapxushsitp.adapters.VenueAdapter
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
@@ -31,7 +32,7 @@ class VenueScreenFragment : Fragment() {
     private var venueAdapter: VenueAdapter? = null
 
     // Shared ViewModel
-    private val sharedViewModel: MapxusSharedViewModel by viewModels({ requireParentFragment() })
+    private val sharedViewModel: MapxusSharedViewModel by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,

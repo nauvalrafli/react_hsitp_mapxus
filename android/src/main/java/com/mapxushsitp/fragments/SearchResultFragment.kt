@@ -12,6 +12,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
+import androidx.navigation.navGraphViewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.mapxushsitp.adapters.SearchResultsAdapter
@@ -37,7 +38,7 @@ class SearchResultFragment : Fragment() {
     private lateinit var emptyState: LinearLayout
     private lateinit var notFoundState: LinearLayout
 
-    private val sharedViewModel: MapxusSharedViewModel by viewModels({ requireParentFragment() })
+    private val sharedViewModel: MapxusSharedViewModel by activityViewModels()
 
     private var searchResultsAdapter: SearchResultsAdapter? = null
 

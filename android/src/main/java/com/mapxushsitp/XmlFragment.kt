@@ -1,6 +1,7 @@
 package com.mapxushsitp
 
 import android.Manifest
+import android.content.Context
 import android.content.Context.LOCATION_SERVICE
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -35,10 +36,12 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentContainerView
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
+import androidx.navigation.navGraphViewModels
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -97,8 +100,8 @@ class XmlFragment : Fragment() {
   private lateinit var stepIndicatorsContainer: LinearLayout
 
   // Shared ViewModel
-  private val mapxusSharedViewModel: MapxusSharedViewModel by viewModels()
-  private val arNavigationViewModel: ARNavigationViewModel by viewModels()
+  private val mapxusSharedViewModel: MapxusSharedViewModel by activityViewModels()
+  private val arNavigationViewModel: ARNavigationViewModel by activityViewModels()
 
   // Text-to-Speech
   private lateinit var tts: TextToSpeech
@@ -124,6 +127,11 @@ class XmlFragment : Fragment() {
   ) {
     // User returned from location settings
     checkLocationServices()
+  }
+
+  override fun onAttach(context: Context) {
+    super.onAttach(context)
+    navController = getNavController()
   }
 
   override fun onCreateView(
@@ -155,6 +163,7 @@ class XmlFragment : Fragment() {
 
     mapViewProvider.getMapxusMapAsync {
       Log.d("Mapxus", "MAP GET")
+      mapxusSharedViewModel.mapxusMap = it
       setupBottomSheet()
       setupNavigation()
       setupNavigationRouteCard()
@@ -182,6 +191,12 @@ class XmlFragment : Fragment() {
       zoomLevel = 19.0
     }
     mapViewProvider = MapLibreMapViewProvider(requireContext(), mapView, mapOptions)
+    mapViewProvider.getMapxusMapAsync {
+      mapxusSharedViewModel.mapxusMap = it
+    }
+    mapView.getMapAsync {
+      mapxusSharedViewModel.maplibreMap = it
+    }
     mapxusSharedViewModel.setMapViewProvider(mapViewProvider)
     userLocation = requireView().findViewById(R.id.select_location)
 

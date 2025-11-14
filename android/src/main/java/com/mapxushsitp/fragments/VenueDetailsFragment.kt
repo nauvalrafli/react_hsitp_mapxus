@@ -15,6 +15,7 @@ import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
 import androidx.navigation.fragment.findNavController
+import androidx.navigation.navGraphViewModels
 import com.mapxushsitp.service.getTranslation
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import com.mapxushsitp.R
@@ -33,7 +34,7 @@ class VenueDetailsFragment : Fragment() {
     private lateinit var restroomCategory: View
 
     // Shared ViewModel
-    private val sharedViewModel: MapxusSharedViewModel by viewModels({ requireParentFragment() })
+    private val sharedViewModel: MapxusSharedViewModel by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,

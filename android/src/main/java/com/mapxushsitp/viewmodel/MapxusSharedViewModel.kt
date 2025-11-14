@@ -278,7 +278,7 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
     }
     fun setMapViewProvider(provider: MapViewProvider) {
         _mapViewProvider.value = provider
-        _mapViewProvider.value?.getMapxusMapAsync {
+        mapViewProvider.value?.getMapxusMapAsync {
             mapxusMap = it
             if(maplibreMap != null && routePainter == null) {
                 routePainter = RoutePainter(context, maplibreMap, mapxusMap)
@@ -348,7 +348,7 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun selectVenue(venueId: String) {
-        _mapViewProvider.value?.getMapxusMapAsync { mapxusMap ->
+        mapViewProvider.value?.getMapxusMapAsync { mapxusMap ->
             mapxusMap.selectVenueById(venueId)
             _isFloorSelectorShown.value = true
         }
@@ -364,16 +364,33 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
 
     fun setSelectedPoi(poi: PoiInfo) {
         _selectedPoi.value = poi
+      if (mapxusMap != null) {
         mapxusMap?.removeMapxusPointAnnotations()
         mapxusMap?.selectFloorById(poi.floorId ?: "")
         mapxusMap?.addMapxusPointAnnotation(
-            MapxusPointAnnotationOptions().apply {
-                position = LatLng(
-                    poi.location.lat,
-                    poi.location.lon
-                )
-            }
+          MapxusPointAnnotationOptions().apply {
+            position = LatLng(
+              poi.location.lat,
+              poi.location.lon
+            )
+          }
         )
+      } else {
+        mapViewProvider.value?.getMapxusMapAsync {
+          mapxusMap = it
+          it?.removeMapxusPointAnnotations()
+          it?.selectFloorById(poi.floorId ?: "")
+          it?.addMapxusPointAnnotation(
+            MapxusPointAnnotationOptions().apply {
+              position = LatLng(
+                poi.location.lat,
+                poi.location.lon
+              )
+            }
+          )
+        }
+      }
+
     }
 
     fun setFloorSelectorShown(shown: Boolean) {

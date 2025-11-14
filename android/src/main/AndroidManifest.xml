@@ -14,7 +14,7 @@
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
-    
+
     <application>
         <meta-data
             android:name="com.google.ar.core.API_KEY"
