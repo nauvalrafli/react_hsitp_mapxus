@@ -1,7 +1,7 @@
 import { View, StyleSheet, Text, Button } from 'react-native';
 import { MapxusHsitpView } from 'react-native-mapxus-hsitp';
 import { PermissionsAndroid, Platform, Alert } from 'react-native';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   createStaticNavigation,
   useNavigation,
@@ -50,9 +50,22 @@ function HomeScreen() {
 
 function BrokenScreen() {
   const navigation = useNavigation();
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (ref.current) {
+      (ref.current as any).setNativeProps({ customLocale: 'zh-TW' });
+    }
+  }, []);
+
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <MapxusHsitpView color="#ababab" style={styles.box} />
+      <MapxusHsitpView
+        color="#ababab"
+        customLocale="en-US"
+        style={styles.box}
+        ref={ref}
+      />
       <Button
         title="Go to Home Screen"
         onPress={() => navigation.navigate('Home' as never)}

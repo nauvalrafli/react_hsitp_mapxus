@@ -6,12 +6,9 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
-import androidx.navigation.navGraphViewModels
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import com.mapxushsitp.R
-import kotlin.getValue
 
 class ShowRouteFragment : Fragment() {
 
@@ -31,6 +28,18 @@ class ShowRouteFragment : Fragment() {
 
         initializeViews(view)
         setupClickListeners()
+    }
+
+    override fun onHiddenChanged(hidden: Boolean) {
+        if(true) {
+            sharedViewModel.routePainter?.cleanRoute()
+        }
+        super.onHiddenChanged(hidden)
+    }
+
+    override fun onPause() {
+        sharedViewModel.routePainter?.cleanRoute()
+        super.onPause()
     }
 
     private fun initializeViews(view: View) {

@@ -1,33 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">AR廁所導航</string>
-    <string name="title_activity_home">HomeActivity</string>
-    <string name="title_activity_venue">VenueActivity</string>
-    <string name="restroom">洗手間</string>
-    <string name="explore_by_venue">依場地探索</string>
-    <string name="female_toilet">女廁</string>
-    <string name="male_toilet">男廁</string>
-    <string name="accessible_toilet">無障礙廁所</string>
-    <string name="direction">方向</string>
-    <string name="navigation">導航</string>
-    <string name="show_route">顯示路線</string>
-    <string name="start_navigation">開始導航</string>
-    <string name="set_start_location">設定起點</string>
-    <string name="facilities">設施</string>
-    <string name="current_location">目前位置</string>
-    <string name="select_location_on_map">在地圖上選擇位置</string>
-    <string name="shortest_walk">最短步行路線</string>
-    <string name="lift_only">只搭電梯</string>
-    <string name="escalator_only">只搭手扶梯</string>
-    <string name="route_type">路線類型</string>
-    <string name="ok">確定</string>
-    <string name="toilet_list">廁所列表</string>
-    <string name="select_start_point">選擇起點</string>
-    <string name="almost_full">幾乎已滿</string>
-    <string name="full">已滿</string>
-    <string name="available">可用</string>
-    <string name="accuracy">準確性</string>
-    <string name="meter">公尺</string>
-    <string name="minute">剩餘 %1$d 分鐘</string>
-    <string name="second">剩餘 %1$d 秒</string>
+  <string name="app_name">AR廁所導航</string>
+  <string name="title_activity_home">HomeActivity</string>
+  <string name="title_activity_venue">VenueActivity</string>
+  <string name="restroom">洗手間</string>
+  <string name="explore_by_venue">依場地探索</string>
+  <string name="female_toilet">女廁</string>
+  <string name="male_toilet">男廁</string>
+  <string name="accessible_toilet">無障礙廁所</string>
+  <string name="direction">方向</string>
+  <string name="navigation">導航</string>
+  <string name="show_route">顯示路線</string>
+  <string name="start_navigation">開始導航</string>
+  <string name="set_start_location">設定起點</string>
+  <string name="facilities">設施</string>
+  <string name="current_location">目前位置</string>
+  <string name="select_location_on_map">在地圖上選擇位置</string>
+  <string name="shortest_walk">最短步行路線</string>
+  <string name="lift_only">只搭電梯</string>
+  <string name="escalator_only">只搭手扶梯</string>
+  <string name="route_type">路線類型</string>
+  <string name="ok">確定</string>
+  <string name="toilet_list">廁所列表</string>
+  <string name="select_start_point">選擇起點</string>
+  <string name="almost_full">幾乎已滿</string>
+  <string name="full">已滿</string>
+  <string name="available">可用</string>
+  <string name="accuracy">準確性</string>
+  <string name="meter">公尺</string>
+  <string name="minute">剩餘 %1$d 分鐘</string>
+  <string name="second">剩餘 %1$d 秒</string>
+  <string name="no_route">找不到路線，請檢查您的位置</string>
+  <string name="explore_by_building">依建築物瀏覽</string>
+  <string name="search">搜尋</string>
+  <string name="search_result">搜尋結果</string>
+  <string name="floor_information">樓層資訊</string>
+
+
+  <!-- Category   -->
+  <string name="category_company">公司</string>
+  <string name="category_shops">商店</string>
+  <string name="category_restaurant">餐廳</string>
+  <string name="category_washroom">洗手間</string>
+  <string name="category_transportation">交通</string>
+  <string name="category_utilities">公用設施</string>
 </resources>

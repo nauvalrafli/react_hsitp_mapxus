@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <LinearLayout
+        android:id="@+id/containerOnboarding"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#4Cababab"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:gravity="center"
+        android:clickable="true"
+        android:focusable="false"
+        >
+
+        <LinearLayout
+            android:orientation="vertical"
+            android:background="@drawable/bg_rounded"
+            android:backgroundTint="@color/white"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            >
+
+            <androidx.viewpager2.widget.ViewPager2
+                android:id="@+id/viewPager"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                />
+
+            <LinearLayout
+                android:id="@+id/indicatorContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="16dp"/>
+
+            <Button
+                android:id="@+id/btnGetStarted"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Get Started"
+                android:textSize="16sp"
+                android:padding="12dp"
+                android:layout_marginTop="8dp"
+                android:enabled="false"
+                android:background="@drawable/bg_rounded"
+                android:backgroundTint="@color/button_blue"
+                android:textColor="@color/white"
+                android:layout_margin="16dp"
+                android:textAllCaps="false" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</merge>

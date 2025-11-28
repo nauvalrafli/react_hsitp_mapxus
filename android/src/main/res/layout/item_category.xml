@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:paddingHorizontal="4dp"
+    android:paddingVertical="4dp">
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/category_icon_background"
+        android:padding="8dp"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:clickable="true"
+        android:focusable="true"
+        app:cardCornerRadius="32dp"
+        app:cardElevation="0dp"
+        app:cardUseCompatPadding="false"
+        app:strokeWidth="0dp"
+        tools:cardBackgroundColor="@color/soft_blue">
+
+        <ImageView
+            android:id="@+id/category_icon"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_gravity="center"
+            tools:src="@drawable/ic_toilet"
+            tools:tint="@color/primary_blue" />
+
+    </androidx.cardview.widget.CardView>
+
+    <TextView
+        android:id="@+id/category_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center_horizontal"
+        android:textColor="@android:color/black"
+        android:textSize="12sp"
+        tools:text="@string/restroom" />
+
+</LinearLayout>
+
+
+
+

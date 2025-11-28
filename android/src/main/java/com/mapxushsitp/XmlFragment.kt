@@ -6,44 +6,42 @@ import android.content.Context.LOCATION_SERVICE
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
-import android.hardware.Sensor
-import android.hardware.SensorEvent
 import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.LocaleList
 import android.os.Looper
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.util.Log
+import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.widget.AppCompatImageButton
 import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
-import androidx.core.content.ContextCompat.getSystemService
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentContainerView
 import androidx.fragment.app.activityViewModels
-import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
-import androidx.navigation.navGraphViewModels
 import com.google.android.material.bottomsheet.BottomSheetBehavior
-import com.google.android.material.button.MaterialButton
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.mapxus.map.mapxusmap.api.map.FollowUserMode
 import com.mapxus.map.mapxusmap.api.map.MapViewProvider
@@ -59,6 +57,9 @@ import com.mapxushsitp.data.model.SerializableRouteInstruction
 import com.mapxushsitp.data.model.SerializableRoutePoint
 import com.mapxushsitp.service.generateSpeakText
 import com.mapxushsitp.service.toMeterText
+import com.mapxushsitp.theme.MaterialThemeUtils
+import com.mapxushsitp.view.onboarding.OnboardingPage
+import com.mapxushsitp.view.onboarding.OnboardingView
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -67,15 +68,13 @@ import kotlinx.coroutines.withContext
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.maps.MapView
 import java.util.Locale
-import kotlin.apply
-import kotlin.getValue
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
-import kotlin.text.indices
-import kotlin.text.isNotEmpty
-import kotlin.text.orEmpty
 
-class XmlFragment : Fragment() {
+class XmlFragment(
+  private var locale: Locale? = null,
+) : Fragment() {
+  private var localizedContext: Context? = null
   lateinit var mapView: MapView
   lateinit var mapViewProvider: MapViewProvider
   lateinit var userLocation: ImageView
@@ -93,10 +92,12 @@ class XmlFragment : Fragment() {
   private lateinit var navTitleText: TextView
   private lateinit var navDistanceText: TextView
   private lateinit var navTimeText: TextView
+  private lateinit var loadingOverlay: LinearLayout
+
   private var arriveAtDestinationDialog: AlertDialog? = null
   private lateinit var navIcon: ImageView
-  private lateinit var navPreviousButton: MaterialButton
-  private lateinit var navNextButton: MaterialButton
+  private lateinit var navPreviousButton: AppCompatImageButton
+  private lateinit var navNextButton: AppCompatImageButton
   private lateinit var stepIndicatorsContainer: LinearLayout
 
   // Shared ViewModel
@@ -129,9 +130,69 @@ class XmlFragment : Fragment() {
     checkLocationServices()
   }
 
+  private fun resolveChineseLocale(sourceLocale: Locale): Locale {
+    val systemLocale = sourceLocale
+    return when {
+      systemLocale.language.equals("zh", ignoreCase = true) && systemLocale.country.equals("TW", ignoreCase = true) ->
+        Locale("zh", "TW")
+
+      systemLocale.language.equals("zh", ignoreCase = true) && systemLocale.country.equals("HK", ignoreCase = true) ->
+        Locale("zh", "HK")
+
+      systemLocale.language.equals("zh", ignoreCase = true) && systemLocale.country.equals("CN", ignoreCase = true) ->
+        Locale("zh", "CN")
+
+      systemLocale.language.equals("zh", ignoreCase = true) && systemLocale.country.isNullOrEmpty() ->
+        Locale("zh", "SG") // fallback
+
+      else -> systemLocale
+    }
+  }
+
+  private fun updateLocaleContext(base: Context): Context {
+    val desiredLocale = locale ?: Locale.getDefault()
+    val newLocale = resolveChineseLocale(desiredLocale)
+
+    // Apply locale globally for this context
+    Locale.setDefault(newLocale)
+
+    // Clone configuration with new locale
+    val config = Configuration(base.resources.configuration)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+      config.setLocales(LocaleList(newLocale))
+    } else {
+      config.setLocale(newLocale)
+    }
+
+    // Create a locale-updated context
+    val localizedContext = base.createConfigurationContext(config)
+
+    // ⭐ CRITICAL: Re-apply the Activity theme or MaterialComponents will crash
+    val themedContext = ContextThemeWrapper(localizedContext, base.theme)
+    return MaterialThemeUtils.ensureMaterialContext(themedContext)
+  }
+
+
   override fun onAttach(context: Context) {
     super.onAttach(context)
+    // Create localized context after attachment so we can safely access theme
+    localizedContext = updateLocaleContext(context)
+    mapxusSharedViewModel.context = localizedContext ?: requireContext()
     navController = getNavController()
+  }
+
+  override fun getContext(): Context? {
+    return localizedContext ?: super.getContext()
+  }
+
+  override fun onGetLayoutInflater(savedInstanceState: Bundle?): LayoutInflater {
+    val baseInflater = super.onGetLayoutInflater(savedInstanceState)
+    val ctx = localizedContext ?: updateLocaleContext(baseInflater.context)
+    return baseInflater.cloneInContext(ctx)
+  }
+
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
   }
 
   override fun onCreateView(
@@ -139,11 +200,20 @@ class XmlFragment : Fragment() {
     container: ViewGroup?,
     savedInstanceState: Bundle?
   ): View? {
-    return inflater.inflate(R.layout.activity_xml, container, false)
+    // Use the localized context which has the theme preserved
+    val ctx = localizedContext ?: updateLocaleContext(requireContext())
+    val localizedInflater = inflater.cloneInContext(ctx)
+    return localizedInflater.inflate(R.layout.activity_xml, container, false)
   }
 
   override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
     super.onViewCreated(view, savedInstanceState)
+
+    mapxusSharedViewModel.selectVehicle(mapxusSharedViewModel.sharedPreferences.getString("vehicle", RoutePlanningVehicle.FOOT) ?: RoutePlanningVehicle.FOOT)
+    isSpeaking = mapxusSharedViewModel.sharedPreferences.getBoolean("isSpeaking", true)
+
+
+    mapxusSharedViewModel.locale = locale ?: Locale.getDefault()
 
     mapxusSharedViewModel.selectedVehicle = mapxusSharedViewModel.sharedPreferences.getString("vehicle", "") ?: RoutePlanningVehicle.FOOT
     isSpeaking = mapxusSharedViewModel.sharedPreferences.getBoolean("isSpeaking", true)
@@ -162,16 +232,15 @@ class XmlFragment : Fragment() {
     setupFloatingActionButtons()
 
     mapViewProvider.getMapxusMapAsync {
-      Log.d("Mapxus", "MAP GET")
       mapxusSharedViewModel.mapxusMap = it
       setupBottomSheet()
       setupNavigation()
       setupNavigationRouteCard()
     }
-    mapView.getMapAsync {
-      Log.d("Mapxus", "MAP GET")
-      setupBottomSheet()
-      setupNavigation()
+
+    val boarded = mapxusSharedViewModel.sharedPreferences.getBoolean("onboardingDone", false)
+    if(!boarded) {
+      setupWalkthroughOverlay()
     }
   }
 
@@ -184,7 +253,7 @@ class XmlFragment : Fragment() {
       surface?.setZOrderMediaOverlay(true)
       surface?.z = 0f
     } catch (e: Exception) {
-      Log.d("Mapxus", "Unable to set map always bottom")
+      Log.d("REACT-MAPXUS", "Unable to set map always bottom")
     }
     val mapOptions = MapxusMapOptions().apply {
       floorId = "ad24bdcb0698422f8c8ab53ad6bb2665"
@@ -203,6 +272,80 @@ class XmlFragment : Fragment() {
     // Initialize shared ViewModel with map components
     mapxusSharedViewModel.setMapViewProvider(mapViewProvider)
     mapxusSharedViewModel.initPositioning(this, requireContext())
+
+    loadingOverlay = requireView().findViewById(R.id.loading_overlay)
+    mapxusSharedViewModel.isLoadingRoute.observe(viewLifecycleOwner) {
+      loadingOverlay.visibility = if (it) View.VISIBLE else View.GONE
+    }
+  }
+
+  private fun setupWalkthroughOverlay() {
+    val onboarding = view?.findViewById<OnboardingView>(R.id.containerOnboarding)
+    val pages = listOf(
+      OnboardingPage(
+        imageRes = R.drawable.baseline_my_location_24,
+        title = "Welcome to Mapxus!",
+        subtitle = "Take a look and discover what we can do for you.",
+        description = "We help you navigate... Outdoor location will be using GPS."
+      ),
+      OnboardingPage(
+        imageRes = R.drawable.figure_8_compass_calibration,
+        title = "Device Calibration",
+        subtitle = "Keep your compass accurate",
+        description = "Make sure your device compass accurate by doing calibration.",
+        isGif = true
+      ),
+      OnboardingPage(
+        imageRes = R.drawable.baseline_location_on_24,
+        title = "Explore the Map",
+        subtitle = "Browse any nearby places",
+        description = "Explore the locations around you...",
+      )
+    )
+
+    onboarding?.setup(pages)
+    onboarding?.visibility = View.VISIBLE
+  }
+
+  val didFinishRenderingFrameListener = MapView.OnDidFinishRenderingFrameListener { _,_,_ ->
+    bottomSheetBehavior.isHideable = mapxusSharedViewModel.isNavigating
+    if(bottomSheetBehavior.state != BottomSheetBehavior.STATE_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_DRAGGING && !mapxusSharedViewModel.isNavigating) {
+      bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+    }
+    if(mapxusSharedViewModel.isNavigating) {
+      bottomSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+    }
+  }
+
+  val onGlobalLayoutListener = ViewTreeObserver.OnGlobalLayoutListener {
+    val newHeight = bottomSheet.measuredHeight
+    // Only update peekHeight if not in half-expanded state (to preserve half-height setting)
+    if (bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED) {
+      if (bottomSheetBehavior.peekHeight != newHeight) {
+        bottomSheetBehavior.peekHeight = newHeight
+        arNavigationFab.visibility = View.GONE
+      } else if(!mapxusSharedViewModel.isNavigating) {
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+        arNavigationFab.visibility = View.GONE
+      } else {
+        arNavigationFab.visibility = View.VISIBLE
+      }
+    } else {
+      // When in half-expanded state, keep it draggable and maintain visibility
+      arNavigationFab.visibility = View.GONE
+    }
+
+    if(bottomSheetBehavior.state != BottomSheetBehavior.STATE_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_DRAGGING && !mapxusSharedViewModel.isNavigating) {
+      bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+    }
+  }
+
+  val bottomSheetCallback = object : BottomSheetBehavior.BottomSheetCallback() {
+    override fun onStateChanged(bottomSheet: View, newState: Int) {
+    }
+
+    override fun onSlide(bottomSheet: View, slideOffset: Float) {
+    }
   }
 
   fun setupBottomSheet() {
@@ -214,51 +357,16 @@ class XmlFragment : Fragment() {
 
     bottomSheetBehavior.isHideable = false
     bottomSheetBehavior.isDraggable = true
-    bottomSheetBehavior.skipCollapsed = false
+    bottomSheetBehavior.skipCollapsed = true
     bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
 
     bottomSheet.visibility = View.VISIBLE
 
-    mapView.addOnDidFinishRenderingFrameListener { _,_,_ ->
-      bottomSheetBehavior.isHideable = mapxusSharedViewModel.isNavigating
-      if(bottomSheetBehavior.state != BottomSheetBehavior.STATE_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_DRAGGING && !mapxusSharedViewModel.isNavigating) {
-        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
-      }
-      if(mapxusSharedViewModel.isNavigating) {
-        bottomSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
-      }
-    }
+    mapView.addOnDidFinishRenderingFrameListener(didFinishRenderingFrameListener)
 
-    bottomSheet.viewTreeObserver.addOnGlobalLayoutListener {
-      val newHeight = bottomSheet.measuredHeight
-      // Only update peekHeight if not in half-expanded state (to preserve half-height setting)
-      if (bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED) {
-        if (bottomSheetBehavior.peekHeight != newHeight) {
-          bottomSheetBehavior.peekHeight = newHeight
-          arNavigationFab.visibility = View.GONE
-        } else if(!mapxusSharedViewModel.isNavigating) {
-          bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
-          arNavigationFab.visibility = View.GONE
-        } else {
-          arNavigationFab.visibility = View.VISIBLE
-        }
-      } else {
-        // When in half-expanded state, keep it draggable and maintain visibility
-        arNavigationFab.visibility = View.GONE
-      }
+    bottomSheet.viewTreeObserver.addOnGlobalLayoutListener(onGlobalLayoutListener)
 
-      if(bottomSheetBehavior.state != BottomSheetBehavior.STATE_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_DRAGGING && !mapxusSharedViewModel.isNavigating) {
-        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
-      }
-    }
-
-    bottomSheetBehavior.addBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
-      override fun onStateChanged(bottomSheet: View, newState: Int) {
-      }
-
-      override fun onSlide(bottomSheet: View, slideOffset: Float) {
-      }
-    })
+    bottomSheetBehavior.addBottomSheetCallback(bottomSheetCallback)
 
     requireActivity().onBackPressedDispatcher.addCallback(this, object: OnBackPressedCallback(true) {
       override fun handleOnBackPressed() {
@@ -268,15 +376,18 @@ class XmlFragment : Fragment() {
           mapxusSharedViewModel.setInstructionIndex(0)
           mapxusSharedViewModel.isNavigating = false
         } else if(navController?.currentDestination?.route != "venue_screen") {
-          requireActivity().finish()
-        } else {
           if(navController?.currentDestination?.id == R.id.poiDetailsFragment) {
             mapxusSharedViewModel.mapxusMap?.removeMapxusPointAnnotations()
           }
           navController?.navigateUp()
+        } else {
+          val containerView = requireView().parent as? ViewGroup
+          containerView?.removeAllViews()   // remove fragment UI
+          parentFragmentManager.beginTransaction()
+            .remove(this@XmlFragment)
+            .commitAllowingStateLoss()
         }
       }
-
     })
   }
 
@@ -290,6 +401,7 @@ class XmlFragment : Fragment() {
         val navHostFragment = childFragmentManager.findFragmentById(R.id.fragment_container) as? NavHostFragment
         withContext(Dispatchers.Main) {
           navController = navHostFragment?.navController
+          mapxusSharedViewModel.navController = navController
           navController?.addOnDestinationChangedListener { _, destination, _ ->
             // Don't expand if navigating to ShowRouteFragment (keep half-expanded)
             if (destination.id != R.id.showRouteFragment) {
@@ -316,12 +428,6 @@ class XmlFragment : Fragment() {
           mapxusSharedViewModel.mapxusMap?.let { mapxusMap ->
             val zoomLevel = mapxusSharedViewModel.maplibreMap?.cameraPosition?.zoom ?: 19.0
             mapxusMap.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
-            lifecycleScope.launch {
-              delay(500)
-              mapxusSharedViewModel.maplibreMap?.cameraPosition = CameraPosition.Builder()
-                .zoom(zoomLevel)
-                .build()
-            }
           }
         } else {
           showLocationSettingsDialog()
@@ -422,7 +528,7 @@ class XmlFragment : Fragment() {
     val endStep = (startStep + maxVisibleIndicators).coerceAtMost(totalSteps)
 
     for (i in startStep until endStep) {
-      val indicator = View(requireContext()).apply {
+      val indicator = View(getContext() ?: requireContext()).apply {
         val size = resources.getDimensionPixelSize(android.R.dimen.app_icon_size) / 4
         layoutParams = LinearLayout.LayoutParams(size, size).apply {
           setMargins(4, 4, 4, 4)
@@ -435,7 +541,7 @@ class XmlFragment : Fragment() {
         // Apply tint
         backgroundTintList = ColorStateList.valueOf(
           ContextCompat.getColor(
-            requireContext(),
+            getContext() ?: requireContext(),
             if (i == currentStep) android.R.color.holo_blue_light else android.R.color.darker_gray
           )
         )
@@ -536,7 +642,7 @@ class XmlFragment : Fragment() {
     val btnGoPrevious = dialogView.findViewById<TextView>(R.id.btn_go_previous)
     val btnFinished = dialogView.findViewById<TextView>(R.id.btn_finished)
 
-    arriveAtDestinationDialog = AlertDialog.Builder(requireContext())
+    arriveAtDestinationDialog = AlertDialog.Builder(requireActivity())
       .setView(dialogView)
       .setCancelable(false)
       .create()
@@ -559,7 +665,9 @@ class XmlFragment : Fragment() {
       arriveAtDestinationDialog = null
     }
 
-    arriveAtDestinationDialog?.show()
+    if (isAdded && !requireActivity().isFinishing && !requireActivity().isDestroyed) {
+      arriveAtDestinationDialog?.show()
+    }
   }
 
   private fun endNavigation() {
@@ -587,7 +695,7 @@ class XmlFragment : Fragment() {
     val destinationLocationSerializable = SerializableRoutePoint(
       mapxusSharedViewModel.selectedPoi?.value?.location?.lat ?: 0.0,
       mapxusSharedViewModel.selectedPoi?.value?.location?.lon ?: 0.0,
-      mapxusSharedViewModel.selectedPoi?.value?.floorId ?: ""
+      mapxusSharedViewModel.selectedPoi?.value?.floorId ?: mapxusSharedViewModel.selectedPoi?.value?.sharedFloorId ?: ""
     )
 
     val instructionListSerializable = mapxusSharedViewModel.instructionList.value?.mapNotNull {
@@ -675,9 +783,9 @@ class XmlFragment : Fragment() {
   }
 
   private fun initializeTTS() {
-    tts = TextToSpeech(requireContext()) { status ->
+    tts = TextToSpeech(getContext() ?: requireContext()) { status ->
       if (status == TextToSpeech.SUCCESS) {
-        val locale = Locale.getDefault()
+        val locale = mapxusSharedViewModel.locale
         val language = if (locale.language.contains("zh")) locale else Locale("en-US")
         Handler(Looper.getMainLooper()).postDelayed({
           tts.setLanguage(language)
@@ -705,6 +813,12 @@ class XmlFragment : Fragment() {
   }
 
   override fun onDestroy() {
+    mapxusSharedViewModel.mapView.value?.removeOnDidFinishRenderingFrameListener(didFinishRenderingFrameListener)
+    bottomSheet.viewTreeObserver.addOnGlobalLayoutListener(onGlobalLayoutListener)
+    bottomSheetBehavior.removeBottomSheetCallback(bottomSheetCallback)
+
+    mapxusSharedViewModel.destroy()
+
     mapxusSharedViewModel.mapView.value?.onDestroy()
     // Clean up TTS
     if (::tts.isInitialized) {
@@ -871,7 +985,7 @@ class XmlFragment : Fragment() {
         // we assume precise location is enabled (default behavior)
         // and don't prompt the user
       } else {
-        Log.d("XmlActivity", "Precise location is enabled")
+        Log.d("REACT-MAPXUS", "Precise location is enabled")
       }
     }
   }
@@ -879,17 +993,17 @@ class XmlFragment : Fragment() {
   private fun showPermissionDialog() {
     val missingPermissions = mutableListOf<String>()
 
-    if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+    if (ContextCompat.checkSelfPermission(getContext() ?: requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
       != PackageManager.PERMISSION_GRANTED) {
       missingPermissions.add("Fine Location")
     }
 
-    if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_COARSE_LOCATION)
+    if (ContextCompat.checkSelfPermission(getContext() ?: requireContext(), Manifest.permission.ACCESS_COARSE_LOCATION)
       != PackageManager.PERMISSION_GRANTED) {
       missingPermissions.add("Coarse Location")
     }
 
-    if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA)
+    if (ContextCompat.checkSelfPermission(getContext() ?: requireContext(), Manifest.permission.CAMERA)
       != PackageManager.PERMISSION_GRANTED) {
       missingPermissions.add("Camera")
     }
@@ -901,7 +1015,7 @@ class XmlFragment : Fragment() {
         missingPermissions.joinToString("\n• ", "• ")
     }
 
-    AlertDialog.Builder(requireContext())
+    AlertDialog.Builder(getContext() ?: requireContext())
       .setTitle("Permissions Required")
       .setMessage(message)
       .setPositiveButton("Grant Permissions") { _, _ ->
@@ -913,7 +1027,7 @@ class XmlFragment : Fragment() {
 
   private fun showPreciseLocationDialog() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      AlertDialog.Builder(requireContext())
+      AlertDialog.Builder(getContext() ?: requireContext())
         .setTitle("Precise Location Required")
         .setMessage("For best accuracy with Mapxus Positioning SDK 2.0.0+, please ensure precise location is enabled.\n\n" +
           "This app requires precise location to avoid ERROR_LOCATION_SERVICE_DISABLED errors.\n\n" +
@@ -927,7 +1041,7 @@ class XmlFragment : Fragment() {
   }
 
   private fun showLocationSettingsDialog() {
-    AlertDialog.Builder(requireContext())
+    AlertDialog.Builder(getContext() ?: requireContext())
       .setTitle("Location Services Disabled")
       .setMessage("Please enable location services to use this feature.")
       .setPositiveButton("Open Settings") { _, _ ->
@@ -951,7 +1065,7 @@ class XmlFragment : Fragment() {
       // Open app details settings where user can configure location permissions
       // This is the correct way to open app-specific location settings on Android 12+
       val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-        data = android.net.Uri.fromParts("package", requireContext().packageName, null)
+        data = android.net.Uri.fromParts("package", (getContext() ?: requireContext()).packageName, null)
       }
       locationSettingsLauncher.launch(intent)
     } else {
@@ -959,4 +1073,5 @@ class XmlFragment : Fragment() {
       openLocationSettings()
     }
   }
+
 }

@@ -1,34 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">AR厕所导航</string>
-    <string name="title_activity_home">HomeActivity</string>
-    <string name="title_activity_venue">VenueActivity</string>
-    <string name="restroom">洗手间</string>
-    <string name="explore_by_venue">按场地探索</string>
-    <string name="female_toilet">女洗手间</string>
-    <string name="male_toilet">男洗手间</string>
-    <string name="accessible_toilet">无障碍洗手间</string>
-    <string name="direction">方向</string>
-    <string name="navigation">导航</string>
-    <string name="show_route">显示路线</string>
-    <string name="start_navigation">开始导航</string>
-    <string name="set_start_location">设置起点</string>
-    <string name="facilities">设施</string>
-    <string name="current_location">当前位置</string>
-    <string name="select_location_on_map">在地图上选择位置</string>
-    <string name="shortest_walk">最短步行路线</string>
-    <string name="lift_only">仅乘电梯</string>
-    <string name="escalator_only">仅乘扶梯</string>
-    <string name="route_type">路线类别</string>
-    <string name="ok">确定</string>
-    <string name="toilet_list">洗手间列表</string>
-    <string name="select_start_point">选择起点</string>
-    <string name="almost_full">接近满员</string>
-    <string name="full">已满</string>
-    <string name="available">可用</string>
-    <string name="accuracy">准确度</string>
-    <string name="meter">米</string>
-    <string name="minute">剩余 %1$d 分钟</string>
-    <string name="second">剩余 %1$d 秒</string>
+  <string name="app_name">AR厕所导航</string>
+  <string name="title_activity_home">HomeActivity</string>
+  <string name="title_activity_venue">VenueActivity</string>
+  <string name="restroom">洗手间</string>
+  <string name="explore_by_venue">按场地探索</string>
+  <string name="female_toilet">女洗手间</string>
+  <string name="male_toilet">男洗手间</string>
+  <string name="accessible_toilet">无障碍洗手间</string>
+  <string name="direction">方向</string>
+  <string name="navigation">导航</string>
+  <string name="show_route">显示路线</string>
+  <string name="start_navigation">开始导航</string>
+  <string name="set_start_location">设置起点</string>
+  <string name="facilities">设施</string>
+  <string name="current_location">当前位置</string>
+  <string name="select_location_on_map">在地图上选择位置</string>
+  <string name="shortest_walk">最短步行路线</string>
+  <string name="lift_only">仅乘电梯</string>
+  <string name="escalator_only">仅乘扶梯</string>
+  <string name="route_type">路线类别</string>
+  <string name="ok">确定</string>
+  <string name="toilet_list">洗手间列表</string>
+  <string name="select_start_point">选择起点</string>
+  <string name="almost_full">接近满员</string>
+  <string name="full">已满</string>
+  <string name="available">可用</string>
+  <string name="accuracy">准确度</string>
+  <string name="meter">米</string>
+  <string name="minute">剩余 %1$d 分钟</string>
+  <string name="second">剩余 %1$d 秒</string>
+  <string name="no_route">未找到路线，请检查您所在的位置</string>
+  <string name="explore_by_building">按建筑浏览</string>
+  <string name="search">搜索</string>
+  <string name="search_result">搜索结果</string>
+  <string name="floor_information">楼层信息</string>
 
+
+  <!-- Category   -->
+  <string name="category_company">公司</string>
+  <string name="category_shops">商店</string>
+  <string name="category_restaurant">餐厅</string>
+  <string name="category_washroom">洗手间</string>
+  <string name="category_transportation">交通</string>
+  <string name="category_utilities">公共设施</string>
 </resources>

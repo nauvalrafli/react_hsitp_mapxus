@@ -3,6 +3,7 @@ package com.mapxushsitp
 import android.content.Context
 import android.graphics.Color
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,13 +12,15 @@ import androidx.core.view.children
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import com.facebook.react.module.annotations.ReactModule
+import com.facebook.react.uimanager.SimpleViewManager
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.UIManagerModule
 import com.facebook.react.uimanager.ViewGroupManager
 import com.facebook.react.uimanager.annotations.ReactProp
+import java.util.Locale
 
 @ReactModule(name = MapxusHsitpViewManager.NAME)
-class MapxusHsitpViewManager : ViewGroupManager<MapxusHsitpView>() {
+class MapxusHsitpViewManager : SimpleViewManager<MapxusHsitpView>()  {
   override fun getName() = NAME
 
   override fun createViewInstance(reactContext: ThemedReactContext): MapxusHsitpView {
@@ -26,7 +29,20 @@ class MapxusHsitpViewManager : ViewGroupManager<MapxusHsitpView>() {
 
   @ReactProp(name = "color")
   fun setColor(view: MapxusHsitpView?, color: String?) {
+    Log.d("REACT-MAPXUS", color.toString())
     view?.setBackgroundColor(Color.parseColor(color))
+  }
+
+  @ReactProp(name = "customLocale")
+  fun setCustomLocale(view: MapxusHsitpView?, locale: String?) {
+    val localeStr = locale ?: "en-US"
+    Log.d("REACT-MAPXUS", localeStr)
+    if (localeStr.contains("-")) {
+      val split = localeStr.split("-")
+      view?.locale = Locale(split[0], split[1])
+    } else {
+      view?.locale = Locale(localeStr)
+    }
   }
 
   companion object {
@@ -41,7 +57,6 @@ class MapxusWrapperFragment(private var frame: MapxusHsitpView): Fragment() {
     savedInstanceState: Bundle?
   ): View? {
     return super.onCreateView(inflater, container, savedInstanceState)
-    return frame
   }
 }
 

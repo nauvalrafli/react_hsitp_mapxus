@@ -1,7 +1,7 @@
 <resources>
 
-    <!-- Base application theme using Material Components (compatible with AppCompat). -->
-    <style name="AppTheme" parent="Theme.Material3.Light.NoActionBar">
+    <!-- Base application theme now derives from AppCompat -->
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
         <item name="colorPrimary">@android:color/white</item>

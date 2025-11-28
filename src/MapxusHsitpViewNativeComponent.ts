@@ -1,7 +1,14 @@
-import { codegenNativeComponent, type ViewProps } from 'react-native';
+import {
+  codegenNativeComponent,
+  type HostComponent,
+  type ViewProps,
+} from 'react-native';
 
-interface NativeProps extends ViewProps {
+export interface NativeProps extends ViewProps {
   color?: string;
+  customLocale?:  'en-US' | 'zh-HK' | 'zh-CN' | undefined;
 }
 
-export default codegenNativeComponent<NativeProps>('MapxusHsitpView');
+export default codegenNativeComponent<NativeProps>(
+  'MapxusHsitpView'
+) as HostComponent<NativeProps>;

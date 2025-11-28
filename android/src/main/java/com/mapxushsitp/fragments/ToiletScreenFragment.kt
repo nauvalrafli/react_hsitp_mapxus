@@ -7,9 +7,7 @@ import android.view.ViewGroup
 import android.widget.ImageButton
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
-import androidx.navigation.navGraphViewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.mapxushsitp.adapters.ToiletListAdapter
@@ -75,8 +73,9 @@ class ToiletScreenFragment : Fragment() {
         buildingSearch.setBuildingSearchResultListener(object: BuildingSearch.BuildingSearchResultListener {
             override fun onGetBuildingResult(p0: BuildingResult?) {
                 toiletListAdapter = ToiletListAdapter(p0?.indoorBuildingList ?: listOf(), sharedViewModel.locale) { toiletItem ->
-                    sharedViewModel.setSelectedPoi(toiletItem)
-                    findNavController().navigate(R.id.action_toiletScreen_to_poiDetails)
+                    sharedViewModel.setSelectedPoi(toiletItem) {
+                        findNavController().navigate(R.id.action_toiletScreen_to_poiDetails)
+                    }
                 }
 
                 toiletList.apply {
@@ -86,8 +85,9 @@ class ToiletScreenFragment : Fragment() {
             }
             override fun onGetBuildingDetailResult(p0: BuildingDetailResult?) {
                 toiletListAdapter = ToiletListAdapter(p0?.indoorBuildingList ?: listOf(), sharedViewModel.locale) { toiletItem ->
-                    sharedViewModel.setSelectedPoi(toiletItem)
-                    findNavController().navigate(R.id.action_toiletScreen_to_poiDetails)
+                    sharedViewModel.setSelectedPoi(toiletItem) {
+                        findNavController().navigate(R.id.action_toiletScreen_to_poiDetails)
+                    }
                 }
 
                 toiletList.apply {
@@ -146,6 +146,9 @@ class ToiletScreenFragment : Fragment() {
         })
         val opt = PoiSearchOption().apply {
             mPageCapacity = 30
+            if(sharedViewModel.selectedBuilding.value != null && sharedViewModel.selectedBuilding.value?.buildingId != null) {
+                setBuildingId(sharedViewModel.selectedBuilding.value?.buildingId)
+            }
         }
         opt.setVenueId(sharedViewModel.selectedVenue.value?.id)
         val type = when (type) {

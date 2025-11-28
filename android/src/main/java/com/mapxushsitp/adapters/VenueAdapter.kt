@@ -40,7 +40,7 @@ class VenueAdapter(
         holder.bind(venue)
     }
 
-    override fun getItemCount(): Int = venues.size
+    override fun getItemCount(): Int = building.size
 
     inner class VenueViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val venueName: TextView = itemView.findViewById(R.id.venue_name)

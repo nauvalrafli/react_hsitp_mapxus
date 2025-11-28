@@ -4,13 +4,12 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.ImageButton
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
-import androidx.navigation.navGraphViewModels
 import com.mapxushsitp.service.getTranslation
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import com.mapxushsitp.R
@@ -32,7 +31,7 @@ class PoiDetailsFragment : Fragment() {
     private lateinit var poiSubtitle: TextView
     private lateinit var shareButton: ImageButton
     private lateinit var facilitiesChip: Chip
-    private lateinit var directionButton: MaterialButton
+    private lateinit var directionButton: Button
     private val sharedViewModel: MapxusSharedViewModel by activityViewModels()
 
     override fun onCreateView(
@@ -56,8 +55,9 @@ class PoiDetailsFragment : Fragment() {
         poiTitle = view.findViewById(R.id.poi_title)
         poiSubtitle = view.findViewById(R.id.poi_subtitle)
         shareButton = view.findViewById(R.id.share_button)
-        facilitiesChip = view.findViewById(R.id.facilities_chip)
+//        facilitiesChip = view.findViewById(R.id.facilities_chip)
         directionButton = view.findViewById(R.id.direction_button)
+        directionButton.text = sharedViewModel.context.resources.getString(R.string.direction)
 
         sharedViewModel.startLatLng = null
         sharedViewModel.selectedStartText = ""
@@ -65,15 +65,12 @@ class PoiDetailsFragment : Fragment() {
 
     private fun setupClickListeners() {
         backButton.setOnClickListener {
+            sharedViewModel.mapxusMap?.removeMapxusPointAnnotations()
             findNavController().navigateUp()
         }
 
         shareButton.setOnClickListener {
             // TODO: Implement share functionality
-        }
-
-        facilitiesChip.setOnClickListener {
-            // TODO: Handle facilities chip click
         }
 
         directionButton.setOnClickListener {

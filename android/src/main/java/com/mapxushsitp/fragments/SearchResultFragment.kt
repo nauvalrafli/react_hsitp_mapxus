@@ -5,14 +5,14 @@ import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
-import androidx.navigation.navGraphViewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.mapxushsitp.adapters.SearchResultsAdapter
@@ -26,19 +26,18 @@ import com.mapxus.map.mapxusmap.api.services.model.poi.PoiDetailResult
 import com.mapxus.map.mapxusmap.api.services.model.poi.PoiOrientationResult
 import com.mapxus.map.mapxusmap.api.services.model.poi.PoiResult
 import com.mapxus.map.mapxusmap.api.services.model.poi.PoiCategoryResult
-import kotlin.getValue
 
 class SearchResultFragment : Fragment() {
 
     private lateinit var backButton: ImageButton
-    private lateinit var searchInputLayout: TextInputLayout
-    private lateinit var searchInput: TextInputEditText
+    private lateinit var searchInputLayout: LinearLayout
+    private lateinit var searchInput: EditText
     private lateinit var searchResultsList: RecyclerView
     private lateinit var loadingState: LinearLayout
     private lateinit var emptyState: LinearLayout
     private lateinit var notFoundState: LinearLayout
 
-    private val sharedViewModel: MapxusSharedViewModel by activityViewModels()
+    val sharedViewModel: MapxusSharedViewModel by activityViewModels()
 
     private var searchResultsAdapter: SearchResultsAdapter? = null
 
@@ -60,12 +59,14 @@ class SearchResultFragment : Fragment() {
 
     private fun initializeViews(view: View) {
         backButton = view.findViewById(R.id.back_button)
-        searchInputLayout = view.findViewById(R.id.search_input_layout)
-        searchInput = view.findViewById(R.id.search_input)
+        searchInputLayout = view.findViewById(R.id.text_input_layout)
+        searchInput = view.findViewById(R.id.et_search)
         searchResultsList = view.findViewById(R.id.search_results_list)
         loadingState = view.findViewById(R.id.loading_state)
         emptyState = view.findViewById(R.id.empty_state)
         notFoundState = view.findViewById(R.id.not_found_state)
+
+        searchInput.hint = sharedViewModel.context.resources.getString(R.string.search)
 
         // Show empty state initially instead of performing empty search
         showEmptyState()
@@ -76,32 +77,25 @@ class SearchResultFragment : Fragment() {
             findNavController().navigateUp()
         }
 
-        searchInput.setOnEditorActionListener(object : TextView.OnEditorActionListener {
-            override fun onEditorAction(
-                p0: TextView?,
-                p1: Int,
-                p2: KeyEvent?
-            ): Boolean {
-                if(p2?.keyCode == KeyEvent.KEYCODE_ENTER) {
-                    performSearch()
-                    val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
-                    imm?.hideSoftInputFromWindow(searchInput.windowToken, 0)
-                }
-                return true
-            }
-
-        })
-
-        // Add click listener to search icon
-        searchInputLayout.setEndIconOnClickListener {
+        searchInput.setOnEditorActionListener { p0, p1, p2 ->
+          if (p2?.keyCode == KeyEvent.KEYCODE_ENTER) {
             performSearch()
+            val imm =
+              requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+            imm?.hideSoftInputFromWindow(searchInput.windowToken, 0)
+          }
+          if (p1 == EditorInfo.IME_ACTION_SEARCH) {
+            performSearch()
+          }
+          true
         }
     }
 
     private fun setupRecyclerView() {
         searchResultsAdapter = SearchResultsAdapter(locale = sharedViewModel.locale) { poiInfo ->
-            sharedViewModel.setSelectedPoi(poiInfo)
-            findNavController().navigate(R.id.action_searchResult_to_poiDetails)
+            sharedViewModel.setSelectedPoi(poiInfo){
+                findNavController().navigate(R.id.action_searchResult_to_poiDetails)
+            }
         }
 
         searchResultsList.apply {

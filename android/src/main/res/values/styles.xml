@@ -2,9 +2,17 @@
 <resources>
 
     <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.Material3.Light.NoActionBar">
+    <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+    </style>
+
+    <!-- Fallback theme ensuring Material attributes are available inside the library -->
+    <style name="MapxusHsitpTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:colorBackground">@android:color/white</item>
+        <item name="colorPrimary">@android:color/holo_blue_light</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorSecondary">@android:color/darker_gray</item>
     </style>
 
 </resources>

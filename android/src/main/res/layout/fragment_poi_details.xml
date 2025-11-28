@@ -20,7 +20,9 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:src="@drawable/ic_arrow_back"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            android:background="@color/white"
+            app:tint="@color/black"
+            android:scaleType="centerInside"
             android:contentDescription="Back" />
 
         <!-- Title and Subtitle -->
@@ -67,37 +69,40 @@
         android:layout_height="16dp" />
 
     <!-- Tags/Categories -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
+<!--    <LinearLayout-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:orientation="horizontal">-->
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/facilities_chip"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/facilities"
-            android:textSize="12sp"
-            app:chipIcon="@drawable/ic_dot"
-            app:chipIconTint="@color/purple"
-            style="@style/Widget.Material3.Chip.Assist" />
+<!--        <com.google.android.material.chip.Chip-->
+<!--            android:id="@+id/facilities_chip"-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:text="@string/facilities"-->
+<!--            android:textSize="12sp"-->
+<!--            app:chipIcon="@drawable/ic_dot"-->
+<!--            app:chipIconTint="@color/purple"-->
+<!--            style="@style/Widget.Material3.Chip.Assist" />-->
 
-    </LinearLayout>
+<!--    </LinearLayout>-->
 
     <View
         android:layout_width="match_parent"
         android:layout_height="16dp" />
 
     <!-- Direction Button -->
-    <com.google.android.material.button.MaterialButton
+    <Button
         android:id="@+id/direction_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:textAllCaps="false"
         android:text="@string/direction"
         android:textSize="16sp"
         android:textStyle="bold"
         android:paddingVertical="8dp"
-        app:cornerRadius="8dp"
-        app:backgroundTint="@color/primary_blue" />
+        android:background="@drawable/bg_rounded"
+        app:backgroundTint="@color/primary_blue"
+        android:textColor="@color/white"
+        />
 
 </LinearLayout>

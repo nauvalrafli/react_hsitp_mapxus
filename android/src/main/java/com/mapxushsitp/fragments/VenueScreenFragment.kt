@@ -7,12 +7,11 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
 import androidx.navigation.fragment.findNavController
-import androidx.navigation.navGraphViewModels
 import androidx.viewpager2.widget.ViewPager2
 import com.mapxushsitp.adapters.VenueAdapter
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
@@ -23,7 +22,6 @@ import com.mapxus.map.mapxusmap.api.services.model.BuildingSearchOption
 import com.mapxus.map.mapxusmap.api.services.model.VenueSearchOption
 import com.mapxus.map.mapxusmap.api.services.model.building.IndoorBuildingInfo
 import com.mapxus.map.mapxusmap.api.services.model.venue.VenueInfo
-import kotlin.getValue
 
 class VenueScreenFragment : Fragment() {
 
@@ -59,6 +57,7 @@ class VenueScreenFragment : Fragment() {
     private fun initializeViews(view: View) {
         venuePager = view.findViewById(R.id.venue_pager)
         paginationIndicators = view.findViewById(R.id.pagination_indicators)
+        view.findViewById<TextView>(R.id.tvExplore).setText(sharedViewModel.context.resources.getString(R.string.explore_by_building))
     }
 
     private fun setupViewPager() {
@@ -100,7 +99,6 @@ class VenueScreenFragment : Fragment() {
         venueSearch.setVenueSearchResultListener { result ->
             if(result != null && result.venueInfoList != null) {
                 val venues = result.venueInfoList
-                Log.d("Venue", venues.get(0).buildings.size.toString())
                 sharedViewModel.updateVenues(venues)
                 updateVenues(venues)
             }

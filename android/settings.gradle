@@ -1,0 +1,8 @@
+pluginManagement {
+  includeBuild("../node_modules/@react-native/gradle-plugin")
+}
+
+rootProject.name = "react-native-mapxus-hsitp"
+
+includeBuild("../node_modules/@react-native/gradle-plugin")
+

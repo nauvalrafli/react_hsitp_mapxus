@@ -1,9 +1,9 @@
 package com.mapxushsitp
 
 import android.content.Context
+import android.content.res.Configuration
 import android.os.Build
 import android.util.AttributeSet
-import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -11,6 +11,8 @@ import androidx.annotation.RequiresApi
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.commit
 import com.facebook.react.uimanager.ThemedReactContext
+import com.mapxushsitp.theme.MaterialThemeUtils
+import java.util.Locale
 
 @RequiresApi(Build.VERSION_CODES.O)
 class MapxusHsitpView : FrameLayout {
@@ -18,27 +20,35 @@ class MapxusHsitpView : FrameLayout {
   private val fragmentContainerId = View.generateViewId()
   private var fragmentAttached = false
   private var container: FrameLayout? = null
+  private var reactContext: ThemedReactContext? = null
 
-  constructor(context: Context) : super(context) {
-    Log.d("REACT-MAPXUS", "CONSTRUCT")
-    initView(context)
+  var locale: Locale = Locale.getDefault()
+    set(value) {
+      if (field == value) return
+      field = value
+      refreshFragmentForLocaleChange()
+    }
+
+  constructor(context: Context) : super(MaterialThemeUtils.ensureMaterialContext(context)) {
+    reactContext = context as? ThemedReactContext
+    initView()
   }
 
-  constructor(context: Context, attrs: AttributeSet?) : super(context, attrs) {
-    Log.d("REACT-MAPXUS", "CONSTRUCT")
-    initView(context)
+  constructor(context: Context, attrs: AttributeSet?) : super(MaterialThemeUtils.ensureMaterialContext(context), attrs) {
+    reactContext = context as? ThemedReactContext
+    initView()
   }
 
   constructor(context: Context, attrs: AttributeSet?, defStyleAttr: Int) : super(
-    context,
+    MaterialThemeUtils.ensureMaterialContext(context),
     attrs,
     defStyleAttr
   ) {
-    Log.d("REACT-MAPXUS", "CONSTRUCT")
-    initView(context)
+    reactContext = context as? ThemedReactContext
+    initView()
   }
 
-  private fun initView(context: Context) {
+  private fun initView() {
     container = FrameLayout(context).apply {
       id = fragmentContainerId
       layoutParams = LayoutParams(
@@ -48,14 +58,20 @@ class MapxusHsitpView : FrameLayout {
       visibility = View.VISIBLE
     }
     addView(container)
+    val activity = reactContext?.currentActivity as? FragmentActivity ?: return
+    val config = Configuration().apply {
+      setLocale(this@MapxusHsitpView.locale)
+    }
+
+    val localizedContext = activity.createConfigurationContext(config)
+    val resource = localizedContext.resources
+
   }
 
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
-    Log.d("REACT-MAPXUS", "onAttachedToWindow - width=$width, height=$height")
     post {
       post {
-        Log.d("REACT-MAPXUS", "After post - width=$width, height=$height, container=${container?.width}*${container?.height}")
         attachFragmentIfNecessary()
         requestLayout()
         invalidate()
@@ -74,8 +90,6 @@ class MapxusHsitpView : FrameLayout {
         container.layoutParams = LayoutParams(newWidth, newHeight)
         container.layout(0, 0, newWidth, newHeight)
         container.visibility = View.VISIBLE
-
-        Log.d("REACT-MAPXUS", "Layout: Parent=$newWidth*$newHeight, Container=${container.width}*${container.height}")
       }
     }
   }
@@ -87,8 +101,7 @@ class MapxusHsitpView : FrameLayout {
 
   private fun attachFragmentIfNecessary() {
     if (fragmentAttached) return
-    val themedContext = context as? ThemedReactContext ?: return
-    val activity = themedContext.currentActivity as? FragmentActivity ?: return
+    val activity = reactContext?.currentActivity as? FragmentActivity ?: return
 
     val tag = fragmentTag()
     val existing = activity.supportFragmentManager.findFragmentByTag(tag)
@@ -104,7 +117,10 @@ class MapxusHsitpView : FrameLayout {
       container?.requestLayout()
       container?.invalidate()
 
-      val fragment = XmlFragment()
+      val fragment = XmlFragment(
+        locale = locale,
+      )
+      activity.resources.configuration.setLocale(locale)
       activity.supportFragmentManager.commit {
         replace(container?.id ?: 0, fragment, fragmentTag())
       }
@@ -122,24 +138,31 @@ class MapxusHsitpView : FrameLayout {
           fragView?.measure(widthSpec, heightSpec)
           fragView?.layout(0, 0, width, height)
           fragView?.invalidate()
-
-          Log.d("REACT-MAPXUS", "h: ${fragment.view?.height} w: ${fragment.view?.width}")
-          Log.d("REACT-MAPXUS", "ch: ${container?.height} cw: ${container?.width}")
-          Log.d("REACT-MAPXUS", "ph: $height pw: $width")
         }
       }
     }
   }
 
   private fun detachFragmentIfNecessary() {
-    val themedContext = context as? ThemedReactContext ?: return
-    val activity = themedContext.currentActivity as? FragmentActivity ?: return
-//    activity.supportFragmentManager.findFragmentByTag(fragmentTag())?.let { fragment ->
-//      activity.supportFragmentManager.commit(allowStateLoss = true) {
-//        remove(fragment)
-//      }
-//    }
+    val activity = reactContext?.currentActivity as? FragmentActivity ?: return
+    activity.supportFragmentManager.findFragmentByTag(fragmentTag())?.let { fragment ->
+      activity.supportFragmentManager.commit() {
+        remove(fragment)
+      }
+    }
     fragmentAttached = false
+  }
+
+  private fun refreshFragmentForLocaleChange() {
+    if (!fragmentAttached || !isAttachedToWindow) {
+      return
+    }
+
+    post {
+      detachFragmentIfNecessary()
+      fragmentAttached = false
+      attachFragmentIfNecessary()
+    }
   }
 
   private fun fragmentTag(): String = "MapxusHsitpView.XmlActivity.${id}"

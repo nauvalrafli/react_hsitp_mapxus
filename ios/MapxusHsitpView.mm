@@ -30,6 +30,25 @@ using namespace facebook::react;
 
     _view = [[UIView alloc] init];
 
+    // -------------------------------
+    // Add "Under Development" label
+    // -------------------------------
+    UILabel *label = [[UILabel alloc] init];
+    label.text = @"Under Development";
+    label.textColor = UIColor.blackColor;     // customize as needed
+    label.textAlignment = NSTextAlignmentCenter;
+    label.font = [UIFont boldSystemFontOfSize:16];
+
+    // Enable auto-layout
+    label.translatesAutoresizingMaskIntoConstraints = NO;
+    [_view addSubview:label];
+
+    // Center the text
+    [NSLayoutConstraint activateConstraints:@[
+        [label.centerXAnchor constraintEqualToAnchor:_view.centerXAnchor],
+        [label.centerYAnchor constraintEqualToAnchor:_view.centerYAnchor]
+    ]];
+
     self.contentView = _view;
   }
 

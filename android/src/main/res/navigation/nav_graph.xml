@@ -26,6 +26,10 @@
         <action
             android:id="@+id/action_venueDetails_to_toiletScreen"
             app:destination="@id/toiletScreenFragment" />
+
+        <action
+            android:id="@+id/action_venueDetails_to_categoryList"
+            app:destination="@id/categoryListFragment" />
     </fragment>
 
     <!-- Search Result -->
@@ -39,6 +43,12 @@
         android:id="@+id/toiletScreenFragment"
         android:name="com.mapxushsitp.fragments.ToiletScreenFragment"
         android:label="Toilet List" />
+
+    <!-- Generic Category List -->
+    <fragment
+        android:id="@+id/categoryListFragment"
+        android:name="com.mapxushsitp.fragments.CategoryListFragment"
+        android:label="@string/category_list_title" />
 
     <!-- POI Details -->
     <fragment
@@ -72,6 +82,9 @@
 
     <!-- Navigation Actions -->
 
+    <action
+        android:id="@+id/action_global_to_poiDetails"
+        app:destination="@id/poiDetailsFragment" />
     <action
         android:id="@+id/action_searchResult_to_poiDetails"
         app:destination="@id/poiDetailsFragment" />

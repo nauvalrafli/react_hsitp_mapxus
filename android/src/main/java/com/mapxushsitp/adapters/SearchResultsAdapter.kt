@@ -6,12 +6,12 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.mapxushsitp.service.getTranslation
 import com.mapxushsitp.R
 import com.mapxus.map.mapxusmap.api.services.BuildingSearch
 import com.mapxus.map.mapxusmap.api.services.model.BuildingSearchOption
 import com.mapxus.map.mapxusmap.api.services.model.building.IndoorBuildingInfo
 import com.mapxus.map.mapxusmap.api.services.model.poi.PoiInfo
-import com.mapxushsitp.service.getTranslation
 import java.util.Locale
 
 class SearchResultsAdapter(

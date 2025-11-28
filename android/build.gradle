@@ -6,15 +6,19 @@ buildscript {
     targetSdkVersion = 35
     ndkVersion = "27.1.12297006"
     kotlinVersion = "2.0.20" // or 2.1.0 when stable
+    reactNativeVersion = "0.81.1"
   }
   repositories {
     google()
     mavenCentral()
     gradlePluginPortal()
+    maven {
+      url("$rootDir/../node_modules/react-native/android")
+    }
   }
   dependencies {
     classpath("com.android.tools.build:gradle:8.5.2")
-    classpath("com.facebook.react:react-native-gradle-plugin")
+    classpath("com.facebook.react:react-native-gradle-plugin:$reactNativeVersion")
     classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
     classpath("org.jetbrains.kotlin:compose-compiler-gradle-plugin:$kotlinVersion")
   }
@@ -61,8 +65,12 @@ android {
   }
 
   compileOptions {
-    sourceCompatibility JavaVersion.VERSION_1_8
-    targetCompatibility JavaVersion.VERSION_1_8
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+
+  kotlinOptions {
+    jvmTarget = "17"
   }
 
   sourceSets {
@@ -78,12 +86,18 @@ android {
 repositories {
   mavenCentral()
   google()
+  maven {
+    url("$rootDir/../node_modules/react-native/android")
+  }
+  maven {
+    url("$rootDir/../node_modules/jsc-android/dist")
+  }
 }
 
 def kotlin_version = "2.0.20"
 
 dependencies {
-  implementation "com.facebook.react:react-android"
+  implementation "com.facebook.react:react-android:$reactNativeVersion"
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
 
   implementation(platform("androidx.compose:compose-bom:2024.10.00"))
@@ -122,6 +136,9 @@ dependencies {
 
   // GIF Image
   implementation("com.google.accompanist:accompanist-drawablepainter:0.35.0-alpha")
+
+  implementation("com.github.bumptech.glide:glide:4.16.0")
+  annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
 
   // Google Material Icons
   implementation("androidx.compose.material:material-icons-extended")

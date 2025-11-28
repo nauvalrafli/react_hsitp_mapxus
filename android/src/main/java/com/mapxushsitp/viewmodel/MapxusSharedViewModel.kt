@@ -14,19 +14,24 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewModelScope
+import androidx.navigation.NavController
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.mapxus.map.mapxusmap.api.map.FollowUserMode
 import com.mapxus.map.mapxusmap.api.map.MapViewProvider
 import com.mapxus.map.mapxusmap.api.map.MapxusMap
 import com.mapxus.map.mapxusmap.api.map.MapxusMap.OnMapClickedListener
+import com.mapxus.map.mapxusmap.api.map.SwitchFloorScope
 import com.mapxus.map.mapxusmap.api.map.model.LatLng
 import com.mapxus.map.mapxusmap.api.map.model.MapxusPointAnnotationOptions
 import com.mapxus.map.mapxusmap.api.map.model.MapxusSite
 import com.mapxus.map.mapxusmap.api.map.model.SelectorPosition
+import com.mapxus.map.mapxusmap.api.services.BuildingSearch
 import com.mapxus.map.mapxusmap.api.services.RoutePlanning
 import com.mapxus.map.mapxusmap.api.services.VenueSearch
 import com.mapxus.map.mapxusmap.api.services.constant.RoutePlanningLocale
 import com.mapxus.map.mapxusmap.api.services.constant.RoutePlanningVehicle
+import com.mapxus.map.mapxusmap.api.services.model.DetailSearchOption
 import com.mapxus.map.mapxusmap.api.services.model.IndoorLatLng
 import com.mapxus.map.mapxusmap.api.services.model.VenueSearchOption
 import com.mapxus.map.mapxusmap.api.services.model.building.FloorInfo
@@ -65,7 +70,9 @@ import kotlin.math.roundToInt
 class MapxusSharedViewModel(application: Application) : AndroidViewModel(application) {
 
     // Context access helper
-    val context: Context get() = getApplication<Application>()
+    var context: Context = getApplication<Application>()
+
+    var navController : NavController? = null
 
     // Map-related data
     private val _mapView = MutableLiveData<MapView?>()
@@ -82,6 +89,14 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
 
     private val _selectedPoi = MutableLiveData<PoiInfo?>()
     var selectedPoi: LiveData<PoiInfo?> = _selectedPoi
+
+    var selectedCategory = ""
+    var excludedCategory = ""
+
+    fun resetCategory() {
+        selectedCategory = ""
+        excludedCategory = ""
+    }
 
     private val _isFloorSelectorShown = MutableLiveData<Boolean>()
     val isFloorSelectorShown: LiveData<Boolean> = _isFloorSelectorShown
@@ -120,7 +135,7 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
     var lastGpsTime = 0L
     var userLocation : RoutePlanningPoint? = null
 
-    var routePlanning = RoutePlanning.newInstance()
+    var routePlanning: RoutePlanning = RoutePlanning.newInstance()
 
     var routePainter : RoutePainter? = null
     var routeAdsorber: RouteAdsorber? = null
@@ -137,7 +152,7 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
     lateinit var mapxusPositioningClient: MapxusPositioningClient
     lateinit var mapxusPositioningProvider: MapxusPositioningProvider
 
-    val sharedPreferences = context.getSharedPreferences("Mapxus", android.content.Context.MODE_PRIVATE)
+    val sharedPreferences = context.getSharedPreferences("Mapxus", Context.MODE_PRIVATE)
 
     var selectedVehicle: String = RoutePlanningVehicle.FOOT
     fun selectVehicle(value: String) {
@@ -148,113 +163,130 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    val positioningListener = object : MapxusPositioningListener {
+      override fun onStateChange(positionerState: PositioningState) {
+        when (positionerState) {
+          PositioningState.STOPPED -> {
+            mapxusPositioningProvider.dispatchOnProviderStopped()
+          }
+
+          PositioningState.RUNNING -> {
+            mapxusPositioningProvider.dispatchOnProviderStarted()
+          }
+
+          else -> {}
+        }
+      }
+
+      override fun onError(errorInfo: ErrorInfo) {
+        Log.e("ERROR: ", errorInfo.errorMessage)
+
+        if (errorInfo.errorMessage.contains("Out of Mapxus indoor service", true) ||
+          errorInfo.errorMessage.contains("Current provider disabled", true)
+        ) {
+
+          // 1. Stop indoor provider
+//                    mapxusPositioningProvider.dispatchOnProviderStopped()
+
+          // 2. Switch to outdoor GPS
+//                    switchToOutdoor()
+        } else {
+          // Default error propagation
+          mapxusPositioningProvider.dispatchOnProviderError(
+            com.mapxus.map.mapxusmap.positioning.ErrorInfo(
+              errorInfo.errorCode,
+              errorInfo.errorMessage
+            )
+          )
+        }
+      }
+
+      override fun onOrientationChange(orientation: Float, sensorAccuracy: Int) {
+        if (mapxusPositioningProvider.isInHeadingMode) {
+          if (abs((orientation - mapxusPositioningProvider.lastCompass).toDouble()) > 10) {
+            mapxusPositioningProvider.dispatchCompassChange(
+              orientation,
+              sensorAccuracy
+            )
+          }
+        } else {
+          mapxusPositioningProvider.dispatchCompassChange(
+            orientation,
+            sensorAccuracy
+          )
+        }
+      }
+
+      override fun onLocationChange(mapxusLocation: MapxusLocation) {
+        val location = Location("MapxusPositioning")
+        viewModelScope.launch {
+          location.latitude = mapxusLocation.latitude
+          location.longitude = mapxusLocation.longitude
+          location.time = System.currentTimeMillis()
+          val building = mapxusLocation.buildingId
+          val floorInfo =
+            if (mapxusLocation.mapxusFloor == null) null else FloorInfo(
+              mapxusLocation.mapxusFloor.id,
+              mapxusLocation.mapxusFloor.code,
+              mapxusLocation.mapxusFloor.ordinal
+            )
+
+          val indoorLocation = IndoorLocation(building, floorInfo, location)
+          indoorLocation.accuracy = mapxusLocation.accuracy
+
+          if (mapxusLocation.mapxusFloor != null) {
+            _currentFloor.value = mapxusLocation.mapxusFloor.id
+            mapxusMap?.selectFloorById(mapxusLocation.mapxusFloor.id)
+            mapxusPositioningClient.changeFloor(mapxusLocation.mapxusFloor)
+          }
+
+          if (routeAdsorber != null) {
+            val newLocation =
+              routeAdsorber?.calculateTheAdsorptionLocation(indoorLocation)
+                ?: indoorLocation
+            if (indoorLocation.latitude != newLocation?.latitude || indoorLocation.longitude != newLocation?.longitude) {
+              indoorLocation.latitude = newLocation?.latitude ?: 0.0
+              indoorLocation.longitude = newLocation?.longitude ?: 0.0
+              userLocation = RoutePlanningPoint(
+                newLocation?.longitude ?: 0.0,
+                newLocation?.latitude ?: 0.0,
+                newLocation?.floor?.id
+              )
+            }
+            withContext(Dispatchers.Main) {
+              mapxusPositioningProvider.dispatchIndoorLocationChange(
+                indoorLocation
+              )
+              if (routeShortener != null) {
+                routeShortener?.cutFromTheLocationProjection(
+                  newLocation,
+                  maplibreMap
+                )
+              }
+            }
+          } else {
+            userLocation = RoutePlanningPoint(
+              indoorLocation?.longitude ?: 0.0,
+              indoorLocation?.latitude ?: 0.0,
+              indoorLocation?.floor?.id
+            )
+            withContext(Dispatchers.Main) {
+              mapxusPositioningProvider.dispatchIndoorLocationChange(
+                indoorLocation
+              )
+            }
+          }
+        }
+      }
+    }
+
     fun initPositioning(lifecycleOwner: LifecycleOwner, context: Context) {
         mapxusPositioningClient = MapxusPositioningClient.getInstance(lifecycleOwner, context)
         mapxusPositioningProvider = MapxusPositioningProvider(mapxusPositioningClient)
 
-        lifecycleOwner.lifecycleScope.launch {
+        viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                mapxusPositioningClient.addPositioningListener(object : MapxusPositioningListener {
-                    override fun onStateChange(positionerState: PositioningState) {
-                        when (positionerState) {
-                            PositioningState.STOPPED -> {
-                                mapxusPositioningProvider.dispatchOnProviderStopped()
-                            }
-
-                            PositioningState.RUNNING -> {
-                                mapxusPositioningProvider.dispatchOnProviderStarted()
-                            }
-
-                            else -> {}
-                        }
-                    }
-
-                    override fun onError(errorInfo: ErrorInfo) {
-                        Log.e("ERROR: ", errorInfo.errorMessage)
-
-                        if (errorInfo.errorMessage.contains("Out of Mapxus indoor service", true) ||
-                            errorInfo.errorMessage.contains("Current provider disabled", true)) {
-
-                            // 1. Stop indoor provider
-//                    mapxusPositioningProvider.dispatchOnProviderStopped()
-
-                            // 2. Switch to outdoor GPS
-//                    switchToOutdoor()
-                        } else {
-                            // Default error propagation
-                            mapxusPositioningProvider.dispatchOnProviderError(
-                                com.mapxus.map.mapxusmap.positioning.ErrorInfo(
-                                    errorInfo.errorCode,
-                                    errorInfo.errorMessage
-                                )
-                            )
-                        }
-                    }
-
-                    override fun onOrientationChange(orientation: Float, sensorAccuracy: Int) {
-                        if (mapxusPositioningProvider.isInHeadingMode) {
-                            if (abs((orientation - mapxusPositioningProvider.lastCompass).toDouble()) > 10) {
-                                mapxusPositioningProvider.dispatchCompassChange(orientation, sensorAccuracy)
-                            }
-                        } else {
-                            mapxusPositioningProvider.dispatchCompassChange(orientation, sensorAccuracy)
-                        }
-                    }
-
-                    override fun onLocationChange(mapxusLocation: MapxusLocation) {
-                        val location = Location("MapxusPositioning")
-                        lifecycleOwner.lifecycleScope.launch {
-                            location.latitude = mapxusLocation.latitude
-                            location.longitude = mapxusLocation.longitude
-                            location.time = System.currentTimeMillis()
-                            val building = mapxusLocation.buildingId
-                            val floorInfo = if (mapxusLocation.mapxusFloor == null) null else FloorInfo(
-                                mapxusLocation.mapxusFloor.id,
-                                mapxusLocation.mapxusFloor.code,
-                                mapxusLocation.mapxusFloor.ordinal
-                            )
-
-                            val indoorLocation = IndoorLocation(building, floorInfo, location)
-                            indoorLocation.accuracy = mapxusLocation.accuracy
-
-                            if(mapxusLocation.mapxusFloor != null) {
-                                _currentFloor.value = mapxusLocation.mapxusFloor.id
-                                mapxusMap?.selectFloorById(mapxusLocation.mapxusFloor.id)
-                                mapxusPositioningClient.changeFloor(mapxusLocation.mapxusFloor)
-                            }
-
-                            if(routeAdsorber != null) {
-                                val newLocation =
-                                    routeAdsorber?.calculateTheAdsorptionLocation(indoorLocation)
-                                        ?: indoorLocation
-                                if (indoorLocation.latitude != newLocation?.latitude || indoorLocation.longitude != newLocation?.longitude) {
-                                    indoorLocation.latitude = newLocation?.latitude ?: 0.0
-                                    indoorLocation.longitude = newLocation?.longitude ?: 0.0
-                                    userLocation = RoutePlanningPoint(
-                                        newLocation?.longitude ?: 0.0,
-                                        newLocation?.latitude ?: 0.0,
-                                        newLocation?.floor?.id
-                                    )
-                                }
-                                withContext(Dispatchers.Main) {
-                                    mapxusPositioningProvider.dispatchIndoorLocationChange(indoorLocation)
-                                    if (routeShortener != null) {
-                                        routeShortener?.cutFromTheLocationProjection(newLocation, maplibreMap)
-                                    }
-                                }
-                            } else {
-                                userLocation = RoutePlanningPoint(
-                                    indoorLocation?.longitude ?: 0.0,
-                                    indoorLocation?.latitude ?: 0.0,
-                                    indoorLocation?.floor?.id
-                                )
-                                withContext(Dispatchers.Main) {
-                                    mapxusPositioningProvider.dispatchIndoorLocationChange(indoorLocation)
-                                }
-                            }
-                        }
-                    }
-                })
+                mapxusPositioningClient.addPositioningListener(positioningListener)
                 mapxusPositioningClient.setDebugEnabled(true)
                 mapxusPositioningProvider.start()
                 mapxusPositioningClient.start()
@@ -266,6 +298,20 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+  fun destroy() {
+    _mapView.value = null
+    _mapViewProvider.value = null
+    mapxusMap = null
+    maplibreMap = null
+
+    routeAdsorber = null
+    routePainter = null
+    routePainter = null
+    mapxusPositioningProvider.stop()
+    mapxusPositioningClient.stop()
+    mapxusPositioningClient.removePositioningListener(positioningListener)
+  }
+
     // Methods to update data
     fun setMapView(mapView: MapView) {
         _mapView.value = mapView
@@ -274,19 +320,24 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
             if(mapxusMap != null && routePainter == null) {
                 routePainter = RoutePainter(context, maplibreMap, mapxusMap)
             }
+            if(mapxusMap != null && routePlanning == null) {
+                routePlanning = RoutePlanning.newInstance()
+            }
         }
     }
     fun setMapViewProvider(provider: MapViewProvider) {
         _mapViewProvider.value = provider
-        mapViewProvider.value?.getMapxusMapAsync {
+        _mapViewProvider.value?.setLanguage(locale.language)
+        _mapViewProvider.value?.getMapxusMapAsync {
             mapxusMap = it
             if(maplibreMap != null && routePainter == null) {
                 routePainter = RoutePainter(context, maplibreMap, mapxusMap)
             }
 //            mapxusMap?.mapxusUiSettings?.isSelectorEnabled = false
             mapxusMap?.mapxusUiSettings?.isBuildingSelectorEnabled = false
+            mapxusMap?.switchFloorScope = SwitchFloorScope.GLOBAL
             mapxusMap?.mapxusUiSettings?.setSelectorPosition(SelectorPosition.TOP_LEFT)
-            mapxusMap?.mapxusUiSettings?.setSelectFontColor(androidx.compose.ui.graphics.Color.White.hashCode())
+            mapxusMap?.mapxusUiSettings?.setSelectFontColor(Color.White.hashCode())
             mapxusMap?.mapxusUiSettings?.setSelectBoxColor(Color(0xFF4285F4).hashCode())
 //            mapViewProvider.value.setLanguage()
 
@@ -307,7 +358,9 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                 }
             })
             mapxusMap?.addOnIndoorPoiClickListener { poi ->
-                setSelectedPoi(PoiInfo(poiId = poi.id, nameMap = poi.nameMap, buildingId =  poi.buildingId, location = com.mapxus.map.mapxusmap.api.services.model.LatLng().apply { lat = poi.latitude; lon = poi.longitude }))
+                setSelectedPoi(PoiInfo(poiId = poi.id, nameMap = poi.nameMap, buildingId =  poi.buildingId, location = com.mapxus.map.mapxusmap.api.services.model.LatLng().apply { lat = poi.latitude; lon = poi.longitude }, floor = poi.floorName)) {
+                    navController?.navigate(R.id.action_searchResult_to_poiDetails)
+                }
             }
             mapxusPositioningProvider.addListener(object: IndoorLocationProviderListener {
                 override fun onCompassChanged(angle: Float, sensorAccuracy: Int) {
@@ -315,7 +368,6 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                 }
 
                 override fun onIndoorLocationChange(indoorLocation: IndoorLocation?) {
-                    Log.d("Location", "Indoor Location Change")
                     userLocation = RoutePlanningPoint(
                         indoorLocation?.longitude ?: 0.0,
                         indoorLocation?.latitude ?: 0.0,
@@ -327,16 +379,16 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                 }
 
                 override fun onProviderError(errorInfo: com.mapxus.map.mapxusmap.positioning.ErrorInfo) {
-                    Log.d("Location", "Provider Error: ${errorInfo.errorMessage}")
+                    Log.d("REACT-MAPXUS", "Provider Error: ${errorInfo.errorMessage}")
                 }
 
                 override fun onProviderStarted() {
-                    Log.d("Location", "Started")
+                    Log.d("REACT-MAPXUS", "Started")
                     mapxusMap?.setLocationProvider(mapxusPositioningProvider)
                 }
 
                 override fun onProviderStopped() {
-                    Log.d("Location", "Stopped")
+                    Log.d("REACT-MAPXUS", "Stopped")
                 }
 
             })
@@ -348,7 +400,7 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun selectVenue(venueId: String) {
-        mapViewProvider.value?.getMapxusMapAsync { mapxusMap ->
+        _mapViewProvider.value?.getMapxusMapAsync { mapxusMap ->
             mapxusMap.selectVenueById(venueId)
             _isFloorSelectorShown.value = true
         }
@@ -362,35 +414,60 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
         _selectedBuilding.value = building
     }
 
-    fun setSelectedPoi(poi: PoiInfo) {
+    fun setSelectedPoi(poi: PoiInfo, callback: () -> Unit = {}) {
         _selectedPoi.value = poi
-      if (mapxusMap != null) {
-        mapxusMap?.removeMapxusPointAnnotations()
-        mapxusMap?.selectFloorById(poi.floorId ?: "")
-        mapxusMap?.addMapxusPointAnnotation(
-          MapxusPointAnnotationOptions().apply {
-            position = LatLng(
-              poi.location.lat,
-              poi.location.lon
-            )
-          }
-        )
-      } else {
-        mapViewProvider.value?.getMapxusMapAsync {
-          mapxusMap = it
-          it?.removeMapxusPointAnnotations()
-          it?.selectFloorById(poi.floorId ?: "")
-          it?.addMapxusPointAnnotation(
-            MapxusPointAnnotationOptions().apply {
-              position = LatLng(
-                poi.location.lat,
-                poi.location.lon
-              )
+        if((_selectedBuilding.value ?: "") != poi.buildingId) {
+            try {
+                val searcher = BuildingSearch.newInstance()
+                if(selectedBuilding.value != null) {
+                    mapxusMap?.removeMapxusPointAnnotations()
+                    mapxusMap?.selectFloorById(poi.floorId ?: poi.sharedFloorId ?: "")
+                    mapxusMap?.addMapxusPointAnnotation(
+                        MapxusPointAnnotationOptions().apply {
+                            position = LatLng(
+                                poi.location.lat,
+                                poi.location.lon
+                            )
+                            floorId = poi.floorId ?: poi.sharedFloorId ?: ""
+                        }
+                    )
+                    callback()
+                } else {
+                    searcher.searchBuildingDetail(
+                        DetailSearchOption().id(poi.buildingId)
+                    ) {
+                        _selectedBuilding.value = it.indoorBuildingList[0]
+                        mapxusMap?.removeMapxusPointAnnotations()
+                        mapxusMap?.selectFloorById(poi.floorId ?: poi.sharedFloorId ?: "")
+                        mapxusMap?.addMapxusPointAnnotation(
+                            MapxusPointAnnotationOptions().apply {
+                                position = LatLng(
+                                    poi.location.lat,
+                                    poi.location.lon
+                                )
+                                floorId = poi.floorId ?: poi.sharedFloorId ?: ""
+                            }
+                        )
+                        callback()
+                    }
+                }
+            } catch(e: Exception) {
+                mapxusMap?.removeMapxusPointAnnotations()
             }
-          )
+        } else {
+            mapxusMap?.removeMapxusPointAnnotations()
+            mapxusMap?.selectFloorById(poi.floorId ?: poi.sharedFloorId ?: "")
+            mapxusMap?.addMapxusPointAnnotation(
+                MapxusPointAnnotationOptions().apply {
+                    position = LatLng(
+                        poi.location.lat,
+                        poi.location.lon
+                    )
+                    floorId = poi.floorId ?: poi.sharedFloorId ?: ""
+                }
+            )
+            callback()
         }
-      }
-
     }
 
     fun setFloorSelectorShown(shown: Boolean) {
@@ -433,8 +510,22 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
         override fun onGetRoutePlanningResult(p0: RoutePlanningResult?) {
             try {
                 if(p0 == null || p0.status != 0 || p0.routeResponseDto == null) {
-                    Log.d("Mapxus", "Route not found")
+                    Toast.makeText(context, context.resources.getString(R.string.no_route), Toast.LENGTH_LONG).show();
+                    _isNavigationActive.value = false
+                    _instructionList.value = emptyList()
+                    _instructionIndex.value = 0
+                    _isLoadingroute.value = false
                     return
+                }
+                if(p0.status!=0){
+                    Toast.makeText(context, context.resources.getString(R.string.no_route), Toast.LENGTH_LONG).show();
+                    _isLoadingroute.value = false
+                    return;
+                }
+                if(p0.routeResponseDto == null){
+                    Toast.makeText(context, context.resources.getString(R.string.no_route),Toast.LENGTH_LONG).show();
+                    _isLoadingroute.value = false
+                    return;
                 }
                 _instructionIndex.value = 0
                 clearInstructions()
@@ -452,26 +543,28 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                 updateNavigationText(p0.routeResponseDto.paths[0].instructions[0].text, p0.routeResponseDto.paths[0].distance.toMeterText(
                     Locale.getDefault()), p0.routeResponseDto.paths.map { it.distance }.reduce { a,b -> a + b })
 
-                if(isNavigating) {
+                if(isNavigating && instructionList.value?.isNotEmpty() == true) {
                     routeAdsorber = RouteAdsorber(NavigationPathDto(p0.routeResponseDto.paths.get(0)))
                     routeShortener = RouteShortener(NavigationPathDto(p0.routeResponseDto.paths.get(0)), p0.routeResponseDto.paths.get(0), p0.routeResponseDto.paths[0].indoorPoints)
                     routeShortener?.setOnPathChangeListener(object: RouteShortener.OnPathChangeListener {
                         override fun onPathChange(pathDto: PathDto?) {
-                            if(pathDto == null) {
-                                Log.d("Mapxus", "Route not found")
+                            if(pathDto != null) {
+                                if(routePainter == null) {
+                                    routePainter = RoutePainter(context, maplibreMap, mapxusMap)
+                                }
+                                mapxusMap?.selectFloorById(p0.routeResponseDto.paths[0].indoorPoints[0].floorId ?: "")
+                                routePainter?.paintRouteUsingResult(pathDto, pathDto?.indoorPoints ?: listOf(), isAutoZoom = false)
+                                routePainter?.setRoutePainterResource(RoutePainterResource().setHiddenTranslucentPaths(true).setIndoorLineColor(android.graphics.Color.BLUE));
+                                updateNavigationText(p0.routeResponseDto.paths[0].instructions[0].text, p0.routeResponseDto.paths[0].distance.toMeterText(
+                                    locale ?: Locale.getDefault()), p0.routeResponseDto.paths.map { it.distance }.reduce { a,b -> a + b })
+                            } else {
+                                Log.d("REACT-MAPXUS", "Route not found")
                                 return
                             }
-                            if(routePainter == null) {
-                                routePainter = RoutePainter(context, maplibreMap, mapxusMap)
-                            }
-                            mapxusMap?.selectFloorById(p0.routeResponseDto.paths.get(0).indoorPoints.get(0).floorId ?: "")
-                            routePainter?.paintRouteUsingResult(pathDto, pathDto.indoorPoints, isAutoZoom = false)
-                            routePainter?.setRoutePainterResource(RoutePainterResource().setHiddenTranslucentPaths(true).setIndoorLineColor(android.graphics.Color.BLUE));
-                            updateNavigationText(p0.routeResponseDto.paths[0].instructions[0].text, p0.routeResponseDto.paths[0].distance.toMeterText(
-                                Locale.getDefault()), p0.routeResponseDto.paths.map { it.distance }.reduce { a,b -> a + b })
                         }
                     })
                 }
+                _isLoadingroute.value = false
             } catch(e: Error) {
                 e.printStackTrace()
             }
@@ -482,7 +575,7 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
         override fun onGetRoutePlanningResult(p0: RoutePlanningResult?) {
             try {
                 if(p0 == null || p0.status != 0 || p0.routeResponseDto == null) {
-                    Log.d("Mapxus", "Route not found")
+                    Log.d("REACT-MAPXUS", "Route not found")
                     return
                 }
                 if(routePainter == null) {
@@ -509,19 +602,27 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
     }
 
     var isNavigating = false
+    var _isLoadingroute = MutableLiveData<Boolean>(false)
+    var isLoadingRoute : LiveData<Boolean> = _isLoadingroute
 
-    fun requestRoutePlanning(isForNavigating: Boolean, routeType: String) {
-        mapxusMap?.removeMapxusPointAnnotations()
+    fun requestRoutePlanning(isForNavigating: Boolean, routeType: String, callback: () -> Unit = {}) {
         if(startLatLng?.floorId != null) {
-            mapxusMap?.selectFloorById(startLatLng?.floorId ?: "")
+            mapxusMap?.selectFloorById(startLatLng?.floorId ?: userLocation?.floorId ?: selectedBuilding.value?.floors[0]?.id ?: "")
         }
+        mapxusMap?.removeMapxusPointAnnotations()
+        if(routePlanning == null) {
+            routePlanning = RoutePlanning.newInstance()
+        }
+//        if(startLatLng?.floorId != null) {
+//            mapxusMap?.selectFloorById(startLatLng?.floorId ?: "")
+//        }
         val points = mutableListOf<RoutePlanningPoint>()
         if(startLatLng == null) {
             Toast.makeText(context, "Start location not set", Toast.LENGTH_SHORT).show()
             return
         }
         points.add(startLatLng!!)
-        points.add(RoutePlanningPoint(selectedPoi.value?.location?.lon ?: 0.0, selectedPoi.value?.location?.lat  ?: 0.0, selectedPoi.value?.floorId))
+        points.add(RoutePlanningPoint(selectedPoi.value?.location?.lon ?: 0.0, selectedPoi.value?.location?.lat  ?: 0.0, selectedPoi.value?.floorId ?: selectedPoi.value?.sharedFloorId ?: ""))
         val request = RoutePlanningQueryRequest().apply {
             this.points = points.toList()
         }
@@ -534,6 +635,7 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
 
         routePlanning.setRoutePlanningListener(routePlanningListener)
         routePlanning.route(request)
+        _isLoadingroute.value = true
         isNavigating = isForNavigating
     }
 
@@ -542,18 +644,8 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
         val request = RoutePlanningQueryRequest().apply {
             val points = mutableListOf<RoutePlanningPoint>()
 
-            points.add(
-              RoutePlanningPoint(
-                instructionList.value?.get(instructionIndex.value ?: 0)?.indoorPoints?.get(0)?.lon ?: 0.0,
-                instructionList.value?.get(instructionIndex.value ?: 0)?.indoorPoints?.get(0)?.lat ?: 0.0,
-                instructionList.value?.get(instructionIndex.value ?: 0)?.indoorPoints?.get(0)?.floorId
-              )
-            )
-            points.add(
-              RoutePlanningPoint(
-                instructionList.value?.get(instructionList.value?.size?.minus(1) ?: 0)?.indoorPoints?.get(0)?.lon ?: 0.0,
-                instructionList.value?.get(instructionList.value?.size?.minus(1) ?: 0)?.indoorPoints?.get(0)?.lat ?: 0.0,
-                instructionList.value?.get(instructionList.value?.size?.minus(1) ?: 0)?.indoorPoints?.get(0)?.floorId))
+            points.add(RoutePlanningPoint(instructionList.value?.get(instructionIndex.value ?: 0)?.indoorPoints?.get(0)?.lon ?: 0.0, instructionList.value?.get(instructionIndex?.value  ?: 0)?.indoorPoints?.get(0)?.lat ?: 0.0, instructionList.value?.get(instructionIndex?.value ?: 0)?.indoorPoints?.get(0)?.floorId))
+            points.add(RoutePlanningPoint(instructionList.value?.get(instructionList.value?.size?.minus(1) ?: 0)?.indoorPoints?.get(0)?.lon ?: 0.0, instructionList.value?.get(instructionList.value?.size?.minus(1) ?: 0)?.indoorPoints?.get(0)?.lat ?: 0.0, instructionList.value?.get(instructionList.value?.size?.minus(1) ?: 0)?.indoorPoints?.get(0)?.floorId))
             this.points = points
         }
         routePlanning.route(request)
@@ -561,14 +653,14 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
 
     fun nextStep() {
         if((instructionIndex.value ?: 0) < (instructionList.value ?: listOf()).size - 1) {
-          _instructionIndex.value = _instructionIndex.value?.plus(1)
+            _instructionIndex.value = _instructionIndex.value?.plus(1)
             updateRoutePlanning()
         }
     }
 
     fun previousStep() {
         if((instructionIndex.value ?: 0) > 0) {
-          _instructionIndex.value = _instructionIndex.value?.minus(1)
+            _instructionIndex.value = _instructionIndex.value?.minus(1)
             updateRoutePlanning()
         }
     }

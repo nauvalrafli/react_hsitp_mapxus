@@ -6,241 +6,301 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
         >
-
-        <androidx.fragment.app.FragmentContainerView
-            android:id="@+id/ar_fragment_container"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintRight_toRightOf="parent"
-            android:visibility="gone"
-            android:elevation="100dp"
-            />
-
-        <org.maplibre.android.maps.MapView
-            android:id="@+id/mapView"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:elevation="0dp"
-            />
-
-    </LinearLayout>
-
-    <androidx.coordinatorlayout.widget.CoordinatorLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:elevation="16dp"
-        >
-        <ImageView
-            android:id="@+id/select_location"
-            android:layout_width="48dp"
-            android:layout_height="wrap_content"
-            android:src="@drawable/baseline_location_on_24"
-            app:tint="@color/blue"
-            android:layout_gravity="center"
-            android:visibility="gone"
-            />
-
-        <!-- Floating Action Buttons -->
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/gps_fab"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end|top"
-            android:layout_marginRight="16dp"
-            android:layout_marginTop="64dp"
-            android:contentDescription="Center on GPS"
-            app:srcCompat="@drawable/baseline_my_location_24"
-            app:tint="@color/blue"
-            app:backgroundTint="@android:color/white"
-            />
-
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/volume_fab"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end|top"
-            android:layout_marginTop="128dp"
-            android:layout_marginEnd="16dp"
-            android:visibility="gone"
-            android:contentDescription="Toggle Voice Navigation"
-            app:srcCompat="@android:drawable/ic_lock_silent_mode_off"
-            app:tint="@color/blue"
-            app:backgroundTint="@android:color/white"
-            />
-
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/ar_navigation_fab"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end|top"
-            android:layout_marginTop="188dp"
-            android:layout_marginEnd="16dp"
-            android:visibility="gone"
-            android:contentDescription="Toggle AR Navigation"
-            app:srcCompat="@drawable/ic_navigation"
-            app:tint="@color/blue"
-            app:backgroundTint="@android:color/white"
-            />
 
         <LinearLayout
-            android:id="@+id/bottomSheet"
-            android:visibility="visible"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:orientation="vertical"
-            android:background="@drawable/bg_bottom_sheet"
-            android:elevation="200dp"
-            android:layout_gravity="bottom"
-            android:paddingTop="16dp"
-            app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior"
             >
 
-            <View
-                android:layout_width="40dp"
-                android:layout_height="4dp"
-                android:background="@drawable/bg_rounded"
-                android:backgroundTint="@color/cardview_dark_background"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginBottom="8dp"
+            <androidx.fragment.app.FragmentContainerView
+                android:id="@+id/ar_fragment_container"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintRight_toRightOf="parent"
+                android:visibility="gone"
+                android:elevation="100dp"
                 />
 
-
-            <androidx.fragment.app.FragmentContainerView
-                android:id="@+id/fragment_container"
-                android:name="androidx.navigation.fragment.NavHostFragment"
-                app:defaultNavHost="true"
-                app:navGraph="@navigation/nav_graph"
+            <org.maplibre.android.maps.MapView
+                android:id="@+id/mapView"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:elevation="0dp"
                 />
 
         </LinearLayout>
 
-        <!-- Navigation Route Card (shown during navigation) -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/navigation_route_card"
+        <androidx.coordinatorlayout.widget.CoordinatorLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:visibility="gone"
-            android:layout_gravity="bottom|center_horizontal"
-            app:cardBackgroundColor="@android:color/white"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="3dp"
+            android:layout_height="match_parent"
+            android:elevation="16dp"
             >
+            <ImageView
+                android:id="@+id/select_location"
+                android:layout_width="48dp"
+                android:layout_height="wrap_content"
+                android:src="@drawable/baseline_location_on_24"
+                app:tint="@color/blue"
+                android:layout_gravity="center"
+                android:visibility="gone"
+                />
+
+            <!-- Floating Action Buttons -->
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/gps_fab"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end|top"
+                android:layout_marginRight="16dp"
+                android:layout_marginTop="64dp"
+                android:contentDescription="Center on GPS"
+                style="@style/ShapeAppearanceOverlay.Material3.FloatingActionButton"
+                app:srcCompat="@drawable/baseline_my_location_24"
+                app:tint="@color/blue"
+                app:backgroundTint="@android:color/white"
+                />
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/volume_fab"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end|top"
+                android:layout_marginTop="128dp"
+                android:layout_marginEnd="16dp"
+                android:visibility="gone"
+                android:contentDescription="Toggle Voice Navigation"
+                app:srcCompat="@android:drawable/ic_lock_silent_mode_off"
+                app:tint="@color/blue"
+                app:backgroundTint="@android:color/white"
+                />
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/ar_navigation_fab"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end|top"
+                android:layout_marginTop="188dp"
+                android:layout_marginEnd="16dp"
+                android:visibility="gone"
+                android:contentDescription="Toggle AR Navigation"
+                app:srcCompat="@drawable/ic_navigation"
+                app:tint="@color/blue"
+                app:backgroundTint="@android:color/white"
+                />
 
             <LinearLayout
+                android:id="@+id/bottomSheet"
+                android:visibility="visible"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="12dp">
+                android:background="@drawable/bg_bottom_sheet"
+                android:elevation="200dp"
+                android:layout_gravity="bottom"
+                android:paddingTop="16dp"
+                app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior"
+                >
 
-                <LinearLayout
+                <View
+                    android:layout_width="40dp"
+                    android:layout_height="4dp"
+                    android:background="@drawable/bg_rounded"
+                    android:backgroundTint="@color/cardview_dark_background"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginBottom="8dp"
+                    />
+
+
+                <androidx.fragment.app.FragmentContainerView
+                    android:id="@+id/fragment_container"
+                    android:name="androidx.navigation.fragment.NavHostFragment"
+                    app:defaultNavHost="true"
+                    app:navGraph="@navigation/nav_graph"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingBottom="6dp">
+                    />
 
-                    <!-- Previous Button -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/nav_previous_button"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:enabled="false"
-                        app:icon="@drawable/ic_arrow_left"
-                        app:iconTint="@color/blue"
-                        app:backgroundTint="@android:color/transparent"
-                        app:iconGravity="textStart"
-                        style="@style/Widget.Material3.Button.IconButton"
-                        />
-
-                    <!-- Text Content -->
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:paddingHorizontal="16dp">
-
-                        <TextView
-                            android:id="@+id/nav_title_text"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Navigation Title"
-                            android:textSize="24sp"
-                            android:textStyle="bold"
-                            android:textColor="@android:color/black" />
-
-                        <TextView
-                            android:id="@+id/nav_distance_text"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Distance"
-                            android:textSize="16sp"
-                            android:textStyle="bold"
-                            android:textColor="@android:color/darker_gray" />
-
-                        <TextView
-                            android:id="@+id/nav_time_text"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Time"
-                            android:textSize="12sp"
-                            android:textStyle="bold"
-                            android:textColor="@android:color/darker_gray" />
-
-                    </LinearLayout>
-
-                    <!-- Icon -->
-                    <ImageView
-                        android:id="@+id/nav_icon"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:src="@drawable/ic_dot"
-                        android:contentDescription="Navigation Icon"
-                        android:tint="@color/black"
-                        />
-
-                    <!-- Next Button -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/nav_next_button"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        app:icon="@drawable/ic_arrow_right"
-                        app:iconTint="@color/blue"
-                        app:backgroundTint="@android:color/transparent"
-                        app:iconGravity="textEnd"
-                        style="@style/Widget.Material3.Button.IconButton"
-                        />
-
-                </LinearLayout>
-
-                <!-- Step Indicators -->
-                <LinearLayout
-                    android:id="@+id/step_indicators_container"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center"
-                    android:paddingTop="8dp">
-
-                    <!-- Step indicators will be added programmatically -->
-
-                </LinearLayout>
+<!--                <TextView-->
+<!--                    android:id="@+id/version"-->
+<!--                    android:layout_width="wrap_content"-->
+<!--                    android:layout_height="wrap_content"-->
+<!--                    android:text="version"-->
+<!--                    android:textColor="#9B9B9B"-->
+<!--                    android:textSize="12sp"-->
+<!--                    android:layout_gravity="end"-->
+<!--                    android:paddingHorizontal="8dp"-->
+<!--                    android:paddingVertical="8dp"-->
+<!--                    />-->
 
             </LinearLayout>
 
-        </com.google.android.material.card.MaterialCardView>
+            <!-- Navigation Route Card (shown during navigation) -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/navigation_route_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="16dp"
+                android:visibility="gone"
+                android:layout_gravity="bottom|center_horizontal"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="3dp"
+                >
 
-    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingBottom="6dp">
+
+                        <!-- Previous Button -->
+                        <ImageButton
+                            android:id="@+id/nav_previous_button"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:src="@drawable/ic_arrow_left"
+                            app:tint="@color/blue"
+                            android:background="@android:color/transparent"
+                            android:contentDescription="previous" />
+
+
+                        <!-- Text Content -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:paddingHorizontal="16dp">
+
+                            <TextView
+                                android:id="@+id/nav_title_text"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Navigation Title"
+                                android:textSize="24sp"
+                                android:textStyle="bold"
+                                android:textColor="@android:color/black" />
+
+                            <TextView
+                                android:id="@+id/nav_distance_text"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Distance"
+                                android:textSize="16sp"
+                                android:textStyle="bold"
+                                android:textColor="@android:color/darker_gray" />
+
+                            <TextView
+                                android:id="@+id/nav_time_text"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Time"
+                                android:textSize="12sp"
+                                android:textStyle="bold"
+                                android:textColor="@android:color/darker_gray" />
+
+                        </LinearLayout>
+
+                        <!-- Icon -->
+                        <ImageView
+                            android:id="@+id/nav_icon"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:src="@drawable/ic_dot"
+                            android:contentDescription="Navigation Icon"
+                            app:tint="@color/black"
+                            />
+
+                        <!-- Next Button -->
+                        <ImageButton
+                            android:id="@+id/nav_next_button"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:src="@drawable/ic_arrow_right"
+                            app:tint="@color/blue"
+                            android:background="@android:color/transparent"
+                            android:contentDescription="@string/next" />
+
+
+                    </LinearLayout>
+
+                    <!-- Step Indicators -->
+                    <LinearLayout
+                        android:id="@+id/step_indicators_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center"
+                        android:paddingTop="8dp">
+
+                        <!-- Step indicators will be added programmatically -->
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+        </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <LinearLayout
+        app:layout_constraintTop_toTopOf="parent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/loading_overlay"
+        android:background="#80000000"
+        android:orientation="vertical"
+        android:gravity="center"
+        >
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:text="Loading..."
+            android:textSize="24sp"
+            android:textFontWeight="800"
+            android:textColor="@color/white"
+            android:padding="12dp"
+            />
+
+    </LinearLayout>
+
+    <com.mapxushsitp.view.onboarding.OnboardingView
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:visibility="gone"
+      android:id="@+id/containerOnboarding"
+      layout="@layout/view_walkthrough_overlay"
+      app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintEnd_toEndOf="parent" />
+
+<!--    <include-->
+<!--        android:id="@+id/walkthrough_overlay"-->
+<!--        layout="@layout/view_walkthrough_overlay"-->
+<!--        app:layout_constraintTop_toTopOf="parent"-->
+<!--        app:layout_constraintBottom_toBottomOf="parent"-->
+<!--        app:layout_constraintStart_toStartOf="parent"-->
+<!--        app:layout_constraintEnd_toEndOf="parent" />-->
 
 </androidx.constraintlayout.widget.ConstraintLayout>

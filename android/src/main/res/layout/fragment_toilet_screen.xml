@@ -18,7 +18,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Restroom"
+            android:text="@string/category_washroom"
             android:textSize="20sp"
             android:textStyle="bold" />
 
@@ -50,17 +50,17 @@
         <com.google.android.material.tabs.TabItem
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Accessible Toilet" />
+            android:text="@string/accessible_toilet" />
 
         <com.google.android.material.tabs.TabItem
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Female Toilet" />
+            android:text="@string/female_toilet" />
 
         <com.google.android.material.tabs.TabItem
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Male Toilet" />
+            android:text="@string/male_toilet" />
 
     </com.google.android.material.tabs.TabLayout>
 

@@ -26,7 +26,9 @@ class ToiletListAdapter(
     private var toiletList = listOf<PoiInfo>()
 
     fun updateToilets(toilets: List<PoiInfo>) {
-        toiletList = toilets
+        toiletList = toilets.filter {
+            it.buildingId != null && (it.floorId != null || it.sharedFloorId != null)
+        }
         notifyDataSetChanged()
     }
 
@@ -53,7 +55,7 @@ class ToiletListAdapter(
         fun bind(toilet: PoiInfo) {
             // TODO: Bind actual data from toilet object
             title.text = toilet.nameMap?.en
-            subtitle.text = toilet.floor + " - " + buildingList.find { it.buildingId == toilet.buildingId }?.buildingNamesMap?.getTranslation(locale)
+            subtitle.text = (toilet.floor ?: toilet.sharedFloorNames?.getTranslation(locale)) + " - " + buildingList.find { it.buildingId == toilet.buildingId }?.buildingNamesMap?.getTranslation(locale)
             val random = Math.random() * 3
             if(random > 2) {
                 statusText.text = statusText.resources.getString(R.string.full)
