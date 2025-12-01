@@ -69,34 +69,16 @@ class ToiletScreenFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        val buildingSearch = BuildingSearch.newInstance()
-        buildingSearch.setBuildingSearchResultListener(object: BuildingSearch.BuildingSearchResultListener {
-            override fun onGetBuildingResult(p0: BuildingResult?) {
-                toiletListAdapter = ToiletListAdapter(p0?.indoorBuildingList ?: listOf(), sharedViewModel.locale) { toiletItem ->
-                    sharedViewModel.setSelectedPoi(toiletItem) {
-                        findNavController().navigate(R.id.action_toiletScreen_to_poiDetails)
-                    }
-                }
-
-                toiletList.apply {
-                    layoutManager = LinearLayoutManager(requireContext())
-                    adapter = toiletListAdapter
-                }
+        toiletListAdapter = ToiletListAdapter(listOf(), sharedViewModel.locale) { toiletItem ->
+            sharedViewModel.setSelectedPoi(toiletItem) {
+              findNavController().navigate(R.id.action_toiletScreen_to_poiDetails)
             }
-            override fun onGetBuildingDetailResult(p0: BuildingDetailResult?) {
-                toiletListAdapter = ToiletListAdapter(p0?.indoorBuildingList ?: listOf(), sharedViewModel.locale) { toiletItem ->
-                    sharedViewModel.setSelectedPoi(toiletItem) {
-                        findNavController().navigate(R.id.action_toiletScreen_to_poiDetails)
-                    }
-                }
+        }
 
-                toiletList.apply {
-                    layoutManager = LinearLayoutManager(requireContext())
-                    adapter = toiletListAdapter
-                }
-            }
-        })
-        buildingSearch.searchBuildingByOption(BuildingSearchOption().apply { this.setKeywords("") })
+        toiletList.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = toiletListAdapter
+        }
     }
 
     private fun setupTabs() {

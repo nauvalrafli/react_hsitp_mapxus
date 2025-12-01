@@ -3,12 +3,15 @@ import {
   type HostComponent,
   type ViewProps,
 } from 'react-native';
+import type { WithDefault } from 'react-native/Libraries/Types/CodegenTypesNamespace';
 
 export interface NativeProps extends ViewProps {
   color?: string;
-  customLocale?:  'en-US' | 'zh-HK' | 'zh-CN' | undefined;
+
+  // default to none to avoid defaulting to en-US
+  customLocale?:  WithDefault<'en-US' | 'zh-HK' | 'zh-CN' | 'none', 'none'>;
 }
 
-export default codegenNativeComponent<NativeProps>(
+export default (codegenNativeComponent<NativeProps>(
   'MapxusHsitpView'
-) as HostComponent<NativeProps>;
+) as HostComponent<NativeProps>);

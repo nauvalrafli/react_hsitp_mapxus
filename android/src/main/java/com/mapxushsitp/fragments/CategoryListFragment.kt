@@ -74,7 +74,9 @@ class CategoryListFragment : Fragment() {
             locale = sharedViewModel.locale
         ) { item ->
             sharedViewModel.setSelectedPoi(item) {
-                (sharedViewModel.navController ?: findNavController()).navigate(R.id.action_global_to_poiDetails)
+                if(sharedViewModel.navController?.currentDestination?.id != R.id.poiDetailsFragment) {
+                  (sharedViewModel.navController ?: findNavController()).navigate(R.id.action_global_to_poiDetails)
+                }
             }
             onCategorySelected?.invoke(item)
         }

@@ -10,6 +10,7 @@ import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.mapxushsitp.service.getTranslation
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import com.mapxushsitp.R
@@ -75,12 +76,17 @@ class PoiDetailsFragment : Fragment() {
 
         directionButton.setOnClickListener {
             findNavController().navigate(R.id.action_poiDetails_to_prepareNavigation)
+            sharedViewModel.bottomSheet?.post {
+                sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+            }
         }
     }
 
     fun updatePoiInfo() {
-        poiTitle.text = sharedViewModel.selectedPoi.value?.nameMap?.getTranslation(sharedViewModel.locale)
-        val subtitle = sharedViewModel.selectedPoi.value?.floor + " - " + (sharedViewModel.selectedBuilding.value?.buildingNamesMap?.getTranslation(sharedViewModel.locale) ?: sharedViewModel.selectedVenue.value?.nameMap?.getTranslation(sharedViewModel.locale))
-        poiSubtitle.text = subtitle
+        sharedViewModel.selectedPoi.observe(viewLifecycleOwner) {
+            poiTitle.text = it?.nameMap?.getTranslation(sharedViewModel.locale)
+            val subtitle = it?.floor + " - " + (sharedViewModel.selectedBuilding.value?.buildingNamesMap?.getTranslation(sharedViewModel.locale) ?: sharedViewModel.selectedVenue.value?.nameMap?.getTranslation(sharedViewModel.locale))
+            poiSubtitle.text = subtitle
+        }
     }
 }

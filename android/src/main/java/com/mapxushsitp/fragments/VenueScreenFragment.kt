@@ -139,7 +139,6 @@ class VenueScreenFragment : Fragment() {
     private fun onVenueSelected(venueItem: IndoorBuildingInfo) {
         // Use shared ViewModel to select venue and show floor selector
         sharedViewModel.selectVenueAndShowFloorSelector(venueItem.buildingId)
-        sharedViewModel.setSelectedVenue(sharedViewModel.venues.value?.firstOrNull { it.id == venueItem.venueId })
         sharedViewModel.setSelectedBuilding(venueItem)
 
         // Navigate to venue details

@@ -236,6 +236,9 @@ class XmlFragment(
       setupBottomSheet()
       setupNavigation()
       setupNavigationRouteCard()
+      mapView.post {
+        it.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
+      }
     }
 
     val boarded = mapxusSharedViewModel.sharedPreferences.getBoolean("onboardingDone", false)
@@ -357,7 +360,7 @@ class XmlFragment(
 
     bottomSheetBehavior.isHideable = false
     bottomSheetBehavior.isDraggable = true
-    bottomSheetBehavior.skipCollapsed = true
+    bottomSheetBehavior.skipCollapsed = false
     bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
 
     bottomSheet.visibility = View.VISIBLE
@@ -380,6 +383,9 @@ class XmlFragment(
             mapxusSharedViewModel.mapxusMap?.removeMapxusPointAnnotations()
           }
           navController?.navigateUp()
+          bottomSheet.post {
+            bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+          }
         } else {
           val containerView = requireView().parent as? ViewGroup
           containerView?.removeAllViews()   // remove fragment UI
@@ -404,8 +410,10 @@ class XmlFragment(
           mapxusSharedViewModel.navController = navController
           navController?.addOnDestinationChangedListener { _, destination, _ ->
             // Don't expand if navigating to ShowRouteFragment (keep half-expanded)
-            if (destination.id != R.id.showRouteFragment) {
-              bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+            bottomSheet.post {
+              if (destination.id != R.id.showRouteFragment) {
+                bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+              }
             }
           }
         }

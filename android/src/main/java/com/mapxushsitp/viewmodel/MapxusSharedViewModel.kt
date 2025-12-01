@@ -284,8 +284,8 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
         mapxusPositioningClient = MapxusPositioningClient.getInstance(lifecycleOwner, context)
         mapxusPositioningProvider = MapxusPositioningProvider(mapxusPositioningClient)
 
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) {
+        lifecycleOwner.lifecycleScope.launch {
+            withContext(Dispatchers.Main) {
                 mapxusPositioningClient.addPositioningListener(positioningListener)
                 mapxusPositioningClient.setDebugEnabled(true)
                 mapxusPositioningProvider.start()
@@ -358,8 +358,12 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                 }
             })
             mapxusMap?.addOnIndoorPoiClickListener { poi ->
-                setSelectedPoi(PoiInfo(poiId = poi.id, nameMap = poi.nameMap, buildingId =  poi.buildingId, location = com.mapxus.map.mapxusmap.api.services.model.LatLng().apply { lat = poi.latitude; lon = poi.longitude }, floor = poi.floorName)) {
+                if(navController?.currentDestination?.id != R.id.poiDetailsFragment) {
                     navController?.navigate(R.id.action_searchResult_to_poiDetails)
+                }
+                setSelectedPoi(PoiInfo(poiId = poi.id, nameMap = poi.nameMap, buildingId =  poi.buildingId, location = com.mapxus.map.mapxusmap.api.services.model.LatLng().apply { lat = poi.latitude; lon = poi.longitude }, floor = poi.floorName))
+                bottomSheet?.post {
+                    bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
                 }
             }
             mapxusPositioningProvider.addListener(object: IndoorLocationProviderListener {
@@ -416,47 +420,14 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
 
     fun setSelectedPoi(poi: PoiInfo, callback: () -> Unit = {}) {
         _selectedPoi.value = poi
-        if((_selectedBuilding.value ?: "") != poi.buildingId) {
+        if(_selectedBuilding.value?.buildingId != poi.buildingId) {
             try {
-                val searcher = BuildingSearch.newInstance()
-                if(selectedBuilding.value != null) {
-                    mapxusMap?.removeMapxusPointAnnotations()
-                    mapxusMap?.selectFloorById(poi.floorId ?: poi.sharedFloorId ?: "")
-                    mapxusMap?.addMapxusPointAnnotation(
-                        MapxusPointAnnotationOptions().apply {
-                            position = LatLng(
-                                poi.location.lat,
-                                poi.location.lon
-                            )
-                            floorId = poi.floorId ?: poi.sharedFloorId ?: ""
-                        }
-                    )
-                    callback()
-                } else {
-                    searcher.searchBuildingDetail(
-                        DetailSearchOption().id(poi.buildingId)
-                    ) {
-                        _selectedBuilding.value = it.indoorBuildingList[0]
-                        mapxusMap?.removeMapxusPointAnnotations()
-                        mapxusMap?.selectFloorById(poi.floorId ?: poi.sharedFloorId ?: "")
-                        mapxusMap?.addMapxusPointAnnotation(
-                            MapxusPointAnnotationOptions().apply {
-                                position = LatLng(
-                                    poi.location.lat,
-                                    poi.location.lon
-                                )
-                                floorId = poi.floorId ?: poi.sharedFloorId ?: ""
-                            }
-                        )
-                        callback()
-                    }
-                }
+                _selectedBuilding.value = building.value?.find { it.buildingId == poi.buildingId }
             } catch(e: Exception) {
                 mapxusMap?.removeMapxusPointAnnotations()
             }
         } else {
             mapxusMap?.removeMapxusPointAnnotations()
-            mapxusMap?.selectFloorById(poi.floorId ?: poi.sharedFloorId ?: "")
             mapxusMap?.addMapxusPointAnnotation(
                 MapxusPointAnnotationOptions().apply {
                     position = LatLng(

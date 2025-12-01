@@ -15,6 +15,7 @@ import androidx.lifecycle.Observer
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.mapxushsitp.adapter.CategoryAdapter
 import com.mapxushsitp.adapter.CategoryAdapter.CategoryItem
 import com.mapxushsitp.service.getTranslation
@@ -94,6 +95,9 @@ class VenueDetailsFragment : Fragment() {
                 venueAddress.text = it.addressMap?.getTranslation(sharedViewModel.locale)?.street
             }
         })
+        sharedViewModel.bottomSheet?.post {
+          sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+        }
     }
 
     private fun setupCategoryRecyclerView() {
