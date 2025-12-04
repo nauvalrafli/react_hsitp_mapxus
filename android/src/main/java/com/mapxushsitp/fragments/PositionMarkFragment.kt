@@ -8,6 +8,7 @@ import android.widget.Button
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import com.mapxushsitp.R
 import com.google.android.material.button.MaterialButton
@@ -32,6 +33,9 @@ class PositionMarkFragment : Fragment() {
         initializeViews(view)
         setupClickListeners()
         sharedViewModel.selectionMark?.visibility = View.VISIBLE
+        sharedViewModel.bottomSheet?.post {
+           sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+        }
     }
 
     private fun initializeViews(view: View) {

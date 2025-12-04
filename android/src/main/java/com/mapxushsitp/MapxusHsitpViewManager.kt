@@ -33,13 +33,13 @@ class MapxusHsitpViewManager : SimpleViewManager<MapxusHsitpView>()  {
     view?.setBackgroundColor(Color.parseColor(color))
   }
 
-  @ReactProp(name = "customLocale")
+  @ReactProp(name = "customLocale", customType = "String")
   fun setCustomLocale(view: MapxusHsitpView?, locale: String?) {
     if (locale == null || locale == "none") {
       // Don't set locale
       return
     }
-    
+
     Log.d("REACT-MAPXUS", locale)
     if (locale.contains("-")) {
       val split = locale.split("-")

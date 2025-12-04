@@ -1,5 +1,5 @@
 import { View, StyleSheet, Text, Button } from 'react-native';
-import { MapxusHsitpView } from 'react-native-mapxus-hsitp';
+import { CustomLocale, MapxusHsitpView } from 'react-native-mapxus-hsitp';
 import { PermissionsAndroid, Platform, Alert } from 'react-native';
 import { useEffect, useRef } from 'react';
 import {
@@ -62,7 +62,7 @@ function BrokenScreen() {
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
       <MapxusHsitpView
         color="#ababab"
-        customLocale="en-US"
+        customLocale="zh-TW"
         style={styles.box}
         ref={ref}
       />

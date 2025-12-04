@@ -11,6 +11,7 @@ import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.mapxus.map.mapxusmap.api.services.PoiSearch
 import com.mapxus.map.mapxusmap.api.services.model.PoiSearchOption
 import com.mapxus.map.mapxusmap.api.services.model.poi.PoiInfo
@@ -48,6 +49,9 @@ class CategoryListFragment : Fragment() {
         setupRecycler()
         setupClickListeners()
         applyArguments()
+        sharedViewModel.bottomSheet?.post {
+           sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+        }
     }
 
     private fun initializeViews(root: View) {

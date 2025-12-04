@@ -1,2 +1,2 @@
-export { default as MapxusHsitpView } from './MapxusHsitpViewNativeComponent';
+export { default as MapxusHsitpView, CustomLocale } from './MapxusHsitpViewNativeComponent';
 export * from './MapxusHsitpViewNativeComponent';

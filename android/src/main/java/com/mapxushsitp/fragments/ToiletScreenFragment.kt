@@ -69,7 +69,7 @@ class ToiletScreenFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        toiletListAdapter = ToiletListAdapter(listOf(), sharedViewModel.locale) { toiletItem ->
+        toiletListAdapter = ToiletListAdapter(sharedViewModel.building.value ?: listOf(), sharedViewModel.locale) { toiletItem ->
             sharedViewModel.setSelectedPoi(toiletItem) {
               findNavController().navigate(R.id.action_toiletScreen_to_poiDetails)
             }

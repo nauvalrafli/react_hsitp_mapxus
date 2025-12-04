@@ -361,7 +361,7 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                 if(navController?.currentDestination?.id != R.id.poiDetailsFragment) {
                     navController?.navigate(R.id.action_searchResult_to_poiDetails)
                 }
-                setSelectedPoi(PoiInfo(poiId = poi.id, nameMap = poi.nameMap, buildingId =  poi.buildingId, location = com.mapxus.map.mapxusmap.api.services.model.LatLng().apply { lat = poi.latitude; lon = poi.longitude }, floor = poi.floorName))
+                setSelectedPoi(PoiInfo(poiId = poi.id, nameMap = poi.nameMap, buildingId =  poi.buildingId, location = com.mapxus.map.mapxusmap.api.services.model.LatLng().apply { lat = poi.latitude; lon = poi.longitude }, floor = poi.floorName, floorId = poi.floor, sharedFloorId = poi.sharedFloorId))
                 bottomSheet?.post {
                     bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
                 }

@@ -49,6 +49,9 @@ class PoiDetailsFragment : Fragment() {
         initializeViews(view)
         setupClickListeners()
         updatePoiInfo()
+        sharedViewModel.bottomSheet?.post {
+            sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+        }
     }
 
     private fun initializeViews(view: View) {
