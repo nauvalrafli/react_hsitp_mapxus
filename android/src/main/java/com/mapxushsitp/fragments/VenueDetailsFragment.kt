@@ -67,6 +67,7 @@ class VenueDetailsFragment : Fragment() {
         searchField.isFocusable = false
         searchField.isFocusableInTouchMode = false
         searchField.setText(sharedViewModel.context.resources.getString(R.string.search))
+        sharedViewModel.mapxusMap?.selectBuildingById(sharedViewModel.selectedBuilding.value?.buildingId ?: "")
     }
 
     private fun setupClickListeners() {
@@ -95,9 +96,9 @@ class VenueDetailsFragment : Fragment() {
                 venueAddress.text = it.addressMap?.getTranslation(sharedViewModel.locale)?.street
             }
         })
-        sharedViewModel.bottomSheet?.post {
-          sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
-        }
+//        sharedViewModel.bottomSheet?.post {
+//          sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+//        }
     }
 
     private fun setupCategoryRecyclerView() {

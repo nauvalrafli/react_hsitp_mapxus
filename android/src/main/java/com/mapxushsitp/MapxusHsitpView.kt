@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.annotation.RequiresApi
+import androidx.core.view.children
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.commit
 import com.facebook.react.uimanager.ThemedReactContext
@@ -122,11 +123,12 @@ class MapxusHsitpView : FrameLayout {
       )
       activity.resources.configuration.setLocale(locale)
       activity.supportFragmentManager.commit {
+        setReorderingAllowed(true)
         replace(container?.id ?: 0, fragment, fragmentTag())
       }
       viewTreeObserver.addOnGlobalLayoutListener {
         if(fragment.view != null) {
-          if(fragment.view!!.height > 0 && fragment.view!!.width > 0) {
+          if(fragment.requireView().height > 0 && fragment.requireView().width > 0) {
             fragmentAttached = true
           }
           val fragView = fragment.view

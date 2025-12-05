@@ -33,9 +33,6 @@ class PositionMarkFragment : Fragment() {
         initializeViews(view)
         setupClickListeners()
         sharedViewModel.selectionMark?.visibility = View.VISIBLE
-        sharedViewModel.bottomSheet?.post {
-           sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
-        }
     }
 
     private fun initializeViews(view: View) {

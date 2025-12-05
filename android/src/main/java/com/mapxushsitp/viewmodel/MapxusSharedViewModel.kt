@@ -299,13 +299,21 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
     }
 
   fun destroy() {
+    _mapView.value?.onDestroy()
+//    _mapViewProvider.value?.onDestroy()
+
     _mapView.value = null
     _mapViewProvider.value = null
     mapxusMap = null
     maplibreMap = null
 
+    bottomSheet = null
+    bottomSheetBehavior = null
+    selectionMark = null
+
+    navController = null
+
     routeAdsorber = null
-    routePainter = null
     routePainter = null
     mapxusPositioningProvider.stop()
     mapxusPositioningClient.stop()

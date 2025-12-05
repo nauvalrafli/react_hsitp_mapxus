@@ -49,9 +49,6 @@ class CategoryListFragment : Fragment() {
         setupRecycler()
         setupClickListeners()
         applyArguments()
-        sharedViewModel.bottomSheet?.post {
-           sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
-        }
     }
 
     private fun initializeViews(root: View) {

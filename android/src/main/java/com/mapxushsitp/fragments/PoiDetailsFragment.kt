@@ -49,9 +49,6 @@ class PoiDetailsFragment : Fragment() {
         initializeViews(view)
         setupClickListeners()
         updatePoiInfo()
-        sharedViewModel.bottomSheet?.post {
-            sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
-        }
     }
 
     private fun initializeViews(view: View) {
@@ -59,7 +56,6 @@ class PoiDetailsFragment : Fragment() {
         poiTitle = view.findViewById(R.id.poi_title)
         poiSubtitle = view.findViewById(R.id.poi_subtitle)
         shareButton = view.findViewById(R.id.share_button)
-//        facilitiesChip = view.findViewById(R.id.facilities_chip)
         directionButton = view.findViewById(R.id.direction_button)
         directionButton.text = sharedViewModel.context.resources.getString(R.string.direction)
 
