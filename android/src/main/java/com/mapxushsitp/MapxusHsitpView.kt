@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
 import android.util.AttributeSet
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -50,6 +51,7 @@ class MapxusHsitpView : FrameLayout {
   }
 
   private fun initView() {
+    Log.d("React-mapxus", container.toString())
     container = FrameLayout(context).apply {
       id = fragmentContainerId
       layoutParams = LayoutParams(
@@ -65,8 +67,6 @@ class MapxusHsitpView : FrameLayout {
     }
 
     val localizedContext = activity.createConfigurationContext(config)
-    val resource = localizedContext.resources
-
   }
 
   override fun onAttachedToWindow() {
@@ -106,8 +106,8 @@ class MapxusHsitpView : FrameLayout {
 
     val tag = fragmentTag()
     val existing = activity.supportFragmentManager.findFragmentByTag(tag)
+    Log.d("REACT-MAPXUS Ex", "Existing: $existing")
     if (existing == null && container != null) {
-      // CRITICAL: Ensure container is visible and has proper dimensions
       container?.visibility = View.VISIBLE
       container?.layoutParams = LayoutParams(
         LayoutParams.MATCH_PARENT,
@@ -150,6 +150,7 @@ class MapxusHsitpView : FrameLayout {
     activity.supportFragmentManager.findFragmentByTag(fragmentTag())?.let { fragment ->
       activity.supportFragmentManager.commit() {
         remove(fragment)
+        System.gc()
       }
     }
     fragmentAttached = false

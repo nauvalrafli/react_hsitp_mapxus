@@ -60,7 +60,7 @@ class MapxusWrapperFragment(private var frame: MapxusHsitpView): Fragment() {
     container: ViewGroup?,
     savedInstanceState: Bundle?
   ): View? {
-    return super.onCreateView(inflater, container, savedInstanceState)
+    return super.onCreateView(inflater, container, null)
   }
 }
 

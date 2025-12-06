@@ -109,4 +109,8 @@
         android:id="@+id/action_venueDetails_to_settingsView"
         app:destination="@id/settingsViewFragment" />
 
+  <action
+    android:id="@+id/action_global_to_venue"
+    app:destination="@id/venueScreenFragment" />
+
 </navigation>

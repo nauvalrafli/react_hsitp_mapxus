@@ -11,6 +11,7 @@ import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Observer
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.viewpager2.widget.ViewPager2
 import com.mapxushsitp.adapters.VenueAdapter
@@ -22,6 +23,7 @@ import com.mapxus.map.mapxusmap.api.services.model.BuildingSearchOption
 import com.mapxus.map.mapxusmap.api.services.model.VenueSearchOption
 import com.mapxus.map.mapxusmap.api.services.model.building.IndoorBuildingInfo
 import com.mapxus.map.mapxusmap.api.services.model.venue.VenueInfo
+import kotlinx.coroutines.launch
 
 class VenueScreenFragment : Fragment() {
 
@@ -48,7 +50,9 @@ class VenueScreenFragment : Fragment() {
         setupPaginationIndicators()
 
         // Observe shared ViewModel
-        observeSharedViewModel()
+        lifecycleScope.launch {
+          observeSharedViewModel()
+        }
 
         // Load real venues data
         loadVenuesData()
@@ -159,7 +163,10 @@ class VenueScreenFragment : Fragment() {
         paginationIndicators.removeAllViews()
 
         for (i in 0 until venueCount) {
-            val indicator = View(requireContext())
+            if(context == null) {
+              break;
+            }
+            val indicator = View(context)
             val size = 24 // 6dp in pixels
             val layoutParams = LinearLayout.LayoutParams(size, size)
             layoutParams.setMargins(8, 0, 8, 0) // 2dp margin

@@ -35,8 +35,10 @@ import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.children
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentContainerView
+import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
@@ -175,11 +177,11 @@ class XmlFragment(
 
 
   override fun onAttach(context: Context) {
-    super.onAttach(context)
     // Create localized context after attachment so we can safely access theme
     localizedContext = updateLocaleContext(context)
     mapxusSharedViewModel.context = localizedContext ?: requireContext()
     navController = getNavController()
+    super.onAttach(localizedContext ?: context)
   }
 
   override fun getContext(): Context? {
@@ -193,7 +195,11 @@ class XmlFragment(
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
+    Log.d("REACT-MAPXUS", "On Create ${::mapView.isInitialized} ${::bottomSheet.isInitialized} ${::fragmentContainer.isInitialized}")
+    super.onCreate(null)
+    if (savedInstanceState != null) {
+      childFragmentManager.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE)
+    }
   }
 
   override fun onCreateView(
@@ -201,6 +207,8 @@ class XmlFragment(
     container: ViewGroup?,
     savedInstanceState: Bundle?
   ): View? {
+    Log.d("REACT-MAPXUS", "On Create View")
+    Log.d("REACT-MAPXUS", "${::mapView.isInitialized} ${::bottomSheet.isInitialized} ${::fragmentContainer.isInitialized}")
     // Use the localized context which has the theme preserved
     val ctx = localizedContext ?: updateLocaleContext(requireContext())
     val localizedInflater = inflater.cloneInContext(ctx)
@@ -208,11 +216,11 @@ class XmlFragment(
   }
 
   override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+    Log.d("REACT-MAPXUS", "On View Created")
     super.onViewCreated(view, savedInstanceState)
 
     mapxusSharedViewModel.selectVehicle(mapxusSharedViewModel.sharedPreferences.getString("vehicle", RoutePlanningVehicle.FOOT) ?: RoutePlanningVehicle.FOOT)
     isSpeaking = mapxusSharedViewModel.sharedPreferences.getBoolean("isSpeaking", true)
-
 
     mapxusSharedViewModel.locale = locale ?: Locale.getDefault()
 
@@ -224,7 +232,9 @@ class XmlFragment(
     checkAllPermissions()
 
     setupMap()
-    mapView.onCreate(savedInstanceState)
+    setupBottomSheet()
+    setupNavigationRouteCard()
+    mapView.onCreate(null)
     ViewCompat.setOnApplyWindowInsetsListener(view.findViewById(R.id.main)) { v, insets ->
       val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
       v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
@@ -232,9 +242,20 @@ class XmlFragment(
     }
     setupFloatingActionButtons()
 
+    mapViewProvider.getMapxusMapAsync {
+      mapxusSharedViewModel.mapxusMap = it
+      mapView.post {
+        it.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
+      }
+    }
+
     val boarded = mapxusSharedViewModel.sharedPreferences.getBoolean("onboardingDone", false)
     if(!boarded) {
       setupWalkthroughOverlay()
+    }
+    view.post {
+      setupNavigation()
+      Log.d("REACT-MAPXUS", "On Create ${mapView} ${bottomSheet} ${fragmentContainer}")
     }
   }
 
@@ -288,9 +309,6 @@ class XmlFragment(
       zoomLevel = 19.0
     }
     mapViewProvider = MapLibreMapViewProvider(requireContext(), mapView, mapOptions)
-    mapViewProvider.getMapxusMapAsync {
-      mapxusSharedViewModel.mapxusMap = it
-    }
     mapView.getMapAsync {
       mapxusSharedViewModel.maplibreMap = it
     }
@@ -298,7 +316,6 @@ class XmlFragment(
     userLocation = requireView().findViewById(R.id.select_location)
 
     // Initialize shared ViewModel with map components
-    mapxusSharedViewModel.setMapViewProvider(mapViewProvider)
     mapxusSharedViewModel.initPositioning(this, requireContext())
 
     loadingOverlay = requireView().findViewById(R.id.loading_overlay)
@@ -348,6 +365,7 @@ class XmlFragment(
   val onGlobalLayoutListener = ViewTreeObserver.OnGlobalLayoutListener {
     val newHeight = bottomSheet.measuredHeight
     // Only update peekHeight if not in half-expanded state (to preserve half-height setting)
+
     if (bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED) {
       if (bottomSheetBehavior.peekHeight != newHeight) {
         bottomSheetBehavior.peekHeight = newHeight
@@ -377,9 +395,15 @@ class XmlFragment(
   }
 
   val destinationChangedListener = NavController.OnDestinationChangedListener { _, destination, _ ->
+    Log.d("REACT-MAPXUS", "Destination changed")
+    Log.d("REACT-MAPXUS", "Size: ${navHostFragment?.view?.width} ${navHostFragment?.view?.height}")
     bottomSheet.post {
-      if (destination.id != R.id.showRouteFragment) {
-        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+      Log.d("REACT-MAPXUS", "cc: ${bottomSheet.childCount}\n${bottomSheet.getChildAt(0)}\n${bottomSheet.getChildAt(1)}")
+      bottomSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+      bottomSheet.post {
+        if (destination.id != R.id.showRouteFragment) {
+          bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+        }
       }
     }
   }
@@ -421,7 +445,7 @@ class XmlFragment(
           }
         } else {
           val containerView = requireView().parent as? ViewGroup
-          containerView?.removeAllViews()   // remove fragment UI
+//          containerView?.removeAllViews()   // remove fragment UI
           parentFragmentManager.beginTransaction()
             .remove(this@XmlFragment)
             .commitAllowingStateLoss()
@@ -433,22 +457,77 @@ class XmlFragment(
   fun setupNavigation() {
     fragmentContainer = requireView().findViewById(R.id.fragment_container)
 
-    viewLifecycleOwner.lifecycleScope.launch {
-      withContext(Dispatchers.IO) {
-        delay(500)
-        fragmentContainer.visibility = View.VISIBLE
-        this@XmlFragment.navHostFragment = childFragmentManager.findFragmentById(R.id.fragment_container) as? NavHostFragment
-        withContext(Dispatchers.Main) {
-          Log.d("REACT-MAPXUS", "Nav $navController $navHostFragment")
-          navController = navHostFragment?.navController
-          Log.d("REACT-MAPXUS", "Nav $navController $navHostFragment")
-          mapxusSharedViewModel.navController = navController
-          navController?.addOnDestinationChangedListener(destinationChangedListener)
-        }
-      }
+    // 1. Force-remove old nav host if RN left the screen earlier
+    val existing = childFragmentManager.findFragmentById(R.id.fragment_container)
+    if (existing != null) {
+      childFragmentManager.beginTransaction().setReorderingAllowed(true)
+        .detach(existing)
+        .remove(existing)
+        .commitNow()
     }
 
-    mapxusSharedViewModel.selectionMark = requireView().findViewById(R.id.select_location)
+    // 2. Create a brand-new NavHostFragment
+    val newNavHost = NavHostFragment.create(R.navigation.nav_graph)
+    childFragmentManager.beginTransaction()
+      .replace(R.id.fragment_container, newNavHost)
+      .setPrimaryNavigationFragment(newNavHost)
+      .show(newNavHost)
+      .commitNow()
+
+    // 3. Assign controller
+//    navHostFragment = newNavHost
+    // If you have NavHostFragment in XML, reset it
+    navHostFragment = childFragmentManager
+      .findFragmentById(R.id.fragment_container) as? NavHostFragment
+
+    navHostFragment?.let {
+      // Reset navigation graph to clear state
+      it.navController.graph = it.navController.navInflater
+        .inflate(R.navigation.nav_graph)
+    }
+
+    navController = newNavHost.navController
+
+    fragmentContainer.visibility = View.VISIBLE
+
+    // 4. Register listener
+    navController?.addOnDestinationChangedListener(destinationChangedListener)
+
+    mapxusSharedViewModel.navController = navController
+  }
+
+
+
+  fun setupNavigation2() {
+    fragmentContainer = requireView().findViewById(R.id.fragment_container)
+
+    viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
+
+      // 1. Remove any existing fragment completely
+      val old = childFragmentManager.findFragmentById(R.id.fragment_container)
+      if (old != null) {
+        childFragmentManager.beginTransaction()
+          .remove(old)
+          .commitNow()
+      }
+
+      // 2. Recreate new host
+      val newHost = NavHostFragment.create(R.navigation.nav_graph)
+
+      childFragmentManager.beginTransaction()
+        .replace(R.id.fragment_container, newHost)
+        .commitNow()
+
+      val host = childFragmentManager.findFragmentById(R.id.fragment_container) as NavHostFragment
+      val controller = host.navController
+
+      // 3. Show
+      fragmentContainer.visibility = View.VISIBLE
+
+      controller.navigate(R.id.action_global_to_venue)
+      mapxusSharedViewModel.navController = controller
+      controller.addOnDestinationChangedListener(destinationChangedListener)
+    }
   }
 
   private fun setupFloatingActionButtons() {
@@ -721,7 +800,6 @@ class XmlFragment(
     mapxusSharedViewModel.routePainter?.cleanRoute()
   }
 
-
   private fun showARFragment() {
     val startLocationSerializable = SerializableRoutePoint(
       mapxusSharedViewModel.startLatLng?.lat ?: 0.0,
@@ -805,31 +883,7 @@ class XmlFragment(
   }
 
   override fun onResume() {
-    Log.d("REACT-MAPXUS", "On Resume" + navController)
-    val container = view?.findViewById<View>(R.id.fragment_container)
-    val navHost = childFragmentManager.findFragmentById(R.id.fragment_container)
-      as? NavHostFragment ?: return
-
-    // React might recreate the view but FragmentManager still holds the old one
-    if (navHost.view?.parent !== container) {
-      childFragmentManager.beginTransaction()
-        .remove(navHost)
-        .commitNowAllowingStateLoss()
-
-      childFragmentManager.beginTransaction()
-        .replace(R.id.fragment_container, NavHostFragment.create(R.navigation.nav_graph))
-        .commitNowAllowingStateLoss()
-    }
-    mapViewProvider.getMapxusMapAsync {
-      mapxusSharedViewModel.mapxusMap = it
-      setupBottomSheet()
-      setupNavigation()
-      setupNavigationRouteCard()
-      mapView.post {
-        it.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
-      }
-    }
-    mapxusSharedViewModel.navController = getNavController()
+    Log.d("REACT-MAPXUS", "On Resume")
     super.onResume()
     mapxusSharedViewModel.mapView.value?.onResume()
   }
@@ -882,17 +936,26 @@ class XmlFragment(
     bottomSheet.viewTreeObserver.removeOnGlobalLayoutListener(onGlobalLayoutListener)
     bottomSheetBehavior.removeBottomSheetCallback(bottomSheetCallback)
 
+    // Clean up child fragments (including NavHostFragment)
+    childFragmentManager.fragments.toList().forEach { fragment ->
+      childFragmentManager.beginTransaction()
+        .remove(fragment)
+        .commitNowAllowingStateLoss()
+    }
+
     navController?.removeOnDestinationChangedListener(destinationChangedListener)
 
     viewLifecycleOwner.lifecycleScope.coroutineContext.cancelChildren()
+    localizedContext = null
 
     Log.d("REACT-MAPXUS", "On Destroy View " + navController)
     super.onDestroyView()
   }
 
   override fun onDestroy() {
+    Log.d("REACT-MAPXUS", "On Destroy")
     mapxusSharedViewModel.destroy()
-    navHostFragment?.onDestroy()
+    mapxusSharedViewModel.res
     navHostFragment = null
     navController = null
 
@@ -913,6 +976,7 @@ class XmlFragment(
   }
 
   override fun onSaveInstanceState(outState: Bundle) {
+    Log.d("REACT-MAPXUS", "On Save Instance")
     mapxusSharedViewModel.mapView.value?.onSaveInstanceState(outState)
     super.onSaveInstanceState(outState)
   }
