@@ -283,7 +283,6 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
     fun initPositioning(lifecycleOwner: LifecycleOwner, context: Context) {
         mapxusPositioningClient = MapxusPositioningClient.getInstance(lifecycleOwner, context)
         mapxusPositioningProvider = MapxusPositioningProvider(mapxusPositioningClient)
-
         lifecycleOwner.lifecycleScope.launch {
             withContext(Dispatchers.Main) {
                 mapxusPositioningClient.addPositioningListener(positioningListener)
@@ -298,6 +297,23 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+  /**
+   * Clear view references when Fragment is destroyed.
+   * This should be called from onDestroyView() to allow Fragment recreation.
+   */
+  fun clearViewReferences() {
+    bottomSheet = null
+    bottomSheetBehavior = null
+    selectionMark = null
+    navController = null
+    routeAdsorber = null
+    routePainter = null
+  }
+
+  /**
+   * Full cleanup - stops services and clears all references.
+   * Should only be called when the Activity is being destroyed.
+   */
   fun destroy() {
     _mapView.value?.onDestroy()
 //    _mapViewProvider.value?.onDestroy()
@@ -307,17 +323,16 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
     mapxusMap = null
     maplibreMap = null
 
-    bottomSheet = null
-    bottomSheetBehavior = null
-    selectionMark = null
+    clearViewReferences()
 
-    navController = null
-
-    routeAdsorber = null
-    routePainter = null
-    mapxusPositioningProvider.stop()
-    mapxusPositioningClient.stop()
-    mapxusPositioningClient.removePositioningListener(positioningListener)
+    // Only stop positioning if it was initialized
+    if (::mapxusPositioningProvider.isInitialized) {
+      mapxusPositioningProvider.stop()
+    }
+    if (::mapxusPositioningClient.isInitialized) {
+      mapxusPositioningClient.stop()
+      mapxusPositioningClient.removePositioningListener(positioningListener)
+    }
   }
 
     // Methods to update data

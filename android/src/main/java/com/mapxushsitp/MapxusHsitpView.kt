@@ -107,7 +107,20 @@ class MapxusHsitpView : FrameLayout {
     val tag = fragmentTag()
     val existing = activity.supportFragmentManager.findFragmentByTag(tag)
     Log.d("REACT-MAPXUS Ex", "Existing: $existing")
-    if (existing == null && container != null) {
+    
+    if (existing != null) {
+      // Fragment exists but might be detached - reattach it
+      if (existing.isDetached) {
+        activity.supportFragmentManager.commit {
+          setReorderingAllowed(true)
+          attach(existing)
+        }
+      }
+      fragmentAttached = true
+      return
+    }
+    
+    if (container != null) {
       container?.visibility = View.VISIBLE
       container?.layoutParams = LayoutParams(
         LayoutParams.MATCH_PARENT,

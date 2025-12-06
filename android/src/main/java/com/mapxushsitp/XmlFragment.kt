@@ -315,8 +315,14 @@ class XmlFragment(
     mapxusSharedViewModel.setMapViewProvider(mapViewProvider)
     userLocation = requireView().findViewById(R.id.select_location)
 
-    // Initialize shared ViewModel with map components
-    mapxusSharedViewModel.initPositioning(this, requireContext())
+    // Initialize positioning only if not already initialized
+    // This allows positioning to persist across Fragment recreations
+    try {
+      mapxusSharedViewModel.initPositioning(this, requireContext())
+    } catch (e: Exception) {
+      Log.e("REACT-MAPXUS", "Error initializing positioning", e)
+      mapxusSharedViewModel.initPositioning(this, requireContext())
+    }
 
     loadingOverlay = requireView().findViewById(R.id.loading_overlay)
     mapxusSharedViewModel.isLoadingRoute.observe(viewLifecycleOwner) {
@@ -418,9 +424,17 @@ class XmlFragment(
     bottomSheetBehavior.isHideable = false
     bottomSheetBehavior.isDraggable = true
     bottomSheetBehavior.skipCollapsed = false
-    bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
 
+    // Ensure bottomSheet is visible and in correct state
     bottomSheet.visibility = View.VISIBLE
+    bottomSheet.post {
+      // Set state after layout to ensure proper initialization
+      if (!mapxusSharedViewModel.isNavigating) {
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+      } else {
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+      }
+    }
 
     mapView.addOnDidFinishRenderingFrameListener(didFinishRenderingFrameListener)
 
@@ -933,8 +947,13 @@ class XmlFragment(
   override fun onDestroyView() {
     mapView.removeOnDidFinishRenderingFrameListener(didFinishRenderingFrameListener)
     mapxusSharedViewModel.mapView.value?.removeOnDidFinishRenderingFrameListener(didFinishRenderingFrameListener)
-    bottomSheet.viewTreeObserver.removeOnGlobalLayoutListener(onGlobalLayoutListener)
-    bottomSheetBehavior.removeBottomSheetCallback(bottomSheetCallback)
+
+    if (::bottomSheet.isInitialized) {
+      bottomSheet.viewTreeObserver.removeOnGlobalLayoutListener(onGlobalLayoutListener)
+    }
+    if (::bottomSheetBehavior.isInitialized) {
+      bottomSheetBehavior.removeBottomSheetCallback(bottomSheetCallback)
+    }
 
     // Clean up child fragments (including NavHostFragment)
     childFragmentManager.fragments.toList().forEach { fragment ->
@@ -948,14 +967,19 @@ class XmlFragment(
     viewLifecycleOwner.lifecycleScope.coroutineContext.cancelChildren()
     localizedContext = null
 
+    // Clear view references in ViewModel to allow proper reinitialization
+    // when Fragment is recreated. Don't call destroy() as it stops services.
+    mapxusSharedViewModel.clearViewReferences()
+
     Log.d("REACT-MAPXUS", "On Destroy View " + navController)
     super.onDestroyView()
   }
 
   override fun onDestroy() {
     Log.d("REACT-MAPXUS", "On Destroy")
-    mapxusSharedViewModel.destroy()
-    mapxusSharedViewModel.res
+    // Don't call destroy() here as it stops positioning services
+    // destroy() should only be called when Activity is being destroyed
+    // View references are already cleared in onDestroyView()
     navHostFragment = null
     navController = null
 
