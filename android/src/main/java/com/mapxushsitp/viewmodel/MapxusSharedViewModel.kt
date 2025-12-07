@@ -64,6 +64,7 @@ import kotlinx.coroutines.withContext
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import java.util.Locale
+import kotlin.collections.get
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -297,43 +298,232 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-  /**
-   * Clear view references when Fragment is destroyed.
-   * This should be called from onDestroyView() to allow Fragment recreation.
-   */
-  fun clearViewReferences() {
-    bottomSheet = null
-    bottomSheetBehavior = null
-    selectionMark = null
-    navController = null
-    routeAdsorber = null
-    routePainter = null
-  }
+    private fun clearPositioningProviderListeners() {
+      // Ensure mapxusPositioningProvider is initialized before proceeding
+      if (!::mapxusPositioningProvider.isInitialized) return
 
-  /**
-   * Full cleanup - stops services and clears all references.
-   * Should only be called when the Activity is being destroyed.
-   */
-  fun destroy() {
-    _mapView.value?.onDestroy()
-//    _mapViewProvider.value?.onDestroy()
+      try {
+        // The class name of the abstract base class that holds the listener lists
+        val providerClass = Class.forName("com.mapxus.map.mapxusmap.positioning.IndoorLocationProvider")
 
-    _mapView.value = null
-    _mapViewProvider.value = null
-    mapxusMap = null
-    maplibreMap = null
+        // 1. Target: IndoorLocationProvider.compassListeners
+        // This list holds the specific internal listener (r0$e) causing the leak.
+        val compassListenersField = providerClass.getDeclaredField("compassListeners")
+        compassListenersField.isAccessible = true
 
-    clearViewReferences()
+        // Get the actual list instance from your mapxusPositioningProvider object
+        val compassListeners = compassListenersField.get(mapxusPositioningProvider) as? java.util.concurrent.CopyOnWriteArrayList<*>
 
-    // Only stop positioning if it was initialized
-    if (::mapxusPositioningProvider.isInitialized) {
-      mapxusPositioningProvider.stop()
+        // CRITICAL: Clear the list to remove all retained listeners
+        compassListeners?.clear()
+        Log.d("ViewModel", "Cleared IndoorLocationProvider.compassListeners.")
+
+
+        // 2. Target: IndoorLocationProvider.listeners
+        // Clearing this list removes general location listeners (although the compass list was the direct leak source, clearing this is safer).
+        val listenersField = providerClass.getDeclaredField("listeners")
+        listenersField.isAccessible = true
+
+        val listeners = listenersField.get(mapxusPositioningProvider) as? java.util.concurrent.CopyOnWriteArrayList<*>
+        listeners?.clear()
+        Log.d("ViewModel", "Cleared IndoorLocationProvider.listeners.")
+
+        Log.d("ViewModel", "Cleared all internal MapxusPositioningProvider listener lists.")
+
+      } catch (e: Exception) {
+        // Log the failure in case the SDK updates and field names change
+        Log.e("ViewModel", "Failed to clear positioning provider listeners via reflection. Error: ${e.message}", e)
+      }
     }
-    if (::mapxusPositioningClient.isInitialized) {
-      mapxusPositioningClient.stop()
-      mapxusPositioningClient.removePositioningListener(positioningListener)
+
+    /**
+     * Clear view references when Fragment is destroyed.
+     * This should be called from onDestroyView() to allow Fragment recreation.
+     */
+    private fun clearAllMapLibreViewReferences() {
+      try {
+        val dacClass = Class.forName("org.maplibre.android.plugins.annotation.DraggableAnnotationController")
+        val dacInstanceField = dacClass.getDeclaredField("INSTANCE")
+        dacInstanceField.isAccessible = true
+        val dacInstance = dacInstanceField.get(null) // Should be the static instance
+
+        if (dacInstance != null) {
+
+          // --- 1. Fix 1: Clear the direct maplibreMap field (for safety) ---
+          try {
+            val maplibreMapField = dacClass.getDeclaredField("maplibreMap")
+            maplibreMapField.isAccessible = true
+            maplibreMapField.set(dacInstance, null)
+          } catch (e: Exception) {
+            // Ignore if field doesn't exist or is already cleared
+          }
+
+          // --- 2. Fix 2: CRITICAL - Clear the annotationManagersById HashMap ---
+          // This targets the new leak path: DraggableAnnotationController.annotationManagersById
+          val managersByIdField = dacClass.getDeclaredField("annotationManagersById")
+          managersByIdField.isAccessible = true
+          val managersById = managersByIdField.get(dacInstance) as? java.util.HashMap<*, *>
+
+          managersById?.apply {
+            // Manually iterate and clear internal map references before clearing the list
+            for (manager in values) {
+              try {
+                // All MapLibre Annotation Managers inherit from AnnotationManager
+                val managerSuperclass = Class.forName("org.maplibre.android.maps.AnnotationManager")
+                val mapViewField = managerSuperclass.getDeclaredField("mapView")
+                mapViewField.isAccessible = true
+                mapViewField.set(manager, null) // Null the MapView reference
+              } catch (e: Exception) {
+                Log.w("ViewModel", "Failed to clear mapView in manager: ${e.message}")
+              }
+            }
+
+            // Clear the HashMap itself, removing the SymbolManager instances
+            clear()
+            Log.d("ViewModel", "Cleared annotationManagersById HashMap.")
+          }
+
+
+          // --- 3. Fix 3: Clear the old annotationManagers list (if it still exists) ---
+          try {
+            val managersField = dacClass.getDeclaredField("annotationManagers")
+            managersField.isAccessible = true
+            val managers = managersField.get(dacInstance) as? MutableList<*>
+            managers?.clear()
+          } catch (e: Exception) {
+            // Ignore if field doesn't exist
+          }
+
+          Log.d("ViewModel", "Comprehensive MapLibre cleanup successful.")
+        }
+
+      } catch (e: Exception) {
+        Log.e("ViewModel", "Comprehensive MapLibre cleanup failed.", e)
+      }
     }
-  }
+
+    private fun clearMapLibreAnnotationManagers() {
+      try {
+        val controllerClass = Class.forName(
+          "org.maplibre.android.plugins.annotation.DraggableAnnotationController"
+        )
+
+        val instanceField = controllerClass.getDeclaredField("INSTANCE")
+        instanceField.isAccessible = true
+        val instance = instanceField.get(null)
+
+        if (instance != null) {
+          // Clear annotationManagers list
+          val managersField = controllerClass.getDeclaredField("annotationManagers")
+          managersField.isAccessible = true
+          val managers = managersField.get(instance) as? MutableList<*>
+
+          managers?.forEach { manager ->
+            try {
+              // Clear mapView from each manager
+              val managerClass = manager?.javaClass?.superclass
+              val mapViewField = managerClass?.getDeclaredField("mapView")
+              mapViewField?.isAccessible = true
+              mapViewField?.set(manager, null)
+            } catch (e: Exception) {
+              // Ignore
+            }
+          }
+
+          managers?.clear()
+
+          // Also clear the mapView field
+          val mapViewField = controllerClass.getDeclaredField("mapView")
+          mapViewField.isAccessible = true
+          mapViewField.set(instance, null)
+
+          Log.d("ViewModel", "Cleared MapLibre annotation managers")
+        }
+      } catch (e: Exception) {
+        Log.e("ViewModel", "Failed to clear annotation managers", e)
+      }
+    }
+
+    fun clearViewReferences() {
+      mapxusMap?.removeOnMapClickedListener(onMapClicked)
+      mapxusMap?.removeOnIndoorPoiClickListener(onIndoorClick)
+      mapxusPositioningProvider.removeListener(indoorLocationProviderListener)
+      routeShortener?.setOnPathChangeListener(null)
+
+      routePainter?.cleanRoute()
+      routePainter = null
+
+      try {
+        mapxusMap?.removeMapxusPointAnnotations()
+      } catch (e: Exception) {
+        Log.e("ViewModel", "Error removing annotations", e)
+      }
+
+      clearPositioningProviderListeners()
+      maplibreMap?.annotations?.clear()
+      maplibreMap?.removeAnnotations()
+      clearAllMapLibreViewReferences()
+//      clearMapLibreAnnotationManagers()
+
+      mapxusMap = null
+      maplibreMap = null
+      _mapView.value?.onDestroy()
+
+
+      _mapView.value = null
+      _mapViewProvider.value = null
+
+      clearPositioningProviderListeners()
+
+      bottomSheet = null
+      bottomSheetBehavior = null
+      selectionMark = null
+      navController = null
+      routeAdsorber = null
+    }
+
+    /**
+     * Full cleanup - stops services and clears all references.
+     * Should only be called when the Activity is being destroyed.
+     */
+    fun destroy() {
+      routePainter?.cleanRoute()
+      routePainter = null
+      if (::mapxusPositioningProvider.isInitialized) {
+        mapxusPositioningProvider.stop()
+      }
+      if (::mapxusPositioningClient.isInitialized) {
+        mapxusPositioningClient.removePositioningListener(positioningListener)
+        mapxusPositioningClient.stop()
+      }
+
+      mapxusMap?.removeMapxusPointAnnotations()
+      mapxusMap = null
+      maplibreMap = null
+      _mapView.value?.onDestroy()
+      _mapView.value = null
+      _mapViewProvider.value = null
+
+      clearViewReferences()
+      clearStaticLifecycleOwner()
+    }
+
+    private fun clearStaticLifecycleOwner() {
+        try {
+            val mapxusClientClass = Class.forName(
+              "com.mapxus.positioning.positioning.api.MapxusPositioningClient"
+            )
+
+            // Clear LIFECYCLE_OWNER
+            val lifecycleOwnerField = mapxusClientClass.getDeclaredField("LIFECYCLE_OWNER")
+            lifecycleOwnerField.isAccessible = true
+            lifecycleOwnerField.set(null, null)
+
+            Log.d("ViewModel", "Cleared MapxusPositioningClient static references")
+        } catch (e: Exception) {
+            Log.e("ViewModel", "Failed to clear static references", e)
+        }
+    }
 
     // Methods to update data
     fun setMapView(mapView: MapView) {
@@ -364,66 +554,65 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
             mapxusMap?.mapxusUiSettings?.setSelectBoxColor(Color(0xFF4285F4).hashCode())
 //            mapViewProvider.value.setLanguage()
 
-            mapxusMap?.addOnMapClickedListener(object: OnMapClickedListener {
-                override fun onMapClick(
-                    p0: LatLng,
-                    p1: MapxusSite
-                ) {
-                    if(mapxusMap?.selectedVenueId != null) {
-                        if(venues.value?.isEmpty() == true) {
-                            val vs = VenueSearch.newInstance()
-                            vs.setVenueSearchResultListener { updateVenues(it.venueInfoList) }
-                            vs.searchVenueByOption(VenueSearchOption())
-                        }
-
-                        setSelectedVenue(venues.value?.find { it.id == p1.venue?.id })
-                    }
-                }
-            })
-            mapxusMap?.addOnIndoorPoiClickListener { poi ->
-                if(navController?.currentDestination?.id != R.id.poiDetailsFragment) {
-                    navController?.navigate(R.id.action_searchResult_to_poiDetails)
-                }
-                setSelectedPoi(PoiInfo(poiId = poi.id, nameMap = poi.nameMap, buildingId =  poi.buildingId, location = com.mapxus.map.mapxusmap.api.services.model.LatLng().apply { lat = poi.latitude; lon = poi.longitude }, floor = poi.floorName, floorId = poi.floor, sharedFloorId = poi.sharedFloorId))
-                bottomSheet?.post {
-                    bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
-                }
-            }
-            mapxusPositioningProvider.addListener(object: IndoorLocationProviderListener {
-                override fun onCompassChanged(angle: Float, sensorAccuracy: Int) {
-//                    mapxusMap?.setLocationProvider(mapxusPositioningProvider)
-                }
-
-                override fun onIndoorLocationChange(indoorLocation: IndoorLocation?) {
-                    userLocation = RoutePlanningPoint(
-                        indoorLocation?.longitude ?: 0.0,
-                        indoorLocation?.latitude ?: 0.0,
-                        indoorLocation?.floor?.id
-                    )
-                    if(indoorLocation?.floor?.id != null) {
-                        userLocation = userLocation?.copy(floorId = indoorLocation.floor?.id)
-                    }
-                }
-
-                override fun onProviderError(errorInfo: com.mapxus.map.mapxusmap.positioning.ErrorInfo) {
-                    Log.d("REACT-MAPXUS", "Provider Error: ${errorInfo.errorMessage}")
-                }
-
-                override fun onProviderStarted() {
-                    Log.d("REACT-MAPXUS", "Started")
-                    mapxusMap?.setLocationProvider(mapxusPositioningProvider)
-                }
-
-                override fun onProviderStopped() {
-                    Log.d("REACT-MAPXUS", "Stopped")
-                }
-
-            })
+            mapxusMap?.addOnMapClickedListener(onMapClicked)
+            mapxusMap?.addOnIndoorPoiClickListener(onIndoorClick)
+            mapxusPositioningProvider.addListener(indoorLocationProviderListener)
             it?.setLocationEnabled(true)
             mapxusMap?.setLocationEnabled(true)
             mapxusMap?.setLocationProvider(mapxusPositioningProvider)
             mapxusPositioningProvider.start()
         }
+    }
+
+    val indoorLocationProviderListener = object: IndoorLocationProviderListener {
+      override fun onCompassChanged(angle: Float, sensorAccuracy: Int) {
+//                    mapxusMap?.setLocationProvider(mapxusPositioningProvider)
+      }
+
+      override fun onIndoorLocationChange(indoorLocation: IndoorLocation?) {
+        userLocation = RoutePlanningPoint(
+          indoorLocation?.longitude ?: 0.0,
+          indoorLocation?.latitude ?: 0.0,
+          indoorLocation?.floor?.id
+        )
+        if(indoorLocation?.floor?.id != null) {
+          userLocation = userLocation?.copy(floorId = indoorLocation.floor?.id)
+        }
+      }
+
+      override fun onProviderError(errorInfo: com.mapxus.map.mapxusmap.positioning.ErrorInfo) {
+        Log.d("REACT-MAPXUS", "Provider Error: ${errorInfo.errorMessage}")
+      }
+
+      override fun onProviderStarted() {
+        Log.d("REACT-MAPXUS", "Started")
+        mapxusMap?.setLocationProvider(mapxusPositioningProvider)
+      }
+
+      override fun onProviderStopped() {
+        Log.d("REACT-MAPXUS", "Stopped")
+      }
+
+    }
+    val onIndoorClick = MapxusMap.OnIndoorPoiClickListener { poi ->
+      if(navController?.currentDestination?.id != R.id.poiDetailsFragment) {
+        navController?.navigate(R.id.action_searchResult_to_poiDetails)
+      }
+      setSelectedPoi(PoiInfo(poiId = poi.id, nameMap = poi.nameMap, buildingId =  poi.buildingId, location = com.mapxus.map.mapxusmap.api.services.model.LatLng().apply { lat = poi.latitude; lon = poi.longitude }, floor = poi.floorName, floorId = poi.floor, sharedFloorId = poi.sharedFloorId))
+      bottomSheet?.post {
+        bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+      }
+    }
+    val onMapClicked = OnMapClickedListener { p0, p1 ->
+      if(mapxusMap?.selectedVenueId != null) {
+        if(venues.value?.isEmpty() == true) {
+          val vs = VenueSearch.newInstance()
+          vs.setVenueSearchResultListener { updateVenues(it.venueInfoList) }
+          vs.searchVenueByOption(VenueSearchOption())
+        }
+
+        setSelectedVenue(venues.value?.find { it.id == p1.venue?.id })
+      }
     }
 
     fun selectVenue(venueId: String) {
@@ -541,21 +730,21 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                     routeAdsorber = RouteAdsorber(NavigationPathDto(p0.routeResponseDto.paths.get(0)))
                     routeShortener = RouteShortener(NavigationPathDto(p0.routeResponseDto.paths.get(0)), p0.routeResponseDto.paths.get(0), p0.routeResponseDto.paths[0].indoorPoints)
                     routeShortener?.setOnPathChangeListener(object: RouteShortener.OnPathChangeListener {
-                        override fun onPathChange(pathDto: PathDto?) {
-                            if(pathDto != null) {
-                                if(routePainter == null) {
-                                    routePainter = RoutePainter(context, maplibreMap, mapxusMap)
-                                }
-                                mapxusMap?.selectFloorById(p0.routeResponseDto.paths[0].indoorPoints[0].floorId ?: "")
-                                routePainter?.paintRouteUsingResult(pathDto, pathDto?.indoorPoints ?: listOf(), isAutoZoom = false)
-                                routePainter?.setRoutePainterResource(RoutePainterResource().setHiddenTranslucentPaths(true).setIndoorLineColor(android.graphics.Color.BLUE));
-                                updateNavigationText(p0.routeResponseDto.paths[0].instructions[0].text, p0.routeResponseDto.paths[0].distance.toMeterText(
-                                    locale ?: Locale.getDefault()), p0.routeResponseDto.paths.map { it.distance }.reduce { a,b -> a + b })
-                            } else {
-                                Log.d("REACT-MAPXUS", "Route not found")
-                                return
-                            }
+                      override fun onPathChange(pathDto: PathDto?) {
+                        if(pathDto != null) {
+                          if(routePainter == null) {
+                            routePainter = RoutePainter(context, maplibreMap, mapxusMap)
+                          }
+                          mapxusMap?.selectFloorById(p0.routeResponseDto.paths[0].indoorPoints[0].floorId ?: "")
+                          routePainter?.paintRouteUsingResult(pathDto, pathDto?.indoorPoints ?: listOf(), isAutoZoom = false)
+                          routePainter?.setRoutePainterResource(RoutePainterResource().setHiddenTranslucentPaths(true).setIndoorLineColor(android.graphics.Color.BLUE));
+                          updateNavigationText(p0.routeResponseDto.paths[0].instructions[0].text, p0.routeResponseDto.paths[0].distance.toMeterText(
+                            locale ?: Locale.getDefault()), p0.routeResponseDto.paths.map { it.distance }.reduce { a,b -> a + b })
+                        } else {
+                          Log.d("REACT-MAPXUS", "Route not found")
+                          return
                         }
+                      }
                     })
                 }
                 _isLoadingroute.value = false

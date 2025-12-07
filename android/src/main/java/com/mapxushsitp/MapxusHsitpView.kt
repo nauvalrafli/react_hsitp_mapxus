@@ -7,12 +7,14 @@ import android.util.AttributeSet
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import androidx.annotation.RequiresApi
 import androidx.core.view.children
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.commit
 import com.facebook.react.uimanager.ThemedReactContext
+import com.mapxushsitp.service.Cleaner
 import com.mapxushsitp.theme.MaterialThemeUtils
 import java.util.Locale
 
@@ -95,19 +97,131 @@ class MapxusHsitpView : FrameLayout {
     }
   }
 
+  private fun clearMapLibreSingletons() {
+    try {
+      val controllerClass = Class.forName(
+        "org.maplibre.android.plugins.annotation.DraggableAnnotationController"
+      )
+
+      val instanceField = controllerClass.getDeclaredField("INSTANCE")
+      instanceField.isAccessible = true
+      val instance = instanceField.get(null)
+
+      if (instance != null) {
+        val mapViewField = controllerClass.getDeclaredField("mapView")
+        mapViewField.isAccessible = true
+        mapViewField.set(instance, null)
+      }
+
+      Log.d("MapxusHsitpView", "Cleared MapLibre singletons")
+    } catch (e: Exception) {
+      Log.e("MapxusHsitpView", "Failed to clear MapLibre singletons", e)
+    }
+  }
+
+  fun forceCleanup() {
+    Log.d("MapxusHsitpView", "forceCleanup called")
+
+    // Remove ViewTreeObserver listener
+    globalLayoutListener?.let {
+      try {
+        viewTreeObserver.removeOnGlobalLayoutListener(it)
+      } catch (e: Exception) {
+        Log.e("MapxusHsitpView", "Error removing listener", e)
+      }
+    }
+
+    // Clear third-party singletons
+    clearMapLibreSingletons()
+    clearMapxusStaticReference()
+
+    // Detach fragment
+    detachFragmentIfNecessary()
+
+    // Clear container
+    container?.removeAllViews()
+    removeAllViews()
+
+    fragmentAttached = false
+
+    Log.d("MapxusHsitpView", "forceCleanup completed")
+  }
+
   override fun onDetachedFromWindow() {
+    clearMapxusStaticReference()
+    Cleaner.clearAllStaticReferences()
+    forceCleanup()
+
     super.onDetachedFromWindow()
     detachFragmentIfNecessary()
   }
+
+  private fun clearMapxusStaticReference() {
+    try {
+      val mapxusClientClass = Class.forName(
+        "com.mapxus.positioning.positioning.api.MapxusPositioningClient"
+      )
+
+      val lifecycleOwnerField = mapxusClientClass.getDeclaredField("LIFECYCLE_OWNER")
+      lifecycleOwnerField.isAccessible = true
+      lifecycleOwnerField.set(null, null)
+
+      Log.d("MapxusHsitpView", "Cleared LIFECYCLE_OWNER static field")
+    } catch (e: Exception) {
+      Log.e("MapxusHsitpView", "Failed to clear static reference", e)
+    }
+  }
+
+  private fun clearMapxusStaticReferenceForcefully() {
+    try {
+      val mapxusClientClass = Class.forName(
+        "com.mapxus.positioning.positioning.api.MapxusPositioningClient"
+      )
+
+      // Clear LIFECYCLE_OWNER
+      try {
+        val field = mapxusClientClass.getDeclaredField("LIFECYCLE_OWNER")
+        field.isAccessible = true
+        field.set(null, null)
+        Log.d("MapxusView", "Force cleared LIFECYCLE_OWNER")
+      } catch (e: NoSuchFieldException) {
+        Log.w("MapxusView", "LIFECYCLE_OWNER field doesn't exist")
+      }
+
+      // Also try to clear any instance references
+      try {
+        val instanceField = mapxusClientClass.getDeclaredField("instance")
+        instanceField.isAccessible = true
+        val instance = instanceField.get(null)
+        if (instance != null) {
+          // Try to call stop/destroy on the instance
+          val stopMethod = mapxusClientClass.getMethod("stop")
+          stopMethod.invoke(instance)
+          Log.d("MapxusView", "Called stop on singleton instance")
+        }
+      } catch (e: Exception) {
+        // Might not have an instance field or stop method
+      }
+
+    } catch (e: ClassNotFoundException) {
+      Log.e("MapxusView", "MapxusPositioningClient class not found", e)
+    } catch (e: Exception) {
+      Log.e("MapxusView", "Error clearing static references", e)
+    }
+  }
+
+  var fragment : XmlFragment? = null
 
   private fun attachFragmentIfNecessary() {
     if (fragmentAttached) return
     val activity = reactContext?.currentActivity as? FragmentActivity ?: return
 
+    clearMapxusStaticReferenceForcefully()
+
     val tag = fragmentTag()
     val existing = activity.supportFragmentManager.findFragmentByTag(tag)
     Log.d("REACT-MAPXUS Ex", "Existing: $existing")
-    
+
     if (existing != null) {
       // Fragment exists but might be detached - reattach it
       if (existing.isDetached) {
@@ -119,7 +233,7 @@ class MapxusHsitpView : FrameLayout {
       fragmentAttached = true
       return
     }
-    
+
     if (container != null) {
       container?.visibility = View.VISIBLE
       container?.layoutParams = LayoutParams(
@@ -131,30 +245,33 @@ class MapxusHsitpView : FrameLayout {
       container?.requestLayout()
       container?.invalidate()
 
-      val fragment = XmlFragment(
+      fragment = XmlFragment(
         locale = locale,
       )
       activity.resources.configuration.setLocale(locale)
       activity.supportFragmentManager.commit {
         setReorderingAllowed(true)
-        replace(container?.id ?: 0, fragment, fragmentTag())
+        if(fragment != null)
+          replace(container?.id ?: 0, fragment!!, fragmentTag())
       }
-      viewTreeObserver.addOnGlobalLayoutListener {
-        if(fragment.view != null) {
-          if(fragment.requireView().height > 0 && fragment.requireView().width > 0) {
-            fragmentAttached = true
-          }
-          val fragView = fragment.view
-          val parent = fragView?.parent as? ViewGroup
+      viewTreeObserver.addOnGlobalLayoutListener(globalLayoutListener)
+    }
+  }
 
-          val widthSpec = View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY)
-          val heightSpec = View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
-
-          fragView?.measure(widthSpec, heightSpec)
-          fragView?.layout(0, 0, width, height)
-          fragView?.invalidate()
-        }
+  val globalLayoutListener = ViewTreeObserver.OnGlobalLayoutListener {
+    if(fragment?.view != null) {
+      if((fragment?.requireView()?.height ?: 0) > 0 && (fragment?.requireView()?.width ?: 0) > 0) {
+        fragmentAttached = true
       }
+      val fragView = fragment?.view
+      val parent = fragView?.parent as? ViewGroup
+
+      val widthSpec = View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY)
+      val heightSpec = View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+
+      fragView?.measure(widthSpec, heightSpec)
+      fragView?.layout(0, 0, width, height)
+      fragView?.invalidate()
     }
   }
 
@@ -166,6 +283,7 @@ class MapxusHsitpView : FrameLayout {
         System.gc()
       }
     }
+    viewTreeObserver.removeOnGlobalLayoutListener(globalLayoutListener)
     fragmentAttached = false
   }
 

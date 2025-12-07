@@ -12,6 +12,8 @@ import com.mapxus.positioning.positioning.api.ErrorInfo
 import com.mapxus.positioning.positioning.api.MapxusLocation
 import com.mapxus.positioning.positioning.api.MapxusPositioningClient
 import com.mapxus.positioning.positioning.api.MapxusPositioningListener
+import com.mapxus.positioning.positioning.api.MapxusPositioningOption
+import com.mapxus.positioning.positioning.api.PositioningMode
 import com.mapxus.positioning.positioning.api.PositioningState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +44,7 @@ class MapxusPositioningProvider(
     override fun start() {
 //        positioningClient?.addPositioningListener(mapxusPositioningListener)
         positioningClient?.start()
+        positioningClient.setDebugEnabled(true)
         started = true
     }
 

@@ -50,12 +50,17 @@ class VenueScreenFragment : Fragment() {
         setupPaginationIndicators()
 
         // Observe shared ViewModel
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
           observeSharedViewModel()
         }
 
         // Load real venues data
         loadVenuesData()
+    }
+
+    override fun onDestroyView() {
+
+        super.onDestroyView()
     }
 
     private fun initializeViews(view: View) {

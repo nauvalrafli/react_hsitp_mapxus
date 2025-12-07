@@ -47,6 +47,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.mapxus.map.mapxusmap.api.map.FollowUserMode
 import com.mapxus.map.mapxusmap.api.map.MapViewProvider
+import com.mapxus.map.mapxusmap.api.map.model.CameraPosition
 import com.mapxus.map.mapxusmap.api.map.model.MapxusMapOptions
 import com.mapxus.map.mapxusmap.api.services.constant.RoutePlanningVehicle
 import com.mapxus.map.mapxusmap.api.services.model.planning.InstructionDto
@@ -57,6 +58,7 @@ import com.mapxushsitp.arComponents.FourthLocalARFragment
 import com.mapxushsitp.data.model.ParcelizeRoutePoint
 import com.mapxushsitp.data.model.SerializableRouteInstruction
 import com.mapxushsitp.data.model.SerializableRoutePoint
+import com.mapxushsitp.service.Cleaner
 import com.mapxushsitp.service.generateSpeakText
 import com.mapxushsitp.service.toMeterText
 import com.mapxushsitp.theme.MaterialThemeUtils
@@ -318,10 +320,10 @@ class XmlFragment(
     // Initialize positioning only if not already initialized
     // This allows positioning to persist across Fragment recreations
     try {
-      mapxusSharedViewModel.initPositioning(this, requireContext())
+      mapxusSharedViewModel.initPositioning(viewLifecycleOwner, requireContext())
     } catch (e: Exception) {
       Log.e("REACT-MAPXUS", "Error initializing positioning", e)
-      mapxusSharedViewModel.initPositioning(this, requireContext())
+      mapxusSharedViewModel.initPositioning(viewLifecycleOwner, requireContext())
     }
 
     loadingOverlay = requireView().findViewById(R.id.loading_overlay)
@@ -401,15 +403,26 @@ class XmlFragment(
   }
 
   val destinationChangedListener = NavController.OnDestinationChangedListener { _, destination, _ ->
-    Log.d("REACT-MAPXUS", "Destination changed")
+    Log.d("REACT-MAPXUS", "Destination changed to: ${destination.id}")
     Log.d("REACT-MAPXUS", "Size: ${navHostFragment?.view?.width} ${navHostFragment?.view?.height}")
+
+    // Ensure fragment container is visible first
+    fragmentContainer.visibility = View.VISIBLE
+
     bottomSheet.post {
-      Log.d("REACT-MAPXUS", "cc: ${bottomSheet.childCount}\n${bottomSheet.getChildAt(0)}\n${bottomSheet.getChildAt(1)}")
-      bottomSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
-      bottomSheet.post {
-        if (destination.id != R.id.showRouteFragment) {
-          bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
-        }
+      if (destination.id == R.id.showRouteFragment) {
+        // Hide bottom sheet for showRouteFragment
+        bottomSheetBehavior.isHideable = true
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+      } else {
+        // Show bottom sheet for other destinations
+        bottomSheetBehavior.isHideable = false
+        // Use a shorter delay to ensure NavHostFragment content is ready
+        bottomSheet.postDelayed({
+          if (navHostFragment?.view != null && !mapxusSharedViewModel.isNavigating) {
+            bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+          }
+        }, 100) // Reduced from 2000ms to 100ms
       }
     }
   }
@@ -471,6 +484,38 @@ class XmlFragment(
   fun setupNavigation() {
     fragmentContainer = requireView().findViewById(R.id.fragment_container)
 
+    // Always ensure fragmentContainer is visible first
+    fragmentContainer.visibility = View.VISIBLE
+
+    // Get existing NavHostFragment if it exists
+    navHostFragment = childFragmentManager.findFragmentById(R.id.fragment_container) as? NavHostFragment
+
+    if (navHostFragment == null) {
+      // Create new NavHostFragment only if it doesn't exist
+      navHostFragment = NavHostFragment.create(R.navigation.nav_graph)
+
+      childFragmentManager.beginTransaction()
+        .replace(R.id.fragment_container, navHostFragment!!, "nav_host_fragment")
+        .setPrimaryNavigationFragment(navHostFragment!!)
+        .commitNow()
+    }
+
+    navController = navHostFragment?.navController
+
+    // Only set graph if it hasn't been set yet
+    if (navController?.graph == null) {
+      navController?.setGraph(R.navigation.nav_graph)
+    }
+
+    // Listen for destination changes
+    navController?.addOnDestinationChangedListener(destinationChangedListener)
+
+    mapxusSharedViewModel.navController = navController
+  }
+
+  fun setupNavigation3() {
+    fragmentContainer = requireView().findViewById(R.id.fragment_container)
+
     // 1. Force-remove old nav host if RN left the screen earlier
     val existing = childFragmentManager.findFragmentById(R.id.fragment_container)
     if (existing != null) {
@@ -489,22 +534,33 @@ class XmlFragment(
       .commitNow()
 
     // 3. Assign controller
-//    navHostFragment = newNavHost
-    // If you have NavHostFragment in XML, reset it
     navHostFragment = childFragmentManager
       .findFragmentById(R.id.fragment_container) as? NavHostFragment
 
-    navHostFragment?.let {
-      // Reset navigation graph to clear state
-      it.navController.graph = it.navController.navInflater
-        .inflate(R.navigation.nav_graph)
-    }
+    navController = navHostFragment?.navController
 
-    navController = newNavHost.navController
+    // Don't reset the graph if it's already set - this clears the current destination
+    navController?.let { controller ->
+      if (controller.graph == null) {
+        controller.setGraph(R.navigation.nav_graph)
+      }
+
+      // Navigate to start destination if not already there
+      val currentDestination = controller.currentDestination
+      val startDestination = controller.graph?.startDestinationId
+
+      if (currentDestination == null || (startDestination != null && currentDestination.id != startDestination)) {
+        try {
+          controller.navigate(startDestination ?: R.id.venueScreenFragment)
+        } catch (e: Exception) {
+          Log.e("REACT-MAPXUS", "Error navigating to start destination", e)
+        }
+      }
+    }
 
     fragmentContainer.visibility = View.VISIBLE
 
-    // 4. Register listener
+    // 4. Register listener after navigation is set up
     navController?.addOnDestinationChangedListener(destinationChangedListener)
 
     mapxusSharedViewModel.navController = navController
@@ -555,7 +611,6 @@ class XmlFragment(
       if (hasLocationPermissions()) {
         if (isLocationEnabled()) {
           mapxusSharedViewModel.mapxusMap?.let { mapxusMap ->
-            val zoomLevel = mapxusSharedViewModel.maplibreMap?.cameraPosition?.zoom ?: 19.0
             mapxusMap.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
           }
         } else {
@@ -948,9 +1003,23 @@ class XmlFragment(
     mapView.removeOnDidFinishRenderingFrameListener(didFinishRenderingFrameListener)
     mapxusSharedViewModel.mapView.value?.removeOnDidFinishRenderingFrameListener(didFinishRenderingFrameListener)
 
-    if (::bottomSheet.isInitialized) {
-      bottomSheet.viewTreeObserver.removeOnGlobalLayoutListener(onGlobalLayoutListener)
+    Cleaner.clearAllStaticReferences()
+
+    bottomSheet.viewTreeObserver.removeOnGlobalLayoutListener(onGlobalLayoutListener)
+    // ALSO remove from view's observer (safety net)
+    view?.viewTreeObserver?.let { observer ->
+      if (observer.isAlive) {
+        observer.removeOnGlobalLayoutListener(onGlobalLayoutListener)
+      }
     }
+
+    // ALSO remove from root view's observer (this is where the leak is!)
+    activity?.window?.decorView?.viewTreeObserver?.let { observer ->
+      if (observer.isAlive) {
+        observer.removeOnGlobalLayoutListener(onGlobalLayoutListener)
+      }
+    }
+
     if (::bottomSheetBehavior.isInitialized) {
       bottomSheetBehavior.removeBottomSheetCallback(bottomSheetCallback)
     }
@@ -977,9 +1046,10 @@ class XmlFragment(
 
   override fun onDestroy() {
     Log.d("REACT-MAPXUS", "On Destroy")
-    // Don't call destroy() here as it stops positioning services
-    // destroy() should only be called when Activity is being destroyed
-    // View references are already cleared in onDestroyView()
+    clearMapxusStaticReference()
+    Cleaner.clearAllStaticReferences()
+//    mapxusSharedViewModel.destroy()
+
     navHostFragment = null
     navController = null
 
@@ -989,6 +1059,7 @@ class XmlFragment(
       tts.shutdown()
     }
 
+    mapView.onDestroy()
     Log.d("HostFragmentCheck", "onDestroy: $this hash=${this.hashCode()}")
     super.onDestroy()
   }
@@ -1003,6 +1074,29 @@ class XmlFragment(
     Log.d("REACT-MAPXUS", "On Save Instance")
     mapxusSharedViewModel.mapView.value?.onSaveInstanceState(outState)
     super.onSaveInstanceState(outState)
+  }
+
+  override fun onViewStateRestored(savedInstanceState: Bundle?) {
+    super.onViewStateRestored(savedInstanceState)
+  }
+
+  private fun clearMapxusStaticReference() {
+    try {
+      Log.d("XmlFragment", "Clearing static LIFECYCLE_OWNER")
+      val mapxusClientClass = Class.forName(
+        "com.mapxus.positioning.positioning.api.MapxusPositioningClient"
+      )
+      val lifecycleOwnerField = mapxusClientClass.getDeclaredField("LIFECYCLE_OWNER")
+      lifecycleOwnerField.isAccessible = true
+
+      val currentOwner = lifecycleOwnerField.get(null)
+      if (currentOwner == this) {
+        lifecycleOwnerField.set(null, null)
+        Log.d("XmlFragment", "Cleared static LIFECYCLE_OWNER")
+      }
+    } catch (e: Exception) {
+      Log.e("XmlFragment", "Failed to clear static reference", e)
+    }
   }
 
   // Permission & Settings Methods

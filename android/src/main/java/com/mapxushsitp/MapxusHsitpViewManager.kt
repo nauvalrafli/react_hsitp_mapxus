@@ -11,6 +11,7 @@ import android.widget.FrameLayout
 import androidx.core.view.children
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
+import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.uimanager.SimpleViewManager
 import com.facebook.react.uimanager.ThemedReactContext
@@ -25,6 +26,21 @@ class MapxusHsitpViewManager : SimpleViewManager<MapxusHsitpView>()  {
 
   override fun createViewInstance(reactContext: ThemedReactContext): MapxusHsitpView {
     return MapxusHsitpView(reactContext)
+  }
+
+  override fun onDropViewInstance(view: MapxusHsitpView) {
+    view.forceCleanup()
+    super.onDropViewInstance(view)
+  }
+
+  override fun getCommandsMap(): Map<String, Int> {
+    return mapOf("cleanup" to 1)
+  }
+
+  override fun receiveCommand(view: MapxusHsitpView, commandId: String?, args: ReadableArray?) {
+    when (commandId) {
+      "cleanup" -> view.forceCleanup()
+    }
   }
 
   @ReactProp(name = "color")
