@@ -409,6 +409,58 @@ class XmlFragment(
     // Ensure fragment container is visible first
     fragmentContainer.visibility = View.VISIBLE
 
+    // Measure content and adjust size to match content
+    fragmentContainer.post {
+      fragmentContainer.requestLayout()
+      fragmentContainer.invalidate()
+
+      // Wait for layout to complete, then measure content
+      fragmentContainer.post {
+        // Force size on NavHostFragment and its children based on content
+        navHostFragment?.view?.let { navView ->
+          val parentWidth = fragmentContainer.width
+          if (parentWidth > 0) {
+            // Measure NavHostFragment with UNSPECIFIED height to get actual content height
+            val widthSpec = View.MeasureSpec.makeMeasureSpec(parentWidth, View.MeasureSpec.EXACTLY)
+            val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            navView.measure(widthSpec, heightSpec)
+
+            // Measure current destination fragment to get its actual content size
+            var contentHeight = 0
+            navHostFragment?.childFragmentManager?.fragments?.forEach { childFragment ->
+              childFragment.view?.let { childView ->
+                val childWidthSpec = View.MeasureSpec.makeMeasureSpec(parentWidth, View.MeasureSpec.EXACTLY)
+                val childHeightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                childView.measure(childWidthSpec, childHeightSpec)
+
+                // Use the measured height as the content height
+                contentHeight = minOf(contentHeight, childView.measuredHeight)
+
+                Log.d("REACT-MAPXUS", "Destination fragment ${childFragment.javaClass.simpleName} measured size: ${childView.measuredWidth}x${childView.measuredHeight}")
+              }
+            }
+
+            // If we got a content height, use it; otherwise use measured height
+            var finalHeight = if (contentHeight > 0) contentHeight else navView.measuredHeight
+            finalHeight = navView.measuredHeight
+
+            // Layout with the measured dimensions
+            navView.layout(0, 0, navView.measuredWidth, finalHeight)
+
+            // Update fragment container layout params to match content size
+            val containerParams = fragmentContainer.layoutParams
+            if (containerParams != null && finalHeight > 0) {
+              containerParams.height = finalHeight
+              fragmentContainer.layoutParams = containerParams
+              fragmentContainer.requestLayout()
+            }
+
+            Log.d("REACT-MAPXUS", "NavHostFragment final size: ${navView.width}x${navView.height}, container height: ${containerParams?.height}")
+          }
+        }
+      }
+    }
+
     bottomSheet.post {
       if (destination.id == R.id.showRouteFragment) {
         // Hide bottom sheet for showRouteFragment
@@ -484,8 +536,39 @@ class XmlFragment(
   fun setupNavigation() {
     fragmentContainer = requireView().findViewById(R.id.fragment_container)
 
+    // NUCLEAR OPTION: Remove ALL fragments completely
+    childFragmentManager.fragments.toList().forEach { fragment ->
+      // Clear the fragment's view reference
+      fragment.view?.let { view ->
+        // Remove from parent
+        (view.parent as? ViewGroup)?.removeView(view)
+
+        // Clear fragment's internal view reference
+        try {
+          val mViewField = Fragment::class.java.getDeclaredField("mView")
+          mViewField.isAccessible = true
+          mViewField.set(fragment, null)  // ← CRITICAL!
+        } catch (e: Exception) {
+          Log.e("REACT-MAPXUS", "Error clearing fragment view", e)
+        }
+      }
+
+      // Remove fragment from FragmentManager
+      childFragmentManager.beginTransaction()
+        .remove(fragment)
+        .commitNowAllowingStateLoss()
+    }
+
     // Always ensure fragmentContainer is visible first
     fragmentContainer.visibility = View.VISIBLE
+
+    // Ensure fragment container has proper layout params
+    val containerParams = fragmentContainer.layoutParams
+    if (containerParams != null) {
+      containerParams.width = ViewGroup.LayoutParams.MATCH_PARENT
+      containerParams.height = ViewGroup.LayoutParams.WRAP_CONTENT
+      fragmentContainer.layoutParams = containerParams
+    }
 
     // Get existing NavHostFragment if it exists
     navHostFragment = childFragmentManager.findFragmentById(R.id.fragment_container) as? NavHostFragment
@@ -505,6 +588,62 @@ class XmlFragment(
     // Only set graph if it hasn't been set yet
     if (navController?.graph == null) {
       navController?.setGraph(R.navigation.nav_graph)
+    }
+
+    // Ensure NavHostFragment and its children have proper size based on content
+    fragmentContainer.post {
+      // Wait for layout to complete
+      fragmentContainer.post {
+        // Force layout pass
+        fragmentContainer.requestLayout()
+        fragmentContainer.invalidate()
+
+        // Measure content to get actual size
+        navHostFragment?.view?.let { navView ->
+          val parentWidth = fragmentContainer.width
+
+          if (parentWidth > 0) {
+            // Measure with UNSPECIFIED height to get actual content height
+            val widthSpec = View.MeasureSpec.makeMeasureSpec(parentWidth, View.MeasureSpec.EXACTLY)
+            val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+
+            navView.measure(widthSpec, heightSpec)
+
+            // Measure child fragments to get their actual content size
+            var contentHeight = 0
+            navHostFragment?.childFragmentManager?.fragments?.forEach { childFragment ->
+              childFragment.view?.let { childView ->
+                val childWidthSpec = View.MeasureSpec.makeMeasureSpec(parentWidth, View.MeasureSpec.EXACTLY)
+                val childHeightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+
+                childView.measure(childWidthSpec, childHeightSpec)
+                contentHeight = minOf(contentHeight, childView.measuredHeight)
+
+                // Layout child with measured size
+                childView.layout(0, 0, childView.measuredWidth, childView.measuredHeight)
+
+                Log.d("REACT-MAPXUS", "Child fragment ${childFragment.javaClass.simpleName} measured size: ${childView.measuredWidth}x${childView.measuredHeight}")
+              }
+            }
+
+            // Use content height if available, otherwise use measured height
+            val finalHeight = if (contentHeight > 0) contentHeight else navView.measuredHeight
+
+            // Layout NavHostFragment with measured dimensions
+            navView.layout(0, 0, navView.measuredWidth, finalHeight)
+
+            // Update fragment container to match content size
+            val containerParams = fragmentContainer.layoutParams
+            if (containerParams != null && finalHeight > 0) {
+              containerParams.height = finalHeight
+              fragmentContainer.layoutParams = containerParams
+              fragmentContainer.requestLayout()
+            }
+
+            Log.d("REACT-MAPXUS", "NavHostFragment final size: ${navView.width}x${navView.height}, container height: ${containerParams?.height}")
+          }
+        }
+      }
     }
 
     // Listen for destination changes

@@ -281,6 +281,7 @@ class MapxusHsitpView : FrameLayout {
       activity.supportFragmentManager.commit() {
         remove(fragment)
         System.gc()
+        System.runFinalization()
       }
     }
     viewTreeObserver.removeOnGlobalLayoutListener(globalLayoutListener)

@@ -11,7 +11,12 @@
         android:label="Venue Screen">
         <action
             android:id="@+id/action_venueScreen_to_venueDetails"
-            app:destination="@id/venueDetailsFragment" />
+            app:destination="@id/venueDetailsFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_right"
+            app:popEnterAnim="@anim/slide_in_right"
+            app:popExitAnim="@anim/slide_out_right"
+            />
     </fragment>
 
     <!-- Venue Details -->
@@ -21,15 +26,30 @@
         android:label="Venue Details">
         <action
             android:id="@+id/action_venueDetails_to_searchResult"
-            app:destination="@id/searchResultFragment" />
+            app:destination="@id/searchResultFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_right"
+            app:popEnterAnim="@anim/slide_in_right"
+            app:popExitAnim="@anim/slide_out_right"
+            />
 
         <action
             android:id="@+id/action_venueDetails_to_toiletScreen"
-            app:destination="@id/toiletScreenFragment" />
+            app:destination="@id/toiletScreenFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_right"
+            app:popEnterAnim="@anim/slide_in_right"
+            app:popExitAnim="@anim/slide_out_right"
+            />
 
         <action
             android:id="@+id/action_venueDetails_to_categoryList"
-            app:destination="@id/categoryListFragment" />
+            app:destination="@id/categoryListFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_right"
+            app:popEnterAnim="@anim/slide_in_right"
+            app:popExitAnim="@anim/slide_out_right"
+            />
     </fragment>
 
     <!-- Search Result -->
@@ -84,33 +104,73 @@
 
     <action
         android:id="@+id/action_global_to_poiDetails"
-        app:destination="@id/poiDetailsFragment" />
+        app:destination="@id/poiDetailsFragment"
+        app:enterAnim="@anim/slide_in_right"
+        app:exitAnim="@anim/slide_out_right"
+        app:popEnterAnim="@anim/slide_in_right"
+        app:popExitAnim="@anim/slide_out_right"
+        />
     <action
         android:id="@+id/action_searchResult_to_poiDetails"
-        app:destination="@id/poiDetailsFragment" />
+        app:destination="@id/poiDetailsFragment"
+        app:enterAnim="@anim/slide_in_right"
+        app:exitAnim="@anim/slide_out_right"
+        app:popEnterAnim="@anim/slide_in_right"
+        app:popExitAnim="@anim/slide_out_right"
+        />
 
     <action
         android:id="@+id/action_toiletScreen_to_poiDetails"
-        app:destination="@id/poiDetailsFragment" />
+        app:destination="@id/poiDetailsFragment"
+        app:enterAnim="@anim/slide_in_right"
+        app:exitAnim="@anim/slide_out_right"
+        app:popEnterAnim="@anim/slide_in_right"
+        app:popExitAnim="@anim/slide_out_right"
+        />
 
     <action
         android:id="@+id/action_poiDetails_to_prepareNavigation"
-        app:destination="@id/prepareNavigationFragment" />
+        app:destination="@id/prepareNavigationFragment"
+        app:enterAnim="@anim/slide_in_right"
+        app:exitAnim="@anim/slide_out_right"
+        app:popEnterAnim="@anim/slide_in_right"
+        app:popExitAnim="@anim/slide_out_right"
+        />
 
     <action
         android:id="@+id/action_prepareNavigation_to_positionMark"
-        app:destination="@id/positionMarkFragment" />
+        app:destination="@id/positionMarkFragment"
+        app:enterAnim="@anim/slide_in_right"
+        app:exitAnim="@anim/slide_out_right"
+        app:popEnterAnim="@anim/slide_in_right"
+        app:popExitAnim="@anim/slide_out_right"
+        />
 
     <action
         android:id="@+id/action_prepareNavigation_to_showRoute"
-        app:destination="@id/showRouteFragment" />
+        app:destination="@id/showRouteFragment"
+        app:enterAnim="@anim/slide_in_right"
+        app:exitAnim="@anim/slide_out_right"
+        app:popEnterAnim="@anim/slide_in_right"
+        app:popExitAnim="@anim/slide_out_right"
+        />
 
     <action
         android:id="@+id/action_venueDetails_to_settingsView"
-        app:destination="@id/settingsViewFragment" />
+        app:destination="@id/settingsViewFragment"
+        app:enterAnim="@anim/slide_in_right"
+        app:exitAnim="@anim/slide_out_right"
+        app:popEnterAnim="@anim/slide_in_right"
+        app:popExitAnim="@anim/slide_out_right"
+        />
 
-  <action
-    android:id="@+id/action_global_to_venue"
-    app:destination="@id/venueScreenFragment" />
+    <action
+        android:id="@+id/action_global_to_venue"
+        app:destination="@id/venueScreenFragment"
+        app:enterAnim="@anim/slide_in_right"
+        app:exitAnim="@anim/slide_out_right"
+        app:popEnterAnim="@anim/slide_in_right"
+        app:popExitAnim="@anim/slide_out_right"
+        />
 
 </navigation>

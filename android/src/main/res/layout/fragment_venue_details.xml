@@ -6,6 +6,8 @@
     android:orientation="vertical"
     android:background="@android:color/white"
     android:clipToPadding="false"
+    android:minHeight="200dp"
+    android:minWidth="1080dp"
     android:padding="16dp">
 
     <!-- Header -->
