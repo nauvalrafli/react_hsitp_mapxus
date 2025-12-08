@@ -287,6 +287,7 @@ class XmlFragment(
     val navHost = NavHostFragment.create(R.navigation.nav_graph)
 
     fragmentManager.beginTransaction()
+      .setReorderingAllowed(true)
       .replace(containerId, navHost, "NavHost_${id}")
       .setPrimaryNavigationFragment(navHost)
       .commitNow()
@@ -495,6 +496,18 @@ class XmlFragment(
       navHostFragment = NavHostFragment.create(R.navigation.nav_graph)
 
       childFragmentManager.beginTransaction()
+        .replace(R.id.fragment_container, navHostFragment!!, "nav_host_fragment")
+        .setPrimaryNavigationFragment(navHostFragment!!)
+        .commitNow()
+    } else {
+      childFragmentManager.beginTransaction()
+        .remove(navHostFragment!!)
+        .commitNow()
+
+      navHostFragment = NavHostFragment.create(R.navigation.nav_graph)
+
+      childFragmentManager.beginTransaction()
+        .setReorderingAllowed(true)
         .replace(R.id.fragment_container, navHostFragment!!, "nav_host_fragment")
         .setPrimaryNavigationFragment(navHostFragment!!)
         .commitNow()

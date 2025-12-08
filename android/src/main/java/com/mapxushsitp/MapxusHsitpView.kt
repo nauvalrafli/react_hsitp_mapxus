@@ -3,6 +3,7 @@ package com.mapxushsitp
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
+import android.os.Bundle
 import android.util.AttributeSet
 import android.util.Log
 import android.view.View
@@ -225,10 +226,9 @@ class MapxusHsitpView : FrameLayout {
     if (existing != null) {
       // Fragment exists but might be detached - reattach it
       if (existing.isDetached) {
-        activity.supportFragmentManager.commit {
-          setReorderingAllowed(true)
-          attach(existing)
-        }
+        activity.supportFragmentManager.beginTransaction()
+          .remove(existing)
+          .commitNow()
       }
       fragmentAttached = true
       return
@@ -247,7 +247,11 @@ class MapxusHsitpView : FrameLayout {
 
       fragment = XmlFragment(
         locale = locale,
-      )
+      ).apply {
+        arguments = Bundle().apply {
+          putInt("id", id)
+        }
+      }
       activity.resources.configuration.setLocale(locale)
       activity.supportFragmentManager.commit {
         setReorderingAllowed(true)
