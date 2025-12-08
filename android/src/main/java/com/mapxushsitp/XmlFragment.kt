@@ -105,6 +105,10 @@ class XmlFragment(
   private lateinit var navNextButton: AppCompatImageButton
   private lateinit var stepIndicatorsContainer: LinearLayout
 
+  // Store adapter observers to avoid leaks
+  private val adapterObservers = mutableMapOf<androidx.recyclerview.widget.RecyclerView, androidx.recyclerview.widget.RecyclerView.AdapterDataObserver>()
+  private val scrollListeners = mutableMapOf<androidx.recyclerview.widget.RecyclerView, androidx.recyclerview.widget.RecyclerView.OnScrollListener>()
+
   // Shared ViewModel
   private val mapxusSharedViewModel: MapxusSharedViewModel by activityViewModels()
   private val arNavigationViewModel: ARNavigationViewModel by activityViewModels()
@@ -402,6 +406,255 @@ class XmlFragment(
     }
   }
 
+  /**
+   * Re-measures the fragment container and adjusts its size to match content.
+   * This should be called when content changes (e.g., RecyclerView data updates).
+   */
+  private fun remeasureFragmentContainer() {
+    if (!::fragmentContainer.isInitialized) return
+    
+    fragmentContainer.post {
+      fragmentContainer.requestLayout()
+      fragmentContainer.invalidate()
+
+      // Wait for layout to complete, then measure content
+      fragmentContainer.post {
+        remeasureFragmentContainerInternal()
+      }
+    }
+  }
+
+  /**
+   * Internal method that performs the actual measurement.
+   */
+  private fun remeasureFragmentContainerInternal() {
+    navHostFragment?.view?.let { navView ->
+      val parentWidth = fragmentContainer.width
+      if (parentWidth > 0) {
+        // Measure NavHostFragment with UNSPECIFIED height to get actual content height
+        val widthSpec = View.MeasureSpec.makeMeasureSpec(parentWidth, View.MeasureSpec.EXACTLY)
+        val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        navView.measure(widthSpec, heightSpec)
+
+        // Measure current destination fragment to get its actual content size
+        var contentHeight = 0
+        navHostFragment?.childFragmentManager?.fragments?.forEach { childFragment ->
+          childFragment.view?.let { childView ->
+            val childWidthSpec = View.MeasureSpec.makeMeasureSpec(parentWidth, View.MeasureSpec.EXACTLY)
+            val childHeightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            
+            // Check if this view contains a RecyclerView
+            val recyclerView = findRecyclerView(childView)
+            if (recyclerView != null && recyclerView.adapter != null) {
+              // Measure RecyclerView with its actual content
+              val recyclerWidthSpec = View.MeasureSpec.makeMeasureSpec(parentWidth, View.MeasureSpec.EXACTLY)
+              val recyclerHeightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+              recyclerView.measure(recyclerWidthSpec, recyclerHeightSpec)
+              
+              // Calculate RecyclerView content height
+              var recyclerContentHeight = recyclerView.measuredHeight
+              val layoutManager = recyclerView.layoutManager
+              val adapter = recyclerView.adapter
+              
+              if (layoutManager is androidx.recyclerview.widget.LinearLayoutManager && adapter != null) {
+                // For LinearLayoutManager, calculate total height of all items
+                if (adapter.itemCount > 0) {
+                  var totalItemHeight = 0
+                  
+                  // Calculate height from visible items
+                  if (layoutManager.childCount > 0) {
+                    for (i in 0 until layoutManager.childCount) {
+                      val child = layoutManager.getChildAt(i)
+                      if (child != null) {
+                        totalItemHeight += child.height
+                      }
+                    }
+                  }
+                  
+                  // If we have more items than visible, estimate total height
+                  if (adapter.itemCount > layoutManager.childCount && layoutManager.childCount > 0) {
+                    val avgItemHeight = if (layoutManager.childCount > 0) {
+                      totalItemHeight / layoutManager.childCount
+                    } else {
+                      0
+                    }
+                    // Estimate total height based on average item height
+                    val estimatedTotalHeight = avgItemHeight * adapter.itemCount
+                    totalItemHeight = maxOf(totalItemHeight, estimatedTotalHeight)
+                  }
+                  
+                  // Add padding and margins
+                  totalItemHeight += recyclerView.paddingTop + recyclerView.paddingBottom
+                  
+                  // Use the larger of measured height or calculated item height
+                  recyclerContentHeight = maxOf(recyclerContentHeight, totalItemHeight)
+                }
+              }
+              
+              // Measure the parent view (excluding RecyclerView) to get other views' height
+              // We'll measure the child view first, then adjust for RecyclerView
+              childView.measure(childWidthSpec, childHeightSpec)
+              
+              // Find RecyclerView's position in the parent to calculate other views' height
+              var otherViewsHeight = 0
+              if (childView is ViewGroup) {
+                for (i in 0 until childView.childCount) {
+                  val child = childView.getChildAt(i)
+                  if (child != recyclerView && child.visibility != View.GONE) {
+                    val childViewWidthSpec = View.MeasureSpec.makeMeasureSpec(parentWidth, View.MeasureSpec.EXACTLY)
+                    val childViewHeightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                    child.measure(childViewWidthSpec, childViewHeightSpec)
+                    otherViewsHeight += child.measuredHeight
+                  }
+                }
+                // Add parent padding
+                otherViewsHeight += childView.paddingTop + childView.paddingBottom
+              } else {
+                // If not a ViewGroup, use measured height minus RecyclerView height
+                otherViewsHeight = childView.measuredHeight - recyclerContentHeight
+              }
+              
+              contentHeight = maxOf(contentHeight, otherViewsHeight + recyclerContentHeight)
+            } else {
+              // Regular view measurement
+              childView.measure(childWidthSpec, childHeightSpec)
+              contentHeight = maxOf(contentHeight, childView.measuredHeight)
+            }
+
+            // Layout with measured dimensions
+            childView.layout(0, 0, childView.measuredWidth, contentHeight)
+
+            Log.d("REACT-MAPXUS", "Destination fragment ${childFragment.javaClass.simpleName} measured size: ${childView.measuredWidth}x${contentHeight}")
+          }
+        }
+
+        // Use content height if available, otherwise use measured height
+        val finalHeight = if (contentHeight > 0) contentHeight else navView.measuredHeight
+
+        // Layout with the measured dimensions
+        navView.layout(0, 0, navView.measuredWidth, finalHeight)
+
+        // Update fragment container layout params to match content size
+        val containerParams = fragmentContainer.layoutParams
+        if (containerParams != null && finalHeight > 0) {
+          val oldHeight = containerParams.height
+          containerParams.height = finalHeight
+          fragmentContainer.layoutParams = containerParams
+          
+          // Only request layout if height actually changed
+          if (oldHeight != finalHeight) {
+            fragmentContainer.requestLayout()
+            // Also update bottom sheet peek height after a delay to ensure layout is complete
+            bottomSheet.postDelayed({
+              if (::bottomSheetBehavior.isInitialized) {
+                val newPeekHeight = fragmentContainer.height
+                if (newPeekHeight > 0 && bottomSheetBehavior.peekHeight != newPeekHeight) {
+                  bottomSheetBehavior.peekHeight = newPeekHeight
+                }
+              }
+            }, 50)
+          }
+        }
+
+        Log.d("REACT-MAPXUS", "NavHostFragment final size: ${navView.width}x${navView.height}, container height: ${containerParams?.height}")
+      }
+    }
+  }
+
+  /**
+   * Recursively finds a RecyclerView in the view hierarchy.
+   */
+  private fun findRecyclerView(view: View): androidx.recyclerview.widget.RecyclerView? {
+    if (view is androidx.recyclerview.widget.RecyclerView) {
+      return view
+    }
+    if (view is ViewGroup) {
+      for (i in 0 until view.childCount) {
+        val child = view.getChildAt(i)
+        val recyclerView = findRecyclerView(child)
+        if (recyclerView != null) {
+          return recyclerView
+        }
+      }
+    }
+    return null
+  }
+
+  /**
+   * Sets up listeners on RecyclerViews to detect when content changes and trigger re-measurement.
+   */
+  private fun setupRecyclerViewContentListeners() {
+    // Use a delayed post to ensure fragments are created
+    fragmentContainer.postDelayed({
+      // Find all RecyclerViews in current child fragments
+      navHostFragment?.childFragmentManager?.fragments?.forEach { childFragment ->
+        childFragment.view?.let { childView ->
+          val recyclerView = findRecyclerView(childView)
+          recyclerView?.let { rv ->
+            // Remove old observer if exists
+            adapterObservers[rv]?.let { oldObserver ->
+              rv.adapter?.unregisterAdapterDataObserver(oldObserver)
+            }
+            scrollListeners[rv]?.let { oldListener ->
+              rv.removeOnScrollListener(oldListener)
+            }
+
+            // Create and register new adapter data observer to detect data changes
+            val dataObserver = object : androidx.recyclerview.widget.RecyclerView.AdapterDataObserver() {
+              override fun onChanged() {
+                super.onChanged()
+                // Data changed, re-measure after layout
+                fragmentContainer.postDelayed({
+                  remeasureFragmentContainer()
+                }, 200)
+              }
+
+              override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
+                super.onItemRangeInserted(positionStart, itemCount)
+                fragmentContainer.postDelayed({
+                  remeasureFragmentContainer()
+                }, 200)
+              }
+
+              override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) {
+                super.onItemRangeRemoved(positionStart, itemCount)
+                fragmentContainer.postDelayed({
+                  remeasureFragmentContainer()
+                }, 200)
+              }
+
+              override fun onItemRangeChanged(positionStart: Int, itemCount: Int) {
+                super.onItemRangeChanged(positionStart, itemCount)
+                fragmentContainer.postDelayed({
+                  remeasureFragmentContainer()
+                }, 200)
+              }
+            }
+            
+            rv.adapter?.registerAdapterDataObserver(dataObserver)
+            adapterObservers[rv] = dataObserver
+
+            // Also add scroll listener to detect when content is fully laid out
+            val scrollListener = object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+              override fun onScrollStateChanged(recyclerView: androidx.recyclerview.widget.RecyclerView, newState: Int) {
+                super.onScrollStateChanged(recyclerView, newState)
+                // When scrolling stops, re-measure to account for any layout changes
+                if (newState == androidx.recyclerview.widget.RecyclerView.SCROLL_STATE_IDLE) {
+                  fragmentContainer.postDelayed({
+                    remeasureFragmentContainer()
+                  }, 100)
+                }
+              }
+            }
+            
+            rv.addOnScrollListener(scrollListener)
+            scrollListeners[rv] = scrollListener
+          }
+        }
+      }
+    }, 300) // Delay to ensure fragments are created
+  }
+
   val destinationChangedListener = NavController.OnDestinationChangedListener { _, destination, _ ->
     Log.d("REACT-MAPXUS", "Destination changed to: ${destination.id}")
     Log.d("REACT-MAPXUS", "Size: ${navHostFragment?.view?.width} ${navHostFragment?.view?.height}")
@@ -409,57 +662,15 @@ class XmlFragment(
     // Ensure fragment container is visible first
     fragmentContainer.visibility = View.VISIBLE
 
-    // Measure content and adjust size to match content
-    fragmentContainer.post {
-      fragmentContainer.requestLayout()
-      fragmentContainer.invalidate()
+    // Re-setup RecyclerView listeners for the new destination fragment
+    fragmentContainer.postDelayed({
+      setupRecyclerViewContentListeners()
+    }, 200)
 
-      // Wait for layout to complete, then measure content
-      fragmentContainer.post {
-        // Force size on NavHostFragment and its children based on content
-        navHostFragment?.view?.let { navView ->
-          val parentWidth = fragmentContainer.width
-          if (parentWidth > 0) {
-            // Measure NavHostFragment with UNSPECIFIED height to get actual content height
-            val widthSpec = View.MeasureSpec.makeMeasureSpec(parentWidth, View.MeasureSpec.EXACTLY)
-            val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-            navView.measure(widthSpec, heightSpec)
-
-            // Measure current destination fragment to get its actual content size
-            var contentHeight = 0
-            navHostFragment?.childFragmentManager?.fragments?.forEach { childFragment ->
-              childFragment.view?.let { childView ->
-                val childWidthSpec = View.MeasureSpec.makeMeasureSpec(parentWidth, View.MeasureSpec.EXACTLY)
-                val childHeightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-                childView.measure(childWidthSpec, childHeightSpec)
-
-                // Use the measured height as the content height
-                contentHeight = minOf(contentHeight, childView.measuredHeight)
-
-                Log.d("REACT-MAPXUS", "Destination fragment ${childFragment.javaClass.simpleName} measured size: ${childView.measuredWidth}x${childView.measuredHeight}")
-              }
-            }
-
-            // If we got a content height, use it; otherwise use measured height
-            var finalHeight = if (contentHeight > 0) contentHeight else navView.measuredHeight
-            finalHeight = navView.measuredHeight
-
-            // Layout with the measured dimensions
-            navView.layout(0, 0, navView.measuredWidth, finalHeight)
-
-            // Update fragment container layout params to match content size
-            val containerParams = fragmentContainer.layoutParams
-            if (containerParams != null && finalHeight > 0) {
-              containerParams.height = finalHeight
-              fragmentContainer.layoutParams = containerParams
-              fragmentContainer.requestLayout()
-            }
-
-            Log.d("REACT-MAPXUS", "NavHostFragment final size: ${navView.width}x${navView.height}, container height: ${containerParams?.height}")
-          }
-        }
-      }
-    }
+    // Measure content after destination changes
+    fragmentContainer.postDelayed({
+      remeasureFragmentContainer()
+    }, 300)
 
     bottomSheet.post {
       if (destination.id == R.id.showRouteFragment) {
@@ -473,6 +684,10 @@ class XmlFragment(
         bottomSheet.postDelayed({
           if (navHostFragment?.view != null && !mapxusSharedViewModel.isNavigating) {
             bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+            // Re-measure after bottom sheet is shown to ensure correct size
+            fragmentContainer.postDelayed({
+              remeasureFragmentContainer()
+            }, 200)
           }
         }, 100) // Reduced from 2000ms to 100ms
       }
@@ -590,61 +805,11 @@ class XmlFragment(
       navController?.setGraph(R.navigation.nav_graph)
     }
 
-    // Ensure NavHostFragment and its children have proper size based on content
-    fragmentContainer.post {
-      // Wait for layout to complete
-      fragmentContainer.post {
-        // Force layout pass
-        fragmentContainer.requestLayout()
-        fragmentContainer.invalidate()
+    // Set up RecyclerView listeners to detect content changes
+    setupRecyclerViewContentListeners()
 
-        // Measure content to get actual size
-        navHostFragment?.view?.let { navView ->
-          val parentWidth = fragmentContainer.width
-
-          if (parentWidth > 0) {
-            // Measure with UNSPECIFIED height to get actual content height
-            val widthSpec = View.MeasureSpec.makeMeasureSpec(parentWidth, View.MeasureSpec.EXACTLY)
-            val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-
-            navView.measure(widthSpec, heightSpec)
-
-            // Measure child fragments to get their actual content size
-            var contentHeight = 0
-            navHostFragment?.childFragmentManager?.fragments?.forEach { childFragment ->
-              childFragment.view?.let { childView ->
-                val childWidthSpec = View.MeasureSpec.makeMeasureSpec(parentWidth, View.MeasureSpec.EXACTLY)
-                val childHeightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-
-                childView.measure(childWidthSpec, childHeightSpec)
-                contentHeight = minOf(contentHeight, childView.measuredHeight)
-
-                // Layout child with measured size
-                childView.layout(0, 0, childView.measuredWidth, childView.measuredHeight)
-
-                Log.d("REACT-MAPXUS", "Child fragment ${childFragment.javaClass.simpleName} measured size: ${childView.measuredWidth}x${childView.measuredHeight}")
-              }
-            }
-
-            // Use content height if available, otherwise use measured height
-            val finalHeight = if (contentHeight > 0) contentHeight else navView.measuredHeight
-
-            // Layout NavHostFragment with measured dimensions
-            navView.layout(0, 0, navView.measuredWidth, finalHeight)
-
-            // Update fragment container to match content size
-            val containerParams = fragmentContainer.layoutParams
-            if (containerParams != null && finalHeight > 0) {
-              containerParams.height = finalHeight
-              fragmentContainer.layoutParams = containerParams
-              fragmentContainer.requestLayout()
-            }
-
-            Log.d("REACT-MAPXUS", "NavHostFragment final size: ${navView.width}x${navView.height}, container height: ${containerParams?.height}")
-          }
-        }
-      }
-    }
+    // Initial measurement
+    remeasureFragmentContainer()
 
     // Listen for destination changes
     navController?.addOnDestinationChangedListener(destinationChangedListener)
@@ -1143,6 +1308,17 @@ class XmlFragment(
     mapxusSharedViewModel.mapView.value?.removeOnDidFinishRenderingFrameListener(didFinishRenderingFrameListener)
 
     Cleaner.clearAllStaticReferences()
+
+    // Clean up RecyclerView listeners to prevent memory leaks
+    adapterObservers.forEach { entry ->
+      entry.key.adapter?.unregisterAdapterDataObserver(entry.value)
+    }
+    adapterObservers.clear()
+    
+    scrollListeners.forEach { entry ->
+      entry.key.removeOnScrollListener(entry.value)
+    }
+    scrollListeners.clear()
 
     bottomSheet.viewTreeObserver.removeOnGlobalLayoutListener(onGlobalLayoutListener)
     // ALSO remove from view's observer (safety net)
