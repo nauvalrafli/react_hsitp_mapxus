@@ -1,32 +1,47 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-feature android:name="android.hardware.camera.ar" android:required="true" />
-    <uses-feature android:name="com.google.ar.core" android:required="true" />
-    <uses-feature android:name="com.google.ar.core.geospatial" android:required="true" />
-    <uses-feature
-        android:name="android.hardware.camera"
-        android:required="false" />
+  <uses-permission android:name="android.permission.CAMERA" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+  <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
 
-    <application>
-        <meta-data
-            android:name="com.google.ar.core.API_KEY"
-            android:value="AIzaSyAxD7v1FnphXvCmur5BLb9yhh0gtd_Tj_M" />
-        <meta-data android:name="com.google.ar.core" android:value="required" tools:replace="android:value" />
-      <!-- Mapxus Android API credentials -->
-      <meta-data
-        android:name="com.mapxus.api.v1.appid"
-        android:value="637c640843f74240a6b5cdacf15cad5c" />
-      <meta-data
-        android:name="com.mapxus.api.v1.secret"
-        android:value="e9df993a55c24301b75bd407f7b32346" />
-    </application>
+  <uses-feature
+    android:name="android.hardware.camera.ar"
+    android:required="true" />
+  <uses-feature
+    android:name="com.google.ar.core"
+    android:required="true" />
+  <uses-feature
+    android:name="com.google.ar.core.geospatial"
+    android:required="true" />
+  <uses-feature
+    android:name="android.hardware.camera"
+    android:required="false" />
+
+  <application>
+    <activity
+      android:name=".XmlActivity"
+      android:exported="false" />
+
+    <meta-data
+      android:name="com.google.ar.core.API_KEY"
+      android:value="AIzaSyAxD7v1FnphXvCmur5BLb9yhh0gtd_Tj_M" />
+    <meta-data
+      android:name="com.google.ar.core"
+      android:value="required"
+      tools:replace="android:value" /> <!-- Mapxus Android API credentials -->
+    <meta-data
+      android:name="com.mapxus.api.v1.appid"
+      android:value="637c640843f74240a6b5cdacf15cad5c" />
+    <meta-data
+      android:name="com.mapxus.api.v1.secret"
+      android:value="e9df993a55c24301b75bd407f7b32346" />
+  </application>
 
 </manifest>

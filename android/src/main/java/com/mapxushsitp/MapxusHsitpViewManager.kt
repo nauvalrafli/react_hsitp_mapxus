@@ -37,12 +37,6 @@ class MapxusHsitpViewManager : SimpleViewManager<MapxusHsitpView>()  {
     return mapOf("cleanup" to 1)
   }
 
-  override fun receiveCommand(view: MapxusHsitpView, commandId: String?, args: ReadableArray?) {
-    when (commandId) {
-      "cleanup" -> view.forceCleanup()
-    }
-  }
-
   @ReactProp(name = "color")
   fun setColor(view: MapxusHsitpView?, color: String?) {
     Log.d("REACT-MAPXUS", color.toString())

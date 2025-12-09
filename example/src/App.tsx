@@ -1,5 +1,5 @@
 import { View, StyleSheet, Text, Button } from 'react-native';
-import { CustomLocale, MapxusHsitpView } from 'react-native-mapxus-hsitp';
+import { MapxusButtonWrapperView, MapxusHsitpView } from 'react-native-mapxus-hsitp';
 import { PermissionsAndroid, Platform, Alert } from 'react-native';
 import { useEffect, useRef } from 'react';
 import {
@@ -44,6 +44,11 @@ function HomeScreen() {
         title="Go to Broken Screen"
         onPress={() => navigation.navigate('Broken' as never)}
       />
+
+      <MapxusButtonWrapperView>
+        <Text>Button Gas Aktif</Text>
+          
+      </MapxusButtonWrapperView>
     </View>
   );
 }
@@ -51,6 +56,7 @@ function HomeScreen() {
 function BrokenScreen() {
   const navigation = useNavigation();
   const ref = useRef(null);
+  const localeKey = 'en-US';
 
   useEffect(() => {
     if (ref.current) {
@@ -61,8 +67,9 @@ function BrokenScreen() {
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
       <MapxusHsitpView
+        key={Date.now()}
         color="#ababab"
-        customLocale="zh-TW"
+        customLocale={localeKey}
         style={styles.box}
         ref={ref}
       />

@@ -24,30 +24,23 @@ import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.widget.AppCompatImageButton
-import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.children
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentContainerView
 import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import com.google.android.material.bottomsheet.BottomSheetBehavior
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.mapxus.map.mapxusmap.api.map.FollowUserMode
 import com.mapxus.map.mapxusmap.api.map.MapViewProvider
-import com.mapxus.map.mapxusmap.api.map.model.CameraPosition
 import com.mapxus.map.mapxusmap.api.map.model.MapxusMapOptions
 import com.mapxus.map.mapxusmap.api.services.constant.RoutePlanningVehicle
 import com.mapxus.map.mapxusmap.api.services.model.planning.InstructionDto
@@ -58,6 +51,7 @@ import com.mapxushsitp.arComponents.FourthLocalARFragment
 import com.mapxushsitp.data.model.ParcelizeRoutePoint
 import com.mapxushsitp.data.model.SerializableRouteInstruction
 import com.mapxushsitp.data.model.SerializableRoutePoint
+import com.mapxushsitp.databinding.ActivityXmlBinding
 import com.mapxushsitp.service.Cleaner
 import com.mapxushsitp.service.generateSpeakText
 import com.mapxushsitp.service.toMeterText
@@ -65,11 +59,7 @@ import com.mapxushsitp.theme.MaterialThemeUtils
 import com.mapxushsitp.view.onboarding.OnboardingPage
 import com.mapxushsitp.view.onboarding.OnboardingView
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelChildren
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.maplibre.android.maps.MapView
 import java.util.Locale
 import kotlin.math.absoluteValue
@@ -78,32 +68,23 @@ import kotlin.math.roundToInt
 class XmlFragment(
   private var locale: Locale? = null,
 ) : Fragment() {
+  var _binding : ActivityXmlBinding? = null
+  val binding get() = _binding!!
+
+  var mapViewProvider: MapViewProvider? = null
+  var bottomSheetBehavior = BottomSheetBehavior<LinearLayout>()
+
   private var localizedContext: Context? = null
-  lateinit var mapView: MapView
-  lateinit var mapViewProvider: MapViewProvider
-  lateinit var userLocation: ImageView
-  lateinit var bottomSheet: LinearLayout
-  lateinit var bottomSheetBehavior: BottomSheetBehavior<LinearLayout>
-  lateinit var fragmentContainer : FragmentContainerView
   var navHostFragment : NavHostFragment? = null
   private var navController: NavController? = null
 
   // UI Elements
-  private lateinit var gpsFab: FloatingActionButton
-  private lateinit var volumeFab: FloatingActionButton
-  private lateinit var arNavigationFab: FloatingActionButton
-  private lateinit var arFragmentContainer: FragmentContainerView
-  private lateinit var navigationRouteCard: CardView
-  private lateinit var navTitleText: TextView
-  private lateinit var navDistanceText: TextView
-  private lateinit var navTimeText: TextView
-  private lateinit var loadingOverlay: LinearLayout
 
   private var arriveAtDestinationDialog: AlertDialog? = null
-  private lateinit var navIcon: ImageView
-  private lateinit var navPreviousButton: AppCompatImageButton
-  private lateinit var navNextButton: AppCompatImageButton
-  private lateinit var stepIndicatorsContainer: LinearLayout
+
+  // Store adapter observers to avoid leaks
+  private val adapterObservers = mutableMapOf<androidx.recyclerview.widget.RecyclerView, androidx.recyclerview.widget.RecyclerView.AdapterDataObserver>()
+  private val scrollListeners = mutableMapOf<androidx.recyclerview.widget.RecyclerView, androidx.recyclerview.widget.RecyclerView.OnScrollListener>()
 
   // Shared ViewModel
   private val mapxusSharedViewModel: MapxusSharedViewModel by activityViewModels()
@@ -197,7 +178,6 @@ class XmlFragment(
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
-    Log.d("REACT-MAPXUS", "On Create ${::mapView.isInitialized} ${::bottomSheet.isInitialized} ${::fragmentContainer.isInitialized}")
     super.onCreate(null)
     if (savedInstanceState != null) {
       childFragmentManager.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE)
@@ -209,17 +189,15 @@ class XmlFragment(
     container: ViewGroup?,
     savedInstanceState: Bundle?
   ): View? {
-    Log.d("REACT-MAPXUS", "On Create View")
-    Log.d("REACT-MAPXUS", "${::mapView.isInitialized} ${::bottomSheet.isInitialized} ${::fragmentContainer.isInitialized}")
     // Use the localized context which has the theme preserved
     val ctx = localizedContext ?: updateLocaleContext(requireContext())
     val localizedInflater = inflater.cloneInContext(ctx)
-    return localizedInflater.inflate(R.layout.activity_xml, container, false)
+    _binding = ActivityXmlBinding.inflate(localizedInflater, container, false)
+    return binding.root
   }
 
   override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-    Log.d("REACT-MAPXUS", "On View Created")
-    super.onViewCreated(view, savedInstanceState)
+    super.onViewCreated(view, null)
 
     mapxusSharedViewModel.selectVehicle(mapxusSharedViewModel.sharedPreferences.getString("vehicle", RoutePlanningVehicle.FOOT) ?: RoutePlanningVehicle.FOOT)
     isSpeaking = mapxusSharedViewModel.sharedPreferences.getBoolean("isSpeaking", true)
@@ -236,7 +214,7 @@ class XmlFragment(
     setupMap()
     setupBottomSheet()
     setupNavigationRouteCard()
-    mapView.onCreate(null)
+    binding.mapView.onCreate(null)
     ViewCompat.setOnApplyWindowInsetsListener(view.findViewById(R.id.main)) { v, insets ->
       val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
       v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
@@ -244,9 +222,9 @@ class XmlFragment(
     }
     setupFloatingActionButtons()
 
-    mapViewProvider.getMapxusMapAsync {
+    mapViewProvider?.getMapxusMapAsync {
       mapxusSharedViewModel.mapxusMap = it
-      mapView.post {
+      binding.mapView.post {
         it.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
       }
     }
@@ -257,7 +235,6 @@ class XmlFragment(
     }
     view.post {
       setupNavigation()
-      Log.d("REACT-MAPXUS", "On Create ${mapView} ${bottomSheet} ${fragmentContainer}")
     }
   }
 
@@ -287,7 +264,6 @@ class XmlFragment(
     val navHost = NavHostFragment.create(R.navigation.nav_graph)
 
     fragmentManager.beginTransaction()
-      .setReorderingAllowed(true)
       .replace(containerId, navHost, "NavHost_${id}")
       .setPrimaryNavigationFragment(navHost)
       .commitNow()
@@ -297,10 +273,9 @@ class XmlFragment(
   }
 
   fun setupMap() {
-    mapView = requireView().findViewById<MapView>(R.id.mapView)
-    mapxusSharedViewModel.setMapView(mapView)
+    mapxusSharedViewModel.setMapView(binding.mapView)
     try {
-      val surface = mapView.getChildAt(0) as SurfaceView?
+      val surface = binding.mapView.getChildAt(0) as SurfaceView?
       surface?.setZOrderOnTop(false)
       surface?.setZOrderMediaOverlay(true)
       surface?.z = 0f
@@ -311,12 +286,13 @@ class XmlFragment(
       floorId = "ad24bdcb0698422f8c8ab53ad6bb2665"
       zoomLevel = 19.0
     }
-    mapViewProvider = MapLibreMapViewProvider(requireContext(), mapView, mapOptions)
-    mapView.getMapAsync {
+    mapViewProvider = MapLibreMapViewProvider(requireContext(), binding.mapView, mapOptions)
+    binding.mapView.getMapAsync {
       mapxusSharedViewModel.maplibreMap = it
     }
-    mapxusSharedViewModel.setMapViewProvider(mapViewProvider)
-    userLocation = requireView().findViewById(R.id.select_location)
+    if(mapViewProvider != null) {
+      mapxusSharedViewModel.setMapViewProvider(mapViewProvider!!)
+    }
 
     // Initialize positioning only if not already initialized
     // This allows positioning to persist across Fragment recreations
@@ -327,9 +303,8 @@ class XmlFragment(
       mapxusSharedViewModel.initPositioning(viewLifecycleOwner, requireContext())
     }
 
-    loadingOverlay = requireView().findViewById(R.id.loading_overlay)
     mapxusSharedViewModel.isLoadingRoute.observe(viewLifecycleOwner) {
-      loadingOverlay.visibility = if (it) View.VISIBLE else View.GONE
+      binding.loadingOverlay.visibility = if (it) View.VISIBLE else View.GONE
     }
   }
 
@@ -372,22 +347,22 @@ class XmlFragment(
   }
 
   val onGlobalLayoutListener = ViewTreeObserver.OnGlobalLayoutListener {
-    val newHeight = bottomSheet.measuredHeight
+    val newHeight = binding.bottomSheet.measuredHeight
     // Only update peekHeight if not in half-expanded state (to preserve half-height setting)
 
     if (bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED) {
       if (bottomSheetBehavior.peekHeight != newHeight) {
         bottomSheetBehavior.peekHeight = newHeight
-        arNavigationFab.visibility = View.GONE
+        binding.arNavigationFab.visibility = View.GONE
       } else if(!mapxusSharedViewModel.isNavigating) {
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
-        arNavigationFab.visibility = View.GONE
+        binding.arNavigationFab.visibility = View.GONE
       } else {
-        arNavigationFab.visibility = View.VISIBLE
+        binding.arNavigationFab.visibility = View.VISIBLE
       }
     } else {
       // When in half-expanded state, keep it draggable and maintain visibility
-      arNavigationFab.visibility = View.GONE
+      binding.arNavigationFab.visibility = View.GONE
     }
 
     if(bottomSheetBehavior.state != BottomSheetBehavior.STATE_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_DRAGGING && !mapxusSharedViewModel.isNavigating) {
@@ -403,14 +378,269 @@ class XmlFragment(
     }
   }
 
+  /**
+   * Re-measures the fragment container and adjusts its size to match content.
+   * This should be called when content changes (e.g., RecyclerView data updates).
+   */
+  private fun remeasureFragmentContainer() {
+    binding.fragmentContainer.post {
+      binding.fragmentContainer.requestLayout()
+      binding.fragmentContainer.invalidate()
+
+      // Wait for layout to complete, then measure content
+      binding.fragmentContainer.post {
+        remeasureFragmentContainerInternal()
+      }
+    }
+  }
+
+  /**
+   * Internal method that performs the actual measurement.
+   */
+  private fun remeasureFragmentContainerInternal() {
+    navHostFragment?.view?.let { navView ->
+      val parentWidth = binding.fragmentContainer.width
+      if (parentWidth > 0) {
+        // Measure NavHostFragment with UNSPECIFIED height to get actual content height
+        val widthSpec = View.MeasureSpec.makeMeasureSpec(parentWidth, View.MeasureSpec.EXACTLY)
+        val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        navView.measure(widthSpec, heightSpec)
+
+        // Measure current destination fragment to get its actual content size
+        var contentHeight = 0
+        navHostFragment?.childFragmentManager?.fragments?.forEach { childFragment ->
+          childFragment.view?.let { childView ->
+            val childWidthSpec = View.MeasureSpec.makeMeasureSpec(parentWidth, View.MeasureSpec.EXACTLY)
+            val childHeightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+
+            // Check if this view contains a RecyclerView
+            val recyclerView = findRecyclerView(childView)
+            if (recyclerView != null && recyclerView.adapter != null) {
+              // Measure RecyclerView with its actual content
+              val recyclerWidthSpec = View.MeasureSpec.makeMeasureSpec(parentWidth, View.MeasureSpec.EXACTLY)
+              val recyclerHeightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+              recyclerView.measure(recyclerWidthSpec, recyclerHeightSpec)
+
+              // Calculate RecyclerView content height
+              var recyclerContentHeight = recyclerView.measuredHeight
+              val layoutManager = recyclerView.layoutManager
+              val adapter = recyclerView.adapter
+
+              if (layoutManager is androidx.recyclerview.widget.LinearLayoutManager && adapter != null) {
+                // For LinearLayoutManager, calculate total height of all items
+                if (adapter.itemCount > 0) {
+                  var totalItemHeight = 0
+
+                  // Calculate height from visible items
+                  if (layoutManager.childCount > 0) {
+                    for (i in 0 until layoutManager.childCount) {
+                      val child = layoutManager.getChildAt(i)
+                      if (child != null) {
+                        totalItemHeight += child.height
+                      }
+                    }
+                  }
+
+                  // If we have more items than visible, estimate total height
+                  if (adapter.itemCount > layoutManager.childCount && layoutManager.childCount > 0) {
+                    val avgItemHeight = if (layoutManager.childCount > 0) {
+                      totalItemHeight / layoutManager.childCount
+                    } else {
+                      0
+                    }
+                    // Estimate total height based on average item height
+                    val estimatedTotalHeight = avgItemHeight * adapter.itemCount
+                    totalItemHeight = maxOf(totalItemHeight, estimatedTotalHeight)
+                  }
+
+                  // Add padding and margins
+                  totalItemHeight += recyclerView.paddingTop + recyclerView.paddingBottom
+
+                  // Use the larger of measured height or calculated item height
+                  recyclerContentHeight = maxOf(recyclerContentHeight, totalItemHeight)
+                }
+              }
+
+              // Measure the parent view (excluding RecyclerView) to get other views' height
+              // We'll measure the child view first, then adjust for RecyclerView
+              childView.measure(childWidthSpec, childHeightSpec)
+
+              // Find RecyclerView's position in the parent to calculate other views' height
+              var otherViewsHeight = 0
+              if (childView is ViewGroup) {
+                for (i in 0 until childView.childCount) {
+                  val child = childView.getChildAt(i)
+                  if (child != recyclerView && child.visibility != View.GONE) {
+                    val childViewWidthSpec = View.MeasureSpec.makeMeasureSpec(parentWidth, View.MeasureSpec.EXACTLY)
+                    val childViewHeightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                    child.measure(childViewWidthSpec, childViewHeightSpec)
+                    otherViewsHeight += child.measuredHeight
+                  }
+                }
+                // Add parent padding
+                otherViewsHeight += childView.paddingTop + childView.paddingBottom
+              } else {
+                // If not a ViewGroup, use measured height minus RecyclerView height
+                otherViewsHeight = childView.measuredHeight - recyclerContentHeight
+              }
+
+              contentHeight = maxOf(contentHeight, otherViewsHeight + recyclerContentHeight)
+            } else {
+              // Regular view measurement
+              childView.measure(childWidthSpec, childHeightSpec)
+              contentHeight = maxOf(contentHeight, childView.measuredHeight)
+            }
+
+            // Layout with measured dimensions
+            childView.layout(0, 0, childView.measuredWidth, contentHeight)
+
+            Log.d("REACT-MAPXUS", "Destination fragment ${childFragment.javaClass.simpleName} measured size: ${childView.measuredWidth}x${contentHeight}")
+          }
+        }
+
+        // Use content height if available, otherwise use measured height
+        val finalHeight = if (contentHeight > 0) contentHeight else navView.measuredHeight
+
+        // Layout with the measured dimensions
+        navView.layout(0, 0, navView.measuredWidth, finalHeight)
+
+        // Update fragment container layout params to match content size
+        val containerParams = binding.fragmentContainer.layoutParams
+        if (containerParams != null && finalHeight > 0) {
+          val oldHeight = containerParams.height
+          containerParams.height = finalHeight
+          binding.fragmentContainer.layoutParams = containerParams
+
+          // Only request layout if height actually changed
+          if (oldHeight != finalHeight) {
+            binding.fragmentContainer.requestLayout()
+            // Also update bottom sheet peek height after a delay to ensure layout is complete
+            binding.bottomSheet.postDelayed({
+              val newPeekHeight = binding.fragmentContainer.height
+              if (newPeekHeight > 0 && bottomSheetBehavior.peekHeight != newPeekHeight) {
+                bottomSheetBehavior.peekHeight = newPeekHeight
+              }
+            }, 50)
+          }
+        }
+
+        Log.d("REACT-MAPXUS", "NavHostFragment final size: ${navView.width}x${navView.height}, container height: ${containerParams?.height}")
+      }
+    }
+  }
+
+  /**
+   * Recursively finds a RecyclerView in the view hierarchy.
+   */
+  private fun findRecyclerView(view: View): androidx.recyclerview.widget.RecyclerView? {
+    if (view is androidx.recyclerview.widget.RecyclerView) {
+      return view
+    }
+    if (view is ViewGroup) {
+      for (i in 0 until view.childCount) {
+        val child = view.getChildAt(i)
+        val recyclerView = findRecyclerView(child)
+        if (recyclerView != null) {
+          return recyclerView
+        }
+      }
+    }
+    return null
+  }
+
+  /**
+   * Sets up listeners on RecyclerViews to detect when content changes and trigger re-measurement.
+   */
+  private fun setupRecyclerViewContentListeners() {
+    // Use a delayed post to ensure fragments are created
+    binding.fragmentContainer.postDelayed({
+      // Find all RecyclerViews in current child fragments
+      navHostFragment?.childFragmentManager?.fragments?.forEach { childFragment ->
+        childFragment.view?.let { childView ->
+          val recyclerView = findRecyclerView(childView)
+          recyclerView?.let { rv ->
+            // Remove old observer if exists
+            adapterObservers[rv]?.let { oldObserver ->
+              rv.adapter?.unregisterAdapterDataObserver(oldObserver)
+            }
+            scrollListeners[rv]?.let { oldListener ->
+              rv.removeOnScrollListener(oldListener)
+            }
+
+            // Create and register new adapter data observer to detect data changes
+            val dataObserver = object : androidx.recyclerview.widget.RecyclerView.AdapterDataObserver() {
+              override fun onChanged() {
+                super.onChanged()
+                // Data changed, re-measure after layout
+                binding.fragmentContainer.postDelayed({
+                  remeasureFragmentContainer()
+                }, 200)
+              }
+
+              override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
+                super.onItemRangeInserted(positionStart, itemCount)
+                binding.fragmentContainer.postDelayed({
+                  remeasureFragmentContainer()
+                }, 200)
+              }
+
+              override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) {
+                super.onItemRangeRemoved(positionStart, itemCount)
+                binding.fragmentContainer.postDelayed({
+                  remeasureFragmentContainer()
+                }, 200)
+              }
+
+              override fun onItemRangeChanged(positionStart: Int, itemCount: Int) {
+                super.onItemRangeChanged(positionStart, itemCount)
+                binding.fragmentContainer.postDelayed({
+                  remeasureFragmentContainer()
+                }, 200)
+              }
+            }
+
+            rv.adapter?.registerAdapterDataObserver(dataObserver)
+            adapterObservers[rv] = dataObserver
+
+            // Also add scroll listener to detect when content is fully laid out
+            val scrollListener = object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+              override fun onScrollStateChanged(recyclerView: androidx.recyclerview.widget.RecyclerView, newState: Int) {
+                super.onScrollStateChanged(recyclerView, newState)
+                // When scrolling stops, re-measure to account for any layout changes
+                if (newState == androidx.recyclerview.widget.RecyclerView.SCROLL_STATE_IDLE) {
+                  binding.fragmentContainer.postDelayed({
+                    remeasureFragmentContainer()
+                  }, 100)
+                }
+              }
+            }
+
+            rv.addOnScrollListener(scrollListener)
+            scrollListeners[rv] = scrollListener
+          }
+        }
+      }
+    }, 300) // Delay to ensure fragments are created
+  }
+
   val destinationChangedListener = NavController.OnDestinationChangedListener { _, destination, _ ->
     Log.d("REACT-MAPXUS", "Destination changed to: ${destination.id}")
     Log.d("REACT-MAPXUS", "Size: ${navHostFragment?.view?.width} ${navHostFragment?.view?.height}")
 
     // Ensure fragment container is visible first
-    fragmentContainer.visibility = View.VISIBLE
+    binding.fragmentContainer.visibility = View.VISIBLE
 
-    bottomSheet.post {
+    // Re-setup RecyclerView listeners for the new destination fragment
+    binding.fragmentContainer.postDelayed({
+      setupRecyclerViewContentListeners()
+    }, 200)
+
+    // Measure content after destination changes
+    binding.fragmentContainer.postDelayed({
+      remeasureFragmentContainer()
+    }, 300)
+
+    binding.bottomSheet.post {
       if (destination.id == R.id.showRouteFragment) {
         // Hide bottom sheet for showRouteFragment
         bottomSheetBehavior.isHideable = true
@@ -419,9 +649,13 @@ class XmlFragment(
         // Show bottom sheet for other destinations
         bottomSheetBehavior.isHideable = false
         // Use a shorter delay to ensure NavHostFragment content is ready
-        bottomSheet.postDelayed({
+        binding.bottomSheet.postDelayed({
           if (navHostFragment?.view != null && !mapxusSharedViewModel.isNavigating) {
             bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+            // Re-measure after bottom sheet is shown to ensure correct size
+            binding.fragmentContainer.postDelayed({
+              remeasureFragmentContainer()
+            }, 200)
           }
         }, 100) // Reduced from 2000ms to 100ms
       }
@@ -429,10 +663,9 @@ class XmlFragment(
   }
 
   fun setupBottomSheet() {
-    bottomSheet = requireView().findViewById<LinearLayout>(R.id.bottomSheet)
-    mapxusSharedViewModel.bottomSheet = bottomSheet
+    mapxusSharedViewModel.bottomSheet = binding.bottomSheet
 
-    bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet)
+    bottomSheetBehavior = BottomSheetBehavior.from(binding.bottomSheet)
     mapxusSharedViewModel.bottomSheetBehavior = bottomSheetBehavior
 
     bottomSheetBehavior.isHideable = false
@@ -440,8 +673,8 @@ class XmlFragment(
     bottomSheetBehavior.skipCollapsed = false
 
     // Ensure bottomSheet is visible and in correct state
-    bottomSheet.visibility = View.VISIBLE
-    bottomSheet.post {
+    binding.bottomSheet.visibility = View.VISIBLE
+    binding.bottomSheet.post {
       // Set state after layout to ensure proper initialization
       if (!mapxusSharedViewModel.isNavigating) {
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
@@ -450,9 +683,9 @@ class XmlFragment(
       }
     }
 
-    mapView.addOnDidFinishRenderingFrameListener(didFinishRenderingFrameListener)
+    binding.mapView.addOnDidFinishRenderingFrameListener(didFinishRenderingFrameListener)
 
-    bottomSheet.viewTreeObserver.addOnGlobalLayoutListener(onGlobalLayoutListener)
+    binding.bottomSheet.viewTreeObserver.addOnGlobalLayoutListener(onGlobalLayoutListener)
 
     bottomSheetBehavior.addBottomSheetCallback(bottomSheetCallback)
 
@@ -468,7 +701,7 @@ class XmlFragment(
             mapxusSharedViewModel.mapxusMap?.removeMapxusPointAnnotations()
           }
           navController?.navigateUp()
-          bottomSheet.post {
+          binding.bottomSheet.post {
             bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
           }
         } else {
@@ -483,10 +716,39 @@ class XmlFragment(
   }
 
   fun setupNavigation() {
-    fragmentContainer = requireView().findViewById(R.id.fragment_container)
+    // NUCLEAR OPTION: Remove ALL fragments completely
+    childFragmentManager.fragments.toList().forEach { fragment ->
+      // Clear the fragment's view reference
+      fragment.view?.let { view ->
+        // Remove from parent
+        (view.parent as? ViewGroup)?.removeView(view)
+
+        // Clear fragment's internal view reference
+        try {
+          val mViewField = Fragment::class.java.getDeclaredField("mView")
+          mViewField.isAccessible = true
+          mViewField.set(fragment, null)  // ← CRITICAL!
+        } catch (e: Exception) {
+          Log.e("REACT-MAPXUS", "Error clearing fragment view", e)
+        }
+      }
+
+      // Remove fragment from FragmentManager
+      childFragmentManager.beginTransaction()
+        .remove(fragment)
+        .commitNowAllowingStateLoss()
+    }
 
     // Always ensure fragmentContainer is visible first
-    fragmentContainer.visibility = View.VISIBLE
+    binding.fragmentContainer.visibility = View.VISIBLE
+
+    // Ensure fragment container has proper layout params
+    val containerParams = binding.fragmentContainer.layoutParams
+    if (containerParams != null) {
+      containerParams.width = ViewGroup.LayoutParams.MATCH_PARENT
+      containerParams.height = ViewGroup.LayoutParams.WRAP_CONTENT
+      binding.fragmentContainer.layoutParams = containerParams
+    }
 
     // Get existing NavHostFragment if it exists
     navHostFragment = childFragmentManager.findFragmentById(R.id.fragment_container) as? NavHostFragment
@@ -499,18 +761,6 @@ class XmlFragment(
         .replace(R.id.fragment_container, navHostFragment!!, "nav_host_fragment")
         .setPrimaryNavigationFragment(navHostFragment!!)
         .commitNow()
-    } else {
-      childFragmentManager.beginTransaction()
-        .remove(navHostFragment!!)
-        .commitNow()
-
-      navHostFragment = NavHostFragment.create(R.navigation.nav_graph)
-
-      childFragmentManager.beginTransaction()
-        .setReorderingAllowed(true)
-        .replace(R.id.fragment_container, navHostFragment!!, "nav_host_fragment")
-        .setPrimaryNavigationFragment(navHostFragment!!)
-        .commitNow()
     }
 
     navController = navHostFragment?.navController
@@ -520,107 +770,21 @@ class XmlFragment(
       navController?.setGraph(R.navigation.nav_graph)
     }
 
+    // Set up RecyclerView listeners to detect content changes
+    setupRecyclerViewContentListeners()
+
+    // Initial measurement
+    remeasureFragmentContainer()
+
     // Listen for destination changes
     navController?.addOnDestinationChangedListener(destinationChangedListener)
 
     mapxusSharedViewModel.navController = navController
   }
 
-  fun setupNavigation3() {
-    fragmentContainer = requireView().findViewById(R.id.fragment_container)
-
-    // 1. Force-remove old nav host if RN left the screen earlier
-    val existing = childFragmentManager.findFragmentById(R.id.fragment_container)
-    if (existing != null) {
-      childFragmentManager.beginTransaction().setReorderingAllowed(true)
-        .detach(existing)
-        .remove(existing)
-        .commitNow()
-    }
-
-    // 2. Create a brand-new NavHostFragment
-    val newNavHost = NavHostFragment.create(R.navigation.nav_graph)
-    childFragmentManager.beginTransaction()
-      .replace(R.id.fragment_container, newNavHost)
-      .setPrimaryNavigationFragment(newNavHost)
-      .show(newNavHost)
-      .commitNow()
-
-    // 3. Assign controller
-    navHostFragment = childFragmentManager
-      .findFragmentById(R.id.fragment_container) as? NavHostFragment
-
-    navController = navHostFragment?.navController
-
-    // Don't reset the graph if it's already set - this clears the current destination
-    navController?.let { controller ->
-      if (controller.graph == null) {
-        controller.setGraph(R.navigation.nav_graph)
-      }
-
-      // Navigate to start destination if not already there
-      val currentDestination = controller.currentDestination
-      val startDestination = controller.graph?.startDestinationId
-
-      if (currentDestination == null || (startDestination != null && currentDestination.id != startDestination)) {
-        try {
-          controller.navigate(startDestination ?: R.id.venueScreenFragment)
-        } catch (e: Exception) {
-          Log.e("REACT-MAPXUS", "Error navigating to start destination", e)
-        }
-      }
-    }
-
-    fragmentContainer.visibility = View.VISIBLE
-
-    // 4. Register listener after navigation is set up
-    navController?.addOnDestinationChangedListener(destinationChangedListener)
-
-    mapxusSharedViewModel.navController = navController
-  }
-
-
-
-  fun setupNavigation2() {
-    fragmentContainer = requireView().findViewById(R.id.fragment_container)
-
-    viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
-
-      // 1. Remove any existing fragment completely
-      val old = childFragmentManager.findFragmentById(R.id.fragment_container)
-      if (old != null) {
-        childFragmentManager.beginTransaction()
-          .remove(old)
-          .commitNow()
-      }
-
-      // 2. Recreate new host
-      val newHost = NavHostFragment.create(R.navigation.nav_graph)
-
-      childFragmentManager.beginTransaction()
-        .replace(R.id.fragment_container, newHost)
-        .commitNow()
-
-      val host = childFragmentManager.findFragmentById(R.id.fragment_container) as NavHostFragment
-      val controller = host.navController
-
-      // 3. Show
-      fragmentContainer.visibility = View.VISIBLE
-
-      controller.navigate(R.id.action_global_to_venue)
-      mapxusSharedViewModel.navController = controller
-      controller.addOnDestinationChangedListener(destinationChangedListener)
-    }
-  }
-
   private fun setupFloatingActionButtons() {
-    gpsFab = requireView().findViewById(R.id.gps_fab)
-    volumeFab = requireView().findViewById(R.id.volume_fab)
-    arNavigationFab = requireView().findViewById(R.id.ar_navigation_fab)
-    arFragmentContainer = requireView().findViewById(R.id.ar_fragment_container)
-
     // GPS button - center on user location
-    gpsFab.setOnClickListener {
+    binding.gpsFab.setOnClickListener {
       if (hasLocationPermissions()) {
         if (isLocationEnabled()) {
           mapxusSharedViewModel.mapxusMap?.let { mapxusMap ->
@@ -635,7 +799,7 @@ class XmlFragment(
     }
 
     // Volume button - toggle voice navigation (show during navigation)
-    volumeFab.setOnClickListener {
+    binding.volumeFab.setOnClickListener {
       isSpeaking = !isSpeaking
       mapxusSharedViewModel.sharedPreferences.edit().putBoolean("isSpeaking", isSpeaking).apply()
       updateVolumeButtonIcon()
@@ -643,7 +807,7 @@ class XmlFragment(
     updateVolumeButtonIcon()
 
     // AR Navigation button - toggle AR view
-    arNavigationFab.setOnClickListener {
+    binding.arNavigationFab.setOnClickListener {
       val isARActive = arNavigationViewModel.isShowingAndClosingARNavigation.value ?: false
       arNavigationViewModel.isShowingAndClosingARNavigation.value = !isARActive
 
@@ -657,7 +821,7 @@ class XmlFragment(
     mapxusSharedViewModel.instructionList.observe(viewLifecycleOwner) { instructions ->
       val isNavigating = instructions.isNotEmpty()
 
-      volumeFab.visibility = if (isNavigating) View.VISIBLE else View.GONE
+      binding.volumeFab.visibility = if (isNavigating) View.VISIBLE else View.GONE
 
       if (isNavigating) {
         arNavigationViewModel.isShowingOpeningAndClosingARButton.value = true
@@ -667,23 +831,14 @@ class XmlFragment(
   }
 
   private fun setupNavigationRouteCard() {
-    navigationRouteCard = requireView().findViewById(R.id.navigation_route_card)
-    navTitleText = requireView().findViewById(R.id.nav_title_text)
-    navDistanceText = requireView().findViewById(R.id.nav_distance_text)
-    navTimeText = requireView().findViewById(R.id.nav_time_text)
-    navIcon = requireView().findViewById(R.id.nav_icon)
-    navPreviousButton = requireView().findViewById(R.id.nav_previous_button)
-    navNextButton = requireView().findViewById(R.id.nav_next_button)
-    stepIndicatorsContainer = requireView().findViewById(R.id.step_indicators_container)
-
     // Previous button click
-    navPreviousButton.setOnClickListener {
+    binding.navPreviousButton.setOnClickListener {
       mapxusSharedViewModel.previousStep()
       arNavigationViewModel.prevInstruction()
     }
 
     // Next button click
-    navNextButton.setOnClickListener {
+    binding.navNextButton.setOnClickListener {
       mapxusSharedViewModel.nextStep()
       arNavigationViewModel.nextInstruction(mapxusSharedViewModel.instructionList.value?.size ?: 0)
     }
@@ -712,7 +867,7 @@ class XmlFragment(
   }
 
   private fun updateStepIndicators(totalSteps: Int, currentStep: Int) {
-    stepIndicatorsContainer.removeAllViews()
+    binding.stepIndicatorsContainer.removeAllViews()
 
     val maxVisibleIndicators = 6
     val startStep = when {
@@ -743,7 +898,7 @@ class XmlFragment(
           )
         )
       }
-      stepIndicatorsContainer.addView(indicator)
+      binding.stepIndicatorsContainer.addView(indicator)
     }
   }
 
@@ -754,14 +909,14 @@ class XmlFragment(
   ) {
     if (instructionList.isNotEmpty() && instructionIndex in instructionList.indices && isNavigating) {
       val instruction = instructionList[instructionIndex]
-      navTitleText.text = instruction.text ?: ""
-      navDistanceText.text = "${instruction.distance.toMeterText(Locale.getDefault())}"
+      binding.navTitleText.text = instruction.text ?: ""
+      binding.navDistanceText.text = "${instruction.distance.toMeterText(Locale.getDefault())}"
       val totalDistanceMeters = (instructionList.subList(instructionIndex.absoluteValue, instructionList.size).map { instructionDto -> instructionDto.distance }.reduce { a,b -> a + b } / 1.2).roundToInt()
       val estimatedSeconds = (totalDistanceMeters/1.2).roundToInt()
       if(estimatedSeconds > 60)
-        navTimeText.text = resources.getString(R.string.minute, (estimatedSeconds/60).toInt())
+        binding.navTimeText.text = resources.getString(R.string.minute, (estimatedSeconds/60).toInt())
       else
-        navTimeText.text = resources.getString(R.string.second, estimatedSeconds)
+        binding.navTimeText.text = resources.getString(R.string.second, estimatedSeconds)
 
       // Check if we should show arrival dialog
       if (isLastStepOrLowTimeEstimation(instructionIndex, instructionList.size, estimatedSeconds)) {
@@ -773,16 +928,16 @@ class XmlFragment(
       }
 
       // Update buttons and card visibility
-      navPreviousButton.isEnabled = instructionIndex > 0
-      navigationRouteCard.visibility = View.VISIBLE
+      binding.navPreviousButton.isEnabled = instructionIndex > 0
+      binding.navigationRouteCard.visibility = View.VISIBLE
 
       val icon = getStepIcon(instructionList.getOrNull(instructionIndex)?.sign ?: 0)
-      navIcon.setImageDrawable(resources.getDrawable(icon, null))
+      binding.navIcon.setImageDrawable(resources.getDrawable(icon, null))
 
       // Update step indicators
       updateStepIndicators(instructionList.size, instructionIndex)
     } else {
-      navigationRouteCard.visibility = View.GONE
+      binding.navigationRouteCard.visibility = View.GONE
       // Hide dialog when navigation ends
       arriveAtDestinationDialog?.dismiss()
       arriveAtDestinationDialog = null
@@ -871,7 +1026,7 @@ class XmlFragment(
     mapxusSharedViewModel.clearInstructions()
     mapxusSharedViewModel.setInstructionIndex(0)
     mapxusSharedViewModel.isNavigating = false
-    navigationRouteCard.visibility = View.GONE
+    binding.navigationRouteCard.visibility = View.GONE
 
     // Hide AR if showing
     if (arNavigationViewModel.isShowingAndClosingARNavigation.value == true) {
@@ -940,11 +1095,11 @@ class XmlFragment(
       .replace(R.id.ar_fragment_container, fragment)
       .commit()
 
-    arFragmentContainer.visibility = View.VISIBLE
+    binding.arFragmentContainer.visibility = View.VISIBLE
   }
 
   private fun hideARFragment() {
-    arFragmentContainer.visibility = View.GONE
+    binding.arFragmentContainer.visibility = View.GONE
   }
 
   fun getNavController(): NavController? {
@@ -1003,22 +1158,31 @@ class XmlFragment(
   }
 
   private fun updateVolumeButtonIcon() {
-    if (::volumeFab.isInitialized) {
-      if (isSpeaking) {
-        volumeFab.setImageResource(android.R.drawable.ic_lock_silent_mode_off)
-      } else {
-        volumeFab.setImageResource(android.R.drawable.ic_lock_silent_mode)
-      }
+    if (isSpeaking) {
+      binding.volumeFab.setImageResource(android.R.drawable.ic_lock_silent_mode_off)
+    } else {
+      binding.volumeFab.setImageResource(android.R.drawable.ic_lock_silent_mode)
     }
   }
 
   override fun onDestroyView() {
-    mapView.removeOnDidFinishRenderingFrameListener(didFinishRenderingFrameListener)
+    binding.mapView.removeOnDidFinishRenderingFrameListener(didFinishRenderingFrameListener)
     mapxusSharedViewModel.mapView.value?.removeOnDidFinishRenderingFrameListener(didFinishRenderingFrameListener)
 
     Cleaner.clearAllStaticReferences()
 
-    bottomSheet.viewTreeObserver.removeOnGlobalLayoutListener(onGlobalLayoutListener)
+    // Clean up RecyclerView listeners to prevent memory leaks
+    adapterObservers.forEach { entry ->
+      entry.key.adapter?.unregisterAdapterDataObserver(entry.value)
+    }
+    adapterObservers.clear()
+
+    scrollListeners.forEach { entry ->
+      entry.key.removeOnScrollListener(entry.value)
+    }
+    scrollListeners.clear()
+
+    binding.bottomSheet.viewTreeObserver.removeOnGlobalLayoutListener(onGlobalLayoutListener)
     // ALSO remove from view's observer (safety net)
     view?.viewTreeObserver?.let { observer ->
       if (observer.isAlive) {
@@ -1033,9 +1197,7 @@ class XmlFragment(
       }
     }
 
-    if (::bottomSheetBehavior.isInitialized) {
-      bottomSheetBehavior.removeBottomSheetCallback(bottomSheetCallback)
-    }
+    bottomSheetBehavior.removeBottomSheetCallback(bottomSheetCallback)
 
     // Clean up child fragments (including NavHostFragment)
     childFragmentManager.fragments.toList().forEach { fragment ->
@@ -1072,7 +1234,7 @@ class XmlFragment(
       tts.shutdown()
     }
 
-    mapView.onDestroy()
+    binding.mapView.onDestroy()
     Log.d("HostFragmentCheck", "onDestroy: $this hash=${this.hashCode()}")
     super.onDestroy()
   }
