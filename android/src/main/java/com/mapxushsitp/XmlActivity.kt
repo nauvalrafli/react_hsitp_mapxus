@@ -294,21 +294,23 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     onBackPressedDispatcher.addCallback(this, object: OnBackPressedCallback(true) {
       override fun handleOnBackPressed() {
         if(mapxusSharedViewModel.isNavigating) {
+          Log.d("REACT-MAPXUS", "AA")
           mapxusSharedViewModel.routePainter?.cleanRoute()
           mapxusSharedViewModel.clearInstructions()
           mapxusSharedViewModel.setInstructionIndex(0)
           mapxusSharedViewModel.isNavigating = false
-        } else if(navController?.currentDestination?.route != "venue_screen") {
+        } else if(navController?.currentDestination?.id != R.id.venueScreenFragment) {
+          Log.d("REACT-MAPXUS", "BB ${navController?.currentDestination?.id}")
           if(navController?.currentDestination?.id == R.id.poiDetailsFragment) {
             mapxusSharedViewModel.mapxusMap?.removeMapxusPointAnnotations()
           }
           navController?.navigateUp()
           mapxusSharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
         } else {
+          Log.d("REACT-MAPXUS", "CC ${navController?.currentDestination?.route}")
           finish()
         }
       }
-
     })
   }
 

@@ -4,6 +4,12 @@ import {
   type ViewProps,
 } from 'react-native';
 
+export const CustomLocale = {
+  EN_US: 'en-US',
+  ZH_TW: 'zh-TW',
+  ZH_CN: 'zh-CN',
+} as const;
+
 export interface MapxusButtonWrapperNativeProps extends ViewProps {
   customLocale?: string;
 }

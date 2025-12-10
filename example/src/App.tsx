@@ -46,8 +46,7 @@ function HomeScreen() {
       />
 
       <MapxusButtonWrapperView>
-        <Text>Button Gas Aktif</Text>
-          
+        <Text>Open Map</Text>
       </MapxusButtonWrapperView>
     </View>
   );
