@@ -53,6 +53,8 @@
                     android:text="Navigation Title"
                     android:textSize="24sp"
                     android:textStyle="bold"
+                    android:maxLines="3"
+                    android:ellipsize="end"
                     android:textColor="@android:color/black" />
 
                 <TextView

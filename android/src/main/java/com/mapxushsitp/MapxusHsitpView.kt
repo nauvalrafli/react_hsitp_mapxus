@@ -211,7 +211,7 @@ class MapxusHsitpView : FrameLayout {
     }
   }
 
-  var fragment : XmlFragment? = null
+//  var fragment : XmlFragment? = null
 
   private fun attachFragmentIfNecessary() {
     if (fragmentAttached) return
@@ -219,89 +219,89 @@ class MapxusHsitpView : FrameLayout {
 
     clearMapxusStaticReferenceForcefully()
 
-    val tag = fragmentTag()
-    val existing = activity.supportFragmentManager.findFragmentByTag(tag)
-    Log.d("REACT-MAPXUS Ex", "Existing: $existing")
-
-    if (existing != null) {
-      // Fragment exists but might be detached - reattach it
-      if (existing.isDetached) {
-        activity.supportFragmentManager.beginTransaction()
-          .remove(existing)
-          .commitNow()
-      }
-      fragmentAttached = true
-      return
-    }
-
-    if (container != null) {
-      container?.visibility = View.VISIBLE
-      container?.layoutParams = LayoutParams(
-        LayoutParams.MATCH_PARENT,
-        LayoutParams.MATCH_PARENT
-      )
-
-      // Force layout before attaching fragment
-      container?.requestLayout()
-      container?.invalidate()
-
-      fragment = XmlFragment(
-        locale = locale,
-      ).apply {
-        arguments = Bundle().apply {
-          putInt("id", id)
-        }
-      }
-      activity.resources.configuration.setLocale(locale)
-      activity.supportFragmentManager.commit {
-        setReorderingAllowed(true)
-        if(fragment != null)
-          replace(container?.id ?: 0, fragment!!, fragmentTag())
-      }
-      viewTreeObserver.addOnGlobalLayoutListener(globalLayoutListener)
-    }
+//    val tag = fragmentTag()
+//    val existing = activity.supportFragmentManager.findFragmentByTag(tag)
+//    Log.d("REACT-MAPXUS Ex", "Existing: $existing")
+//
+//    if (existing != null) {
+//      // Fragment exists but might be detached - reattach it
+//      if (existing.isDetached) {
+//        activity.supportFragmentManager.beginTransaction()
+//          .remove(existing)
+//          .commitNow()
+//      }
+//      fragmentAttached = true
+//      return
+//    }
+//
+//    if (container != null) {
+//      container?.visibility = View.VISIBLE
+//      container?.layoutParams = LayoutParams(
+//        LayoutParams.MATCH_PARENT,
+//        LayoutParams.MATCH_PARENT
+//      )
+//
+//      // Force layout before attaching fragment
+//      container?.requestLayout()
+//      container?.invalidate()
+//
+////      fragment = XmlFragment(
+////        locale = locale,
+////      ).apply {
+////        arguments = Bundle().apply {
+////          putInt("id", id)
+////        }
+////      }
+//      activity.resources.configuration.setLocale(locale)
+//      activity.supportFragmentManager.commit {
+//        setReorderingAllowed(true)
+////        if(fragment != null)
+////          replace(container?.id ?: 0, fragment!!, fragmentTag())
+//      }
+//      viewTreeObserver.addOnGlobalLayoutListener(globalLayoutListener)
+//    }
   }
 
   val globalLayoutListener = ViewTreeObserver.OnGlobalLayoutListener {
-    if(fragment?.view != null) {
-      if((fragment?.requireView()?.height ?: 0) > 0 && (fragment?.requireView()?.width ?: 0) > 0) {
-        fragmentAttached = true
-      }
-      val fragView = fragment?.view
-      val parent = fragView?.parent as? ViewGroup
-
-      val widthSpec = View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY)
-      val heightSpec = View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
-
-      fragView?.measure(widthSpec, heightSpec)
-      fragView?.layout(0, 0, width, height)
-      fragView?.invalidate()
-    }
+//    if(fragment?.view != null) {
+//      if((fragment?.requireView()?.height ?: 0) > 0 && (fragment?.requireView()?.width ?: 0) > 0) {
+//        fragmentAttached = true
+//      }
+//      val fragView = fragment?.view
+//      val parent = fragView?.parent as? ViewGroup
+//
+//      val widthSpec = View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY)
+//      val heightSpec = View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+//
+//      fragView?.measure(widthSpec, heightSpec)
+//      fragView?.layout(0, 0, width, height)
+//      fragView?.invalidate()
+//    }
   }
 
   private fun detachFragmentIfNecessary() {
-    val activity = reactContext?.currentActivity as? FragmentActivity ?: return
-    activity.supportFragmentManager.findFragmentByTag(fragmentTag())?.let { fragment ->
-      activity.supportFragmentManager.commit() {
-        remove(fragment)
-        System.gc()
-      }
-    }
-    viewTreeObserver.removeOnGlobalLayoutListener(globalLayoutListener)
-    fragmentAttached = false
+//    val activity = reactContext?.currentActivity as? FragmentActivity ?: return
+//    activity.supportFragmentManager.findFragmentByTag(fragmentTag())?.let { fragment ->
+//      activity.supportFragmentManager.commit() {
+//        remove(fragment)
+//        System.gc()
+//      }
+//    }
+//    viewTreeObserver.removeOnGlobalLayoutListener(globalLayoutListener)
+//    fragmentAttached = false
   }
 
   private fun refreshFragmentForLocaleChange() {
-    if (!fragmentAttached || !isAttachedToWindow) {
-      return
-    }
-
-    post {
-      detachFragmentIfNecessary()
-      fragmentAttached = false
-      attachFragmentIfNecessary()
-    }
+//    if (!fragmentAttached || !isAttachedToWindow) {
+//      return
+//    }
+//
+//    post {
+//      detachFragmentIfNecessary()
+//      fragmentAttached = false
+//      attachFragmentIfNecessary()
+//    }
   }
 
-  private fun fragmentTag(): String = "MapxusHsitpView.XmlActivity.${id}"
+//  private fun fragmentTag(): String = "MapxusHsitpView.XmlActivity.${id}"
 }

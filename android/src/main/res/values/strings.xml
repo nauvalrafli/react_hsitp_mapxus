@@ -1,4 +1,5 @@
 <resources>
+  <string name="app_name">AR Toilet Navigation</string>
   <string name="title_activity_home">HomeActivity</string>
   <string name="title_activity_venue">VenueActivity</string>
   <string name="restroom">Restroom</string>
@@ -28,10 +29,6 @@
   <string name="meter">m</string>
   <string name="minute">%1$d min left</string>
   <string name="second">%1$d sec left</string>
-  <string name="explore_by_building">Explore by Building</string>
-  <string name="search">Search</string>
-  <string name="search_result">Search Result</string>
-  <string name="floor_information">Floor information</string>
   <string name="no_route">Route not found, please check your location</string>
 
   <!-- Category   -->
@@ -41,6 +38,11 @@
   <string name="category_washroom">Washroom</string>
   <string name="category_transportation">Transportation</string>
   <string name="category_utilities">Utilities</string>
+
+  <string name="explore_by_building">Explore by Building</string>
+  <string name="search">Search</string>
+  <string name="search_result">Search Result</string>
+  <string name="floor_information">Floor information</string>
   <string name="category_list_title">Categories</string>
   <string name="category_item_title_placeholder">Category title</string>
   <string name="category_item_subtitle_placeholder">Floor · Building</string>
@@ -69,4 +71,6 @@
   <string name="walkthrough_browsing_description">Open the search field or use quick categories to jump into venue details and directions.</string>
   <string name="walkthrough_browsing_tip">Tip: Look for the blue search bar inside the venue sheet.</string>
   <string name="step_of">Step %1$d of %2$d</string>
+  <string name="click_here_to_start_ar_navigation">Click here to start AR Navigation</string>
+  <string name="click_here_to_follow_user_heading">Click here to follow user heading</string>
 </resources>

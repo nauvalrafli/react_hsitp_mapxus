@@ -1,6 +1,7 @@
 package com.mapxushsitp.fragments
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -9,16 +10,16 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.mapxushsitp.adapters.CategoryListAdapter
+import com.mapxushsitp.viewmodel.MapxusSharedViewModel
+import com.mapxushsitp.R
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.mapxus.map.mapxusmap.api.services.PoiSearch
 import com.mapxus.map.mapxusmap.api.services.model.PoiSearchOption
 import com.mapxus.map.mapxusmap.api.services.model.poi.PoiInfo
-import com.mapxushsitp.R
-import com.mapxushsitp.adapters.CategoryListAdapter
-import com.mapxushsitp.viewmodel.MapxusSharedViewModel
+import java.util.Locale
 
 /**
  * Presents a vertically scrolling list that mirrors the Toilet screen UI without filters.
@@ -53,6 +54,9 @@ class CategoryListFragment : Fragment() {
         setupRecycler()
         setupClickListeners()
         applyArguments()
+        sharedViewModel.bottomSheet?.post {
+            sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+        }
     }
 
     private fun initializeViews(root: View) {
@@ -64,14 +68,13 @@ class CategoryListFragment : Fragment() {
         emptyStateText = root.findViewById(R.id.empty_state)
         loadingStateText = root.findViewById(R.id.loading_state)
 
-
-      val text = when(sharedViewModel.selectedCategory) {
-            "workplace" -> getString(R.string.category_company)
-            "shopping" -> getString(R.string.category_shops)
-            "restaurants" -> getString(R.string.category_restaurant)
-            "facility.restroom" -> getString(R.string.category_washroom)
-            "transport" -> getString(R.string.category_transportation)
-            "facility" -> getString(R.string.category_utilities)
+        val text = when(sharedViewModel.selectedCategory) {
+            "workplace" -> sharedViewModel.context.getString(R.string.category_company)
+            "shopping" -> sharedViewModel.context.getString(R.string.category_shops)
+            "restaurants" -> sharedViewModel.context.getString(R.string.category_restaurant)
+            "facility.restroom" -> sharedViewModel.context.getString(R.string.category_washroom)
+            "transport" -> sharedViewModel.context.getString(R.string.category_transportation)
+            "facility" -> sharedViewModel.context.getString(R.string.category_utilities)
             else -> "General"
         }
         showEmptyState()
@@ -85,8 +88,9 @@ class CategoryListFragment : Fragment() {
         ) { item ->
             sharedViewModel.setSelectedPoi(item) {
                 if(sharedViewModel.navController?.currentDestination?.id != R.id.poiDetailsFragment) {
-                  (sharedViewModel.navController ?: findNavController()).navigate(R.id.action_global_to_poiDetails)
+                    sharedViewModel.navController?.navigate(R.id.action_global_to_poiDetails)
                 }
+                sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
             }
             onCategorySelected?.invoke(item)
         }
@@ -115,6 +119,7 @@ class CategoryListFragment : Fragment() {
                 } else {
                     setExcludeCategories("facility.steps,facility.connector,facility.restroom,workplace,shopping,restaurants,transport")
                 }
+                Log.d("Mapxus Category", category.toString())
                 pageCapacity(30)
                 sharedViewModel.selectedBuilding.value?.buildingId?.let { setBuildingId(it) }
                 sharedViewModel.selectedVenue.value?.id?.let { setVenueId(it) }
@@ -122,10 +127,10 @@ class CategoryListFragment : Fragment() {
         ) { result ->
             val pois = result.allPoi ?: emptyList()
             if(pois.size > 0) {
-              renderCategories(pois)
-              showResult()
+                renderCategories(pois)
+                showResult()
             } else {
-              showNotFound()
+                showNotFound()
             }
         }
     }

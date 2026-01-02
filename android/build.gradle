@@ -1,7 +1,7 @@
 buildscript {
   ext {
     buildToolsVersion = "36.0.0"
-    minSdkVersion = 24
+    minSdkVersion = 26
     compileSdkVersion = 35
     targetSdkVersion = 35
     ndkVersion = "27.1.12297006"
@@ -48,7 +48,7 @@ android {
   compileSdk 35
 
   defaultConfig {
-    minSdkVersion 24
+    minSdkVersion 26
     targetSdkVersion 34
 
     buildConfigField "String", "VERSION_NAME", "\"${packageJson.version}\""
@@ -97,6 +97,15 @@ repositories {
   mavenCentral()
   google()
   maven {
+    name 'release'
+    url(MAPXUS_RELEASE_URL)
+    allowInsecureProtocol = true
+    credentials {
+      username = MAPXUS_RELEASE_USERNAME
+      password = MAPXUS_RELEASE_PASSWORD
+    }
+  }
+  maven {
     url("$rootDir/../node_modules/react-native/android")
   }
   maven {
@@ -123,11 +132,13 @@ dependencies {
   implementation 'androidx.appcompat:appcompat:1.6.1'
   implementation 'com.google.android.material:material:1.12.0'
   implementation 'androidx.activity:activity:1.9.2'
+  implementation 'androidx.navigation:navigation-fragment-ktx:2.9.6'
+  implementation 'androidx.navigation:navigation-ui-ktx:2.9.6'
   debugImplementation("androidx.compose.ui:ui-tooling")
 
   // Mapxus Android SDK - using placeholder for now
   implementation "com.mapxus.map:mapxusmap:11.2.1"
-  implementation "com.mapxus.positioning:positioning:2.3.2"
+  implementation "com.mapxus.positioning:positioning:3.1.1"
 
   // Google Maps Utils for SphericalUtil
   implementation("com.google.maps.android:android-maps-utils:3.8.2")
@@ -153,6 +164,9 @@ dependencies {
   implementation("com.github.bumptech.glide:glide:4.16.0")
   annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
 
+  //tooltip
+  implementation("com.github.skydoves:balloon:1.6.4")
+
   // Google Material Icons
   implementation("androidx.compose.material:material-icons-extended")
   implementation("androidx.compose.material:material")
@@ -160,5 +174,4 @@ dependencies {
 
   implementation("androidx.navigation:navigation-compose:2.9.0")
   implementation 'androidx.compose.ui:ui:1.9.1'
-
 }

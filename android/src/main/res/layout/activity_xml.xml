@@ -4,7 +4,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    >
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -121,7 +122,7 @@
 
                 <androidx.fragment.app.FragmentContainerView
                     android:id="@+id/fragment_container"
-                    class="androidx.navigation.fragment.NavHostFragment"
+                    android:name="androidx.navigation.fragment.NavHostFragment"
                     app:defaultNavHost="true"
                     app:navGraph="@navigation/nav_graph"
                     android:layout_width="match_parent"
@@ -194,7 +195,10 @@
                                 android:text="Navigation Title"
                                 android:textSize="24sp"
                                 android:textStyle="bold"
-                                android:textColor="@android:color/black" />
+                                android:textColor="@android:color/black"
+                                android:maxLines="3"
+                                android:ellipsize="end"
+                                />
 
                             <TextView
                                 android:id="@+id/nav_distance_text"
@@ -285,22 +289,14 @@
     </LinearLayout>
 
     <com.mapxushsitp.view.onboarding.OnboardingView
-      android:layout_width="match_parent"
-      android:layout_height="match_parent"
-      android:visibility="gone"
-      android:id="@+id/containerOnboarding"
-      layout="@layout/view_walkthrough_overlay"
-      app:layout_constraintTop_toTopOf="parent"
-      app:layout_constraintBottom_toBottomOf="parent"
-      app:layout_constraintStart_toStartOf="parent"
-      app:layout_constraintEnd_toEndOf="parent" />
-
-<!--    <include-->
-<!--        android:id="@+id/walkthrough_overlay"-->
-<!--        layout="@layout/view_walkthrough_overlay"-->
-<!--        app:layout_constraintTop_toTopOf="parent"-->
-<!--        app:layout_constraintBottom_toBottomOf="parent"-->
-<!--        app:layout_constraintStart_toStartOf="parent"-->
-<!--        app:layout_constraintEnd_toEndOf="parent" />-->
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:id="@+id/containerOnboarding"
+        layout="@layout/view_walkthrough_overlay"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

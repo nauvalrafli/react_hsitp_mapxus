@@ -1,5 +1,6 @@
 package com.mapxushsitp.fragments
 
+import android.content.SharedPreferences
 import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -11,21 +12,31 @@ import android.widget.LinearLayout
 import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.appcompat.content.res.AppCompatResources.getDrawable
+import androidx.core.app.NotificationCompat.getColor
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
-import com.google.android.material.bottomsheet.BottomSheetBehavior
-import com.mapxus.map.mapxusmap.api.services.constant.RoutePlanningVehicle
-import com.mapxushsitp.R
-import com.mapxushsitp.databinding.FragmentPrepareNavigationBinding
-import com.mapxushsitp.service.getTranslation
+import com.mapxushsitp.XmlActivity
+import com.mapxushsitp.data.model.RoutePlanningPoint
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
+import com.mapxushsitp.R
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.chip.Chip
+import com.mapxus.map.mapxusmap.api.services.constant.RoutePlanningVehicle
 
 class PrepareNavigationFragment : Fragment() {
 
-
-    var _binding : FragmentPrepareNavigationBinding? = null
-    val binding: FragmentPrepareNavigationBinding get() = _binding!!
+    private lateinit var backButton: View
+    private lateinit var startPointLayout: LinearLayout
+    private lateinit var startPointInput: AutoCompleteTextView
+    private lateinit var destinationInput: TextView
+    private lateinit var routeTypeSection: LinearLayout
+    private lateinit var shortestWalkChip: TextView
+    private lateinit var liftOnlyChip: TextView
+    private lateinit var escalatorOnlyChip: TextView
+    private lateinit var showRouteButton: Button
+    private lateinit var startNavigationButton: Button
 
     private var selectedRouteType : String = RoutePlanningVehicle.FOOT
     private var selectedStartPoint = ""
@@ -36,8 +47,7 @@ class PrepareNavigationFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        _binding = FragmentPrepareNavigationBinding.inflate(inflater, container, false)
-        return binding.root
+        return inflater.inflate(R.layout.fragment_prepare_navigation, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -49,33 +59,33 @@ class PrepareNavigationFragment : Fragment() {
     }
 
     private fun initializeViews(view: View) {
-        chips = listOf(binding.shortestWalkChip, binding.liftOnlyChip, binding.escalatorOnlyChip)
-
-        binding.tvHeader.setText(getString(R.string.navigation))
-        binding.tvRouteType.setText(getString(R.string.route_type))
-        binding.showRouteButton.setText(getString(R.string.shortest_walk))
-        binding.liftOnlyChip.setText(getString(R.string.lift_only))
-        binding.escalatorOnlyChip.setText(getString(R.string.escalator_only))
-        binding.showRouteButton.setText(getString(R.string.show_route))
-        binding.startNavigationButton.setText(getString(R.string.start_navigation))
-        binding.startPointInput.hint = getString(R.string.select_start_point)
+        backButton = view.findViewById(R.id.back_button)
+        startPointLayout = view.findViewById(R.id.start_point_container)
+        startPointInput = view.findViewById(R.id.start_point_input)
+        destinationInput = view.findViewById(R.id.destination_input)
+        routeTypeSection = view.findViewById(R.id.route_type_section)
+        shortestWalkChip = view.findViewById(R.id.shortest_walk_chip)
+        liftOnlyChip = view.findViewById(R.id.lift_only_chip)
+        escalatorOnlyChip = view.findViewById(R.id.escalator_only_chip)
+        showRouteButton = view.findViewById(R.id.show_route_button)
+        startNavigationButton = view.findViewById(R.id.start_navigation_button)
+        chips = listOf(shortestWalkChip, liftOnlyChip, escalatorOnlyChip)
 
         if(sharedViewModel.selectedStartText.isNotEmpty()) {
-            binding.startPointInput.setText(sharedViewModel.selectedStartText)
+            startPointInput.setText(sharedViewModel.selectedStartText)
             showRouteTypeSection()
         }
-        binding.destinationInput.setText(sharedViewModel.selectedPoi.value?.nameMap?.getTranslation(sharedViewModel.locale) + ", " + sharedViewModel.selectedPoi.value?.floor + ", " + sharedViewModel.selectedBuilding.value?.buildingNamesMap?.getTranslation(sharedViewModel.locale))
+        destinationInput.setText(sharedViewModel.selectedPoi.value?.nameMap?.en + ", " + sharedViewModel.selectedPoi.value?.floor + ", " + sharedViewModel.selectedBuilding.value?.buildingNamesMap?.en)
         when(sharedViewModel.selectedVehicle) {
             RoutePlanningVehicle.FOOT -> {
-                selectChip(binding.shortestWalkChip)
+                selectChip(shortestWalkChip)
             }
             RoutePlanningVehicle.WHEELCHAIR -> {
-                selectChip(binding.liftOnlyChip)
+                selectChip(liftOnlyChip)
             }
             RoutePlanningVehicle.ESCALATOR -> {
-                selectChip(binding.escalatorOnlyChip)
+                selectChip(escalatorOnlyChip)
             }
-
         }
     }
 
@@ -83,14 +93,9 @@ class PrepareNavigationFragment : Fragment() {
         super.onResume()
         sharedViewModel.routePainter?.cleanRoute()
         if(sharedViewModel.selectedStartText.isNotEmpty()) {
-            binding.startPointInput.setText(sharedViewModel.selectedStartText)
+            startPointInput.setText(sharedViewModel.selectedStartText)
             showRouteTypeSection()
         }
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
     }
 
     var chips = listOf<TextView>()
@@ -108,26 +113,26 @@ class PrepareNavigationFragment : Fragment() {
     }
 
     private fun setupClickListeners() {
-        binding.backButton.setOnClickListener {
+        backButton.setOnClickListener {
             findNavController().navigateUp()
         }
 
-        binding.shortestWalkChip.setOnClickListener {
+        shortestWalkChip.setOnClickListener {
             selectRouteType(RoutePlanningVehicle.FOOT)
-            selectChip(binding.shortestWalkChip)
+            selectChip(shortestWalkChip)
         }
 
-        binding.liftOnlyChip.setOnClickListener {
+        liftOnlyChip.setOnClickListener {
             selectRouteType(RoutePlanningVehicle.WHEELCHAIR)
-            selectChip(binding.liftOnlyChip)
+            selectChip(liftOnlyChip)
         }
 
-        binding.escalatorOnlyChip.setOnClickListener {
+        escalatorOnlyChip.setOnClickListener {
             selectRouteType(RoutePlanningVehicle.ESCALATOR)
-            selectChip(binding.escalatorOnlyChip)
+            selectChip(escalatorOnlyChip)
         }
 
-        binding.showRouteButton.setOnClickListener {
+        showRouteButton.setOnClickListener {
             // Request route planning first
             sharedViewModel.requestRoutePlanning(false, selectedRouteType)
 
@@ -149,37 +154,40 @@ class PrepareNavigationFragment : Fragment() {
 
             // Navigate to ShowRouteFragment
             findNavController().navigate(R.id.action_prepareNavigation_to_showRoute)
+            sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
         }
 
-        binding.startNavigationButton.setOnClickListener {
+        startNavigationButton.setOnClickListener {
             sharedViewModel.requestRoutePlanning(true, selectedRouteType)
         }
     }
 
     private fun setupDropdown() {
-        val popupMenu = PopupMenu(requireContext(), binding.startPointInput)
-        popupMenu.menu.add(getString(R.string.current_location))
-        popupMenu.menu.add(getString(R.string.select_location_on_map))
+        val popupMenu = PopupMenu(requireContext(), startPointInput)
+        popupMenu.menu.add("Current Location")
+        popupMenu.menu.add("Select Location from Map")
 
         popupMenu.setOnMenuItemClickListener {
             when (it.title) {
-                getString(R.string.current_location) -> {
-                    selectedStartPoint = getString(R.string.current_location)
-                    binding.startPointInput.setText(selectedStartPoint)
-                    sharedViewModel.startLatLng = sharedViewModel.userLocation
+                "Current Location" -> {
+                    selectedStartPoint = "Current Location"
+                    startPointInput.setText(selectedStartPoint)
+                    sharedViewModel.startLatLng = com.mapxus.map.mapxusmap.api.services.model.planning.RoutePlanningPoint(
+                        sharedViewModel.userLocation?.longitude ?: 0.0,
+                        sharedViewModel.userLocation?.latitude ?: 0.0,
+                        sharedViewModel.userLocation?.mapxusFloor?.id
+                    )
                     showRouteTypeSection()
-                    sharedViewModel.selectedStartText = getString(R.string.current_location)
-                    sharedViewModel.bottomSheet?.postDelayed({
-                      sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
-                    }, 200)
+                    sharedViewModel.selectedStartText = "Current Location"
                 }
-              getString(R.string.select_location_on_map) -> {
+                "Select Location from Map" -> {
                     findNavController().navigate(R.id.action_prepareNavigation_to_positionMark)
+                    sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
                 }
             }
             true
         }
-        binding.startPointInput.setOnClickListener {
+        startPointInput.setOnClickListener {
             popupMenu.show()
         }
 
@@ -191,7 +199,7 @@ class PrepareNavigationFragment : Fragment() {
     }
 
     private fun showRouteTypeSection() {
-        binding.routeTypeSection.visibility = View.VISIBLE
+        routeTypeSection.visibility = View.VISIBLE
         selectRouteType(sharedViewModel.selectedVehicle)
     }
 }

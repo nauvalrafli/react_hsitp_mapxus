@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+  <string name="app_name">AR廁所導航</string>
   <string name="title_activity_home">HomeActivity</string>
   <string name="title_activity_venue">VenueActivity</string>
   <string name="restroom">洗手間</string>
@@ -30,11 +31,6 @@
   <string name="minute">剩餘 %1$d 分鐘</string>
   <string name="second">剩餘 %1$d 秒</string>
   <string name="no_route">找不到路線，請檢查你的位置</string>
-  <string name="explore_by_building">按大廈瀏覽</string>
-  <string name="search">搜尋</string>
-  <string name="search_result">搜尋結果</string>
-  <string name="floor_information">樓層資料</string>
-
 
   <!-- Category   -->
   <string name="category_company">公司</string>
@@ -43,4 +39,40 @@
   <string name="category_washroom">洗手間</string>
   <string name="category_transportation">交通</string>
   <string name="category_utilities">公共設施</string>
+
+  <string name="explore_by_building">按建築探索</string>
+  <string name="search">搜尋</string>
+  <string name="search_result">搜尋結果</string>
+  <string name="floor_information">樓層資訊</string>
+  <string name="category_list_title">分類</string>
+  <string name="category_item_title_placeholder">分類標題</string>
+  <string name="category_item_subtitle_placeholder">樓層 · 建築</string>
+  <string name="close">關閉</string>
+  <string name="back">返回</string>
+  <string name="next">下一步</string>
+  <string name="skip">略過</string>
+  <string name="get_started">開始使用</string>
+  <string name="enable_location">啟用定位</string>
+  <string name="got_it">知道了</string>
+  <string name="continue_text">繼續</string>
+  <string name="start_exploring">開始探索</string>
+  <string name="walkthrough_welcome_title">歡迎！</string>
+  <string name="walkthrough_welcome_subtitle">讓我們為您設定最佳導航體驗。</string>
+  <string name="walkthrough_welcome_description">我們將引導您完成幾個快速步驟，以啟用定位服務並開始導航。</string>
+  <string name="walkthrough_positioning_title">定位</string>
+  <string name="walkthrough_positioning_subtitle">啟用定位服務以獲得準確位置。</string>
+  <string name="walkthrough_positioning_description">室內定位約有 5 米精度，室外 GPS 可確保路線正確。請授權以繼續。</string>
+  <string name="walkthrough_positioning_tip">提示：允許精確定位以獲得最佳導航效果。</string>
+  <string name="walkthrough_navigation_title">導航概覽</string>
+  <string name="walkthrough_navigation_subtitle">輕鬆在不同區域之間導航。</string>
+  <string name="walkthrough_navigation_description">使用互動地圖探索室內與室外路線，點擊目的地即可查看路徑。</string>
+  <string name="walkthrough_navigation_tip">提示：點擊興趣點可預覽完整路線。</string>
+  <string name="walkthrough_browsing_title">瀏覽地圖</string>
+  <string name="walkthrough_browsing_subtitle">按分類瀏覽地點或直接搜尋。</string>
+  <string name="walkthrough_browsing_description">開啟搜尋欄或使用快速分類，查看場地詳情與導航。</string>
+  <string name="walkthrough_browsing_tip">提示：請留意場地資訊頁中的藍色搜尋欄。</string>
+  <string name="step_of">第 %1$d 步，共 %2$d 步</string>
+  <string name="click_here_to_start_ar_navigation">點擊此處開始 AR 導航</string>
+  <string name="click_here_to_follow_user_heading">點擊此處跟隨使用者方向</string>
+
 </resources>

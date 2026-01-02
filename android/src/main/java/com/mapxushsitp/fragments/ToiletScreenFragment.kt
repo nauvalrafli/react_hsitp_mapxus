@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.mapxushsitp.adapters.ToiletListAdapter
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import com.mapxushsitp.R
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.tabs.TabLayout
 import com.mapxus.map.mapxusmap.api.services.BuildingSearch
 import com.mapxus.map.mapxusmap.api.services.PoiSearch
@@ -69,9 +70,10 @@ class ToiletScreenFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        toiletListAdapter = ToiletListAdapter(sharedViewModel.building.value ?: listOf(), sharedViewModel.locale) { toiletItem ->
+        toiletListAdapter = ToiletListAdapter((sharedViewModel.building.value ?: listOf()), sharedViewModel.locale) { toiletItem ->
             sharedViewModel.setSelectedPoi(toiletItem) {
-              findNavController().navigate(R.id.action_toiletScreen_to_poiDetails)
+                findNavController().navigate(R.id.action_toiletScreen_to_poiDetails)
+                sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
             }
         }
 

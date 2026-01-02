@@ -54,7 +54,7 @@ class ToiletListAdapter(
 
         fun bind(toilet: PoiInfo) {
             // TODO: Bind actual data from toilet object
-            title.text = toilet.nameMap?.getTranslation(locale)
+            title.text = toilet.nameMap?.en
             subtitle.text = (toilet.floor ?: toilet.sharedFloorNames?.getTranslation(locale)) + " - " + buildingList.find { it.buildingId == toilet.buildingId }?.buildingNamesMap?.getTranslation(locale)
             val random = Math.random() * 3
             if(random > 2) {

@@ -1,6 +1,7 @@
 package com.mapxushsitp.fragments
 
 import android.os.Bundle
+import android.util.Log
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
@@ -10,6 +11,7 @@ import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.appcompat.widget.AppCompatTextView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
@@ -18,6 +20,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.mapxushsitp.adapters.SearchResultsAdapter
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import com.mapxushsitp.R
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.mapxus.map.mapxusmap.api.services.PoiSearch
@@ -66,8 +69,6 @@ class SearchResultFragment : Fragment() {
         emptyState = view.findViewById(R.id.empty_state)
         notFoundState = view.findViewById(R.id.not_found_state)
 
-        searchInput.hint = getString(R.string.search)
-
         // Show empty state initially instead of performing empty search
         showEmptyState()
     }
@@ -77,24 +78,31 @@ class SearchResultFragment : Fragment() {
             findNavController().navigateUp()
         }
 
-        searchInput.setOnEditorActionListener { p0, p1, p2 ->
-          if (p2?.keyCode == KeyEvent.KEYCODE_ENTER) {
-              performSearch()
-              val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
-              imm?.hideSoftInputFromWindow(searchInput.windowToken, 0)
-          } else if (p1 == EditorInfo.IME_ACTION_SEARCH) {
-              performSearch()
-              val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
-              imm?.hideSoftInputFromWindow(searchInput.windowToken, 0)
-          }
-          true
-        }
+        searchInput.setOnEditorActionListener(object : TextView.OnEditorActionListener {
+            override fun onEditorAction(
+                p0: TextView?,
+                p1: Int,
+                p2: KeyEvent?
+            ): Boolean {
+                if(p2?.keyCode == KeyEvent.KEYCODE_ENTER) {
+                    performSearch()
+                    val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+                    imm?.hideSoftInputFromWindow(searchInput.windowToken, 0)
+                } else if(p1 == EditorInfo.IME_ACTION_SEARCH) {
+                    performSearch()
+                    val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+                    imm?.hideSoftInputFromWindow(searchInput.windowToken, 0)
+                }
+                return true
+            }
+        })
     }
 
     private fun setupRecyclerView() {
         searchResultsAdapter = SearchResultsAdapter(locale = sharedViewModel.locale) { poiInfo ->
             sharedViewModel.setSelectedPoi(poiInfo){
                 findNavController().navigate(R.id.action_searchResult_to_poiDetails)
+                sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
             }
         }
 
@@ -107,7 +115,7 @@ class SearchResultFragment : Fragment() {
     private fun performSearch() {
         val query = searchInput.text.toString().trim()
 
-//        // If query is empty, show empty state
+        // If query is empty, show empty state
 //        if (query.isEmpty()) {
 //            showEmptyState()
 //            return
@@ -146,12 +154,13 @@ class SearchResultFragment : Fragment() {
             setKeywords(query)
             setExcludeCategories("facility.steps,facility.elevator")
             pageCapacity(30)
-            // Add venue filter if available
+            // Add venue and building filter if available
             sharedViewModel.selectedBuilding.value?.let {
                 setBuildingId(it.buildingId)
                 setVenueId(it.venueId)
             }
         }
+        Log.d("SEARCH", "Search query: ${query} with building: ${sharedViewModel.selectedBuilding.value?.buildingNamesMap?.en}")
         poiSearch.searchPoiByOption(searchOption)
     }
 

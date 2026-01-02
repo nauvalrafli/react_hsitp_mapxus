@@ -8,12 +8,10 @@ import android.widget.Button
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
-import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import com.mapxushsitp.R
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.button.MaterialButton
-import com.mapxus.map.mapxusmap.api.map.model.LatLng
-import com.mapxus.map.mapxusmap.api.map.model.MapxusPointAnnotationOptions
 import com.mapxus.map.mapxusmap.api.services.model.planning.RoutePlanningPoint
 
 class PositionMarkFragment : Fragment() {
@@ -35,11 +33,13 @@ class PositionMarkFragment : Fragment() {
         initializeViews(view)
         setupClickListeners()
         sharedViewModel.selectionMark?.visibility = View.VISIBLE
+        sharedViewModel.bottomSheet?.post {
+            sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+        }
     }
 
     private fun initializeViews(view: View) {
         setStartLocationButton = view.findViewById(R.id.set_start_location_button)
-        setStartLocationButton.text = getString(R.string.set_start_location)
     }
 
     private fun setupClickListeners() {
@@ -51,9 +51,6 @@ class PositionMarkFragment : Fragment() {
                 latlng?.latitude ?: 0.0,
                 sharedViewModel.mapxusMap?.selectedFloor?.id
             )
-            sharedViewModel.mapxusMap?.addMapxusPointAnnotation(MapxusPointAnnotationOptions().apply {
-              this.position = latlng
-            })
             sharedViewModel.selectionMark?.visibility = View.GONE
             findNavController().navigateUp()
         }

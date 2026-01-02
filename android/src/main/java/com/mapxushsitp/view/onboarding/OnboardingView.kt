@@ -9,6 +9,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import androidx.viewpager2.widget.ViewPager2
 import com.mapxushsitp.R
+import com.mapxushsitp.service.Preference
 
 class OnboardingView @JvmOverloads constructor(
     context: Context,
@@ -36,12 +37,18 @@ class OnboardingView @JvmOverloads constructor(
 
         viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
-                setIndicator(position)
                 if(position == items.size - 1) {
                     btnGetStarted.isEnabled = true
                 }
+                setIndicator(position)
             }
         })
+    }
+
+    private var finished: (() -> Unit)? = null
+
+    fun setOnFinished(onFinished: () -> Unit = {}) {
+        finished = onFinished
     }
 
     private fun setupIndicators(count: Int) {
@@ -61,10 +68,8 @@ class OnboardingView @JvmOverloads constructor(
 
         btnGetStarted.setOnClickListener {
             findViewById<OnboardingView>(R.id.containerOnboarding).visibility = GONE
-            context.getSharedPreferences("Mapxus", Context.MODE_PRIVATE).edit().apply {
-              putBoolean("onboardingDone", true)
-              apply()
-            }
+            Preference.setOnboardingDone()
+            finished?.invoke()
         }
     }
 

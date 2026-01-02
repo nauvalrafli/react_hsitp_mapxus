@@ -1,4 +1,4 @@
-package com.mapxushsitp.ui.theme
+package com.mapxushsitp.theme
 
 import android.app.Activity
 import android.os.Build

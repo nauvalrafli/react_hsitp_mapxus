@@ -9,6 +9,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 
 class ARNavigationViewModel : ViewModel() {
     private val _instructionIndex = MutableLiveData(0)
@@ -28,6 +30,12 @@ class ARNavigationViewModel : ViewModel() {
     var isShowingAndClosingARNavigation: MutableState<Boolean> = mutableStateOf(false)
     var isSelectingGPSCurrentLocation: MutableState<Boolean> = mutableStateOf(false)
 
+    var mutableSharedFlow = MutableSharedFlow<Int>(
+        replay = 1,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
     // Function to increment the index
     fun nextInstruction(maxIndex: Int) {
         val current = _instructionIndex.value ?: 0
@@ -41,6 +49,10 @@ class ARNavigationViewModel : ViewModel() {
         if (current > 0) {
             _instructionIndex.value = current - 1
         }
+    }
+
+    fun setInstructionIndex(index: Int) {
+        _instructionIndex.value = index
     }
 
     // Optionally reset

@@ -10,10 +10,10 @@ import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
-import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.mapxushsitp.service.getTranslation
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import com.mapxushsitp.R
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.Chip
 import com.mapxus.map.mapxusmap.api.services.PoiSearch
@@ -49,6 +49,9 @@ class PoiDetailsFragment : Fragment() {
         initializeViews(view)
         setupClickListeners()
         updatePoiInfo()
+        sharedViewModel.bottomSheet?.post {
+            sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+        }
     }
 
     private fun initializeViews(view: View) {
@@ -56,8 +59,8 @@ class PoiDetailsFragment : Fragment() {
         poiTitle = view.findViewById(R.id.poi_title)
         poiSubtitle = view.findViewById(R.id.poi_subtitle)
         shareButton = view.findViewById(R.id.share_button)
+//        facilitiesChip = view.findViewById(R.id.facilities_chip)
         directionButton = view.findViewById(R.id.direction_button)
-        directionButton.text = getString(R.string.direction)
 
         sharedViewModel.startLatLng = null
         sharedViewModel.selectedStartText = ""

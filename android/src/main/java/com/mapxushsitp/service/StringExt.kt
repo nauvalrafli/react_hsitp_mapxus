@@ -1,10 +1,11 @@
 package com.mapxushsitp.service
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import com.mapxushsitp.data.model.Venue
 import com.mapxus.map.mapxusmap.api.common.MultilingualObject
 import com.mapxus.map.mapxusmap.api.services.model.building.Address
-import com.mapxushsitp.data.model.Venue
 import java.util.Locale
 
 fun Double.limitDecimal(limit: Int = 8): String {

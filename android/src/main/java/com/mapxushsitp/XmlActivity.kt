@@ -2,6 +2,7 @@ package com.mapxushsitp
 
 import android.Manifest
 import android.content.Context
+import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
@@ -11,19 +12,21 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.location.LocationManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
+import android.text.TextUtils
 import android.util.Log
+import android.view.KeyEvent
 import android.view.SurfaceView
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -49,17 +52,21 @@ import com.mapxus.map.mapxusmap.api.services.constant.RoutePlanningVehicle
 import com.mapxus.map.mapxusmap.api.services.model.planning.InstructionDto
 import com.mapxus.map.mapxusmap.api.services.model.planning.RoutePlanningPoint
 import com.mapxus.map.mapxusmap.impl.MapLibreMapViewProvider
+import com.mapxus.positioning.api.positioning.PositioningState
 import com.mapxushsitp.arComponents.ARNavigationViewModel
 import com.mapxushsitp.arComponents.FourthLocalARFragment
+import com.mapxushsitp.compassComponents.CompassViewModel
 import com.mapxushsitp.data.model.ParcelizeRoutePoint
 import com.mapxushsitp.data.model.SerializableRouteInstruction
 import com.mapxushsitp.data.model.SerializableRoutePoint
 import com.mapxushsitp.service.MapxusUtility
+import com.mapxushsitp.service.Preference
 import com.mapxushsitp.service.generateSpeakText
-import com.mapxushsitp.service.toMeterText
 import com.mapxushsitp.view.onboarding.OnboardingPage
 import com.mapxushsitp.view.onboarding.OnboardingView
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
+import com.skydoves.balloon.Balloon
+import com.skydoves.balloon.BalloonAlign
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -70,6 +77,10 @@ import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 
 class XmlActivity : AppCompatActivity(), SensorEventListener {
+
+  companion object {
+    private const val PREF_HAS_SEEN_WALKTHROUGH = "has_seen_walkthrough"
+  }
 
   lateinit var mapView: MapView
   lateinit var mapViewProvider: MapViewProvider
@@ -98,6 +109,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
   // Shared ViewModel
   private val mapxusSharedViewModel: MapxusSharedViewModel by viewModels()
   private val arNavigationViewModel: ARNavigationViewModel by viewModels()
+  private val compassViewModel: CompassViewModel by viewModels()
 
   // Text-to-Speech
   private lateinit var tts: TextToSpeech
@@ -117,6 +129,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
 
     super.attachBaseContext(base)
   }
+  private var isShuttingDown = false
 
   // Permission launcher
   private val requestPermissionLauncher = registerForActivityResult(
@@ -141,12 +154,56 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     checkLocationServices()
   }
 
+  private val navigationBackCallbackOnFinishedAlertDialog = object : OnBackPressedCallback(true) {
+    override fun handleOnBackPressed() {
+      if (isShuttingDown) return
+      isShuttingDown = true
+
+      Log.d("EndARContainer", "Back Pressed - Starting safe shutdown")
+
+      if (arriveAtDestinationDialog?.isShowing == true) {
+        arriveAtDestinationDialog?.dismiss()
+        arriveAtDestinationDialog = null
+      }
+
+      lifecycleScope.launch(Dispatchers.Main) {
+        try {
+          val fragment = supportFragmentManager.findFragmentById(R.id.ar_fragment_container) as? FourthLocalARFragment
+          fragment?.onPause()
+
+          delay(100)
+
+          endARNavigation()
+          endNavigation()
+
+          Log.d("EndARContainer", "Shutdown complete")
+
+          // --- FIX STARTS HERE ---
+          isEnabled = false // Disable this specific callback
+          remove()          // Remove it from the back button stack
+          // --- FIX ENDS HERE ---
+
+          isShuttingDown = false
+
+          // Optional: If you want to go back one more screen automatically
+          // onBackPressedDispatcher.onBackPressed()
+
+        } catch (e: Exception) {
+          Log.e("EndARContainer", "Error: ${e.message}")
+          isShuttingDown = false
+          isEnabled = false
+          remove()
+        }
+      }
+    }
+  }
+
   @OptIn(ExperimentalMaterial3Api::class)
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
     setContentView(R.layout.activity_xml)
-//    setupVersion()
+    setupVersion()
 
     mapxusSharedViewModel.locale =
       intent.getStringExtra("locale")?.let { loc ->
@@ -157,10 +214,8 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
           Locale(loc)
         }
       } ?: resources.configuration.locale
-    Log.d("REACT-MAPXUS", intent.getStringExtra("locale") ?: "null")
-    Log.d("REACT-MAPXUS", mapxusSharedViewModel.locale.toLanguageTag())
-    mapxusSharedViewModel.selectVehicle(mapxusSharedViewModel.sharedPreferences.getString("vehicle", RoutePlanningVehicle.FOOT) ?: RoutePlanningVehicle.FOOT)
-    isSpeaking = mapxusSharedViewModel.sharedPreferences.getBoolean("isSpeaking", true)
+    mapxusSharedViewModel.selectVehicle(Preference.getVehicle() ?: RoutePlanningVehicle.FOOT)
+    isSpeaking = Preference.getIsSpeaking()
 
     initializeTTS()
 
@@ -178,20 +233,21 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
 
 
     mapViewProvider.getMapxusMapAsync {
+      mapxusSharedViewModel.initPositioning()
       setupBottomSheet()
       setupNavigation()
       setupNavigationRouteCard()
-      mapView.post {
-        it.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
-      }
     }
 
-    findViewById<TextView>(R.id.version).setText("0.1.16")
-
-    val boarded = mapxusSharedViewModel.sharedPreferences.getBoolean("onboardingDone", false)
-    if(!boarded) {
+    findViewById<TextView>(R.id.version).setText("0.1.17")
+    val boarded = Preference.getOnboardingDone()
+    if (!boarded) {
       setupWalkthroughOverlay()
     }
+
+    onBackPressedDispatcher.addCallback(this, navigationBackCallbackOnFinishedAlertDialog)
+    // Debug: Check if it's actually enabled
+    Log.d("EndARContainer", "Callback registered. Enabled: ${navigationBackCallbackOnFinishedAlertDialog.isEnabled}")
   }
 
   fun setupMap() {
@@ -212,10 +268,6 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     mapViewProvider = MapLibreMapViewProvider(this, mapView, mapOptions)
     mapxusSharedViewModel.setMapViewProvider(mapViewProvider)
     userLocation = findViewById(R.id.select_location)
-
-    // Initialize shared ViewModel with map components
-    mapxusSharedViewModel.setMapViewProvider(mapViewProvider)
-    mapxusSharedViewModel.initPositioning(this, this)
 
     loadingOverlay = findViewById(R.id.loading_overlay)
     mapxusSharedViewModel.isLoadingRoute.observe(this) {
@@ -248,23 +300,58 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     )
 
     onboarding.setup(pages)
+    onboarding.setOnFinished {
+      if(!Preference.getGpsWalkthroughDone()) {
+        Balloon.Builder(this)
+          .setText(resources.getString(R.string.click_here_to_follow_user_heading))
+          .setArrowPosition(0.5f)
+          .setIsVisibleArrow(false)
+          .setCornerRadius(8f)
+          .setPadding(8)
+          .setDismissWhenOverlayClicked(true)
+          .setDismissWhenShowAgain(true)
+          .setDismissWhenClicked(true)
+          .setDismissWhenTouchOutside(true)
+          .setLifecycleOwner(this)
+          .setOnBalloonDismissListener {
+            Preference.setGpsWalkthroughDone()
+          }
+          .build()
+          .showAlign(BalloonAlign.END,gpsFab, xOff = -500)
+      }
+    }
     onboarding.visibility = View.VISIBLE
   }
 
-//  fun setupVersion() {
-//    val versionText = findViewById<TextView>(R.id.version)
-//    try {
-//      val pInfo = this.packageManager.getPackageInfo(this.getPackageName(), 0);
-//      val versionName = pInfo.versionName;
-//      val versionCode = pInfo.versionCode;
-//      val version = "${versionName} +${versionCode}"
-//      versionText.setText(version)
-//    } catch (e: PackageManager.NameNotFoundException) {
-//      versionText.setText("")
-//      e.printStackTrace();
-//    }
-//  }
+  var versionRetries = 0;
+  fun setupVersion() {
+    val versionText = findViewById<TextView>(R.id.version)
+    try {
+      val pInfo = this.packageManager.getPackageInfo(this.getPackageName(), 0);
+      val versionName = pInfo.versionName;
+      val versionCode = pInfo.versionCode;
+      val version = "${versionName} +${versionCode}"
+      versionText.setText(version)
+    } catch (e: PackageManager.NameNotFoundException) {
+      if(versionRetries < 2) {
+        lifecycleScope.launch {
+          withContext(Dispatchers.Default) {
+            delay(1000)
+            withContext(Dispatchers.Main) {
+              versionRetries++
+              setupVersion()
+            }
+          }
+        }
+      } else {
+        versionText.setText("")
+      }
+      e.printStackTrace();
+      Log.d("Version Error", e.stackTrace.toString())
+    }
+  }
 
+  var isBackEnabled = true
   fun setupBottomSheet() {
     bottomSheet = findViewById<LinearLayout>(R.id.bottomSheet)
     mapxusSharedViewModel.bottomSheet = bottomSheet
@@ -275,23 +362,28 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     bottomSheetBehavior.isHideable = false
     bottomSheetBehavior.isDraggable = true
     bottomSheetBehavior.skipCollapsed = false
-    bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+    bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
+
+//        bottomSheetBehavior.peekHeight = (200 * resources.displayMetrics.density).toInt()
 
     bottomSheet.visibility = View.VISIBLE
-
     mapView.addOnDidFinishRenderingFrameListener { _,_,_ ->
       bottomSheetBehavior.isHideable = mapxusSharedViewModel.isNavigating
       if(mapxusSharedViewModel.isNavigating) {
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
         arNavigationFab.visibility = View.VISIBLE
-      } else if(bottomSheetBehavior.state != BottomSheetBehavior.STATE_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_DRAGGING && !mapxusSharedViewModel.isNavigating) {
-        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+      } else if(
+        bottomSheetBehavior.state != BottomSheetBehavior.STATE_EXPANDED
+        && bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED
+      ) {
         arNavigationFab.visibility = View.GONE
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
       }
     }
+
+    // removed for efficiency
     bottomSheet.viewTreeObserver.addOnGlobalLayoutListener {
       val newHeight = bottomSheet.measuredHeight
-      // Only update peekHeight if not in half-expanded state (to preserve half-height setting)
       if (bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED) {
         if (bottomSheetBehavior.peekHeight != newHeight) {
           bottomSheetBehavior.peekHeight = newHeight
@@ -305,35 +397,55 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
       }
     }
 
-    bottomSheetBehavior.addBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
-      override fun onStateChanged(bottomSheet: View, newState: Int) {
-      }
-
-      override fun onSlide(bottomSheet: View, slideOffset: Float) {
-      }
-    })
-
+    // For backup - original code
     onBackPressedDispatcher.addCallback(this, object: OnBackPressedCallback(true) {
       override fun handleOnBackPressed() {
-        if(mapxusSharedViewModel.isNavigating) {
-          Log.d("REACT-MAPXUS", "AA")
-          mapxusSharedViewModel.routePainter?.cleanRoute()
-          mapxusSharedViewModel.clearInstructions()
-          mapxusSharedViewModel.setInstructionIndex(0)
-          mapxusSharedViewModel.isNavigating = false
-        } else if(navController?.currentDestination?.id != R.id.venueScreenFragment) {
-          Log.d("REACT-MAPXUS", "BB ${navController?.currentDestination?.id}")
-          if(navController?.currentDestination?.id == R.id.poiDetailsFragment) {
-            mapxusSharedViewModel.mapxusMap?.removeMapxusPointAnnotations()
+        // Wrap in Main scope to ensure UI updates are immediate
+        lifecycleScope.launch(Dispatchers.Main) {
+          isBackEnabled = false
+          if (mapxusSharedViewModel.isNavigating) {
+//                        endARNavigation()
+//                        endNavigation()
+//                        mapxusSharedViewModel.routePainter?.cleanRoute()
+//                        mapxusSharedViewModel.clearInstructions()
+//                        mapxusSharedViewModel.setInstructionIndex(0)
+//                        mapxusSharedViewModel.isNavigating = false
+            val dialog = AlertDialog.Builder(this@XmlActivity)
+              .setTitle("Quit Navigation?")
+              .setMessage("Do you really want to quit ongoing navigation?")
+              .setPositiveButton("Yes", object : DialogInterface.OnClickListener {
+                override fun onClick(
+                  p0: DialogInterface?,
+                  p1: Int
+                ) {
+                  endARNavigation()
+                  endNavigation()
+                  mapxusSharedViewModel.routePainter?.cleanRoute()
+                  mapxusSharedViewModel.clearInstructions()
+                  mapxusSharedViewModel.setInstructionIndex(0)
+                  mapxusSharedViewModel.isNavigating = false
+                }
+              })
+              .setNegativeButton("No") { p0, p1 -> }
+              .setOnDismissListener { isBackEnabled = true }
+              .create()
+            dialog.show()
+          } else if (navController?.currentDestination?.route == "venue_screen") {
+            finish()
+            isBackEnabled = true
+          } else {
+            arNavigationFab.visibility = View.GONE
+            if(navController?.currentDestination?.id == R.id.poiDetailsFragment) {
+              mapxusSharedViewModel.mapxusMap?.removeMapxusPointAnnotations()
+            }
+            navController?.navigateUp()
+            mapxusSharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+            isBackEnabled = true
           }
-          navController?.navigateUp()
-          mapxusSharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
-        } else {
-          Log.d("REACT-MAPXUS", "CC ${navController?.currentDestination?.route}")
-          finish()
         }
       }
     })
+
   }
 
   fun setupNavigation() {
@@ -349,11 +461,12 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
           mapxusSharedViewModel.navController = navController
           navController?.addOnDestinationChangedListener { _, destination, _ ->
             // Don't expand if navigating to ShowRouteFragment (keep half-expanded)
-            bottomSheet.postDelayed({
-              if (destination.id != R.id.showRouteFragment) {
+            mapxusSharedViewModel.onLocationChangedOnceListener = {}
+            if (destination.id != R.id.showRouteFragment) {
+              bottomSheet.postDelayed({
                 bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
-              }
-            }, 200)
+              }, 200)
+            }
           }
         }
       }
@@ -370,11 +483,26 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
 
     // GPS button - center on user location
     gpsFab.setOnClickListener {
+      if(mapxusSharedViewModel.mapxusPositioningClient.state == PositioningState.STOPPED || mapxusSharedViewModel.mapxusPositioningClient.state == PositioningState.STOPPING) {
+        mapxusSharedViewModel.mapxusPositioningClient.start()
+      }
+      mapxusSharedViewModel.mapxusPositioningClient.refreshLocation()
+      mapxusSharedViewModel.mapxusPositioningClient.checkReadiness {
+        Log.d("Readiness", it.toString())
+      }
       if (hasLocationPermissions()) {
         if (isLocationEnabled()) {
           mapxusSharedViewModel.mapxusMap?.let { mapxusMap ->
-            val zoomLevel = mapxusSharedViewModel.maplibreMap?.cameraPosition?.zoom ?: 19.0
             mapxusMap.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
+//            Toast.makeText(this@XmlActivity, "${mapxusSharedViewModel.building.value?.flatMap { it.floors }?.firstOrNull { (it.id
+//              == mapxusSharedViewModel.currentFloor.value) }?.code}\nid: ${mapxusSharedViewModel.currentFloor.value}", Toast.LENGTH_SHORT).show()
+            lifecycleScope.launch {
+              delay(1000)
+              if(mapxusMap.selectedFloor?.id != mapxusSharedViewModel.currentFloor.value) {
+                mapxusMap.selectFloorById(mapxusSharedViewModel.currentFloor.value ?: "")
+              }
+            }
+
           }
         } else {
           showLocationSettingsDialog()
@@ -387,7 +515,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     // Volume button - toggle voice navigation (show during navigation)
     volumeFab.setOnClickListener {
       isSpeaking = !isSpeaking
-      mapxusSharedViewModel.sharedPreferences.edit().putBoolean("isSpeaking", isSpeaking).apply()
+      Preference.setIsSpeaking(isSpeaking)
       updateVolumeButtonIcon()
     }
     updateVolumeButtonIcon()
@@ -404,6 +532,15 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
       }
     }
 
+    // NEW AR Navigation button - toggle AR view
+//        arNavigationFab.setOnClickListener {
+//            val isARActive = arNavigationViewModel.isShowingAndClosingARNavigation.value ?: false
+//            val newState = !isARActive
+//            arNavigationViewModel.isShowingAndClosingARNavigation.value = newState
+//
+//            toggleAR(newState)
+//        }
+
     mapxusSharedViewModel.instructionList.observe(this) { instructions ->
       val isNavigating = instructions.isNotEmpty()
 
@@ -411,9 +548,26 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
 
       if (isNavigating) {
         arNavigationViewModel.isShowingOpeningAndClosingARButton.value = true
+        if(!Preference.getARWalkthroughDone()) {
+          Balloon.Builder(this)
+            .setText(resources.getString(R.string.click_here_to_start_ar_navigation))
+            .setArrowPosition(0.5f)
+            .setIsVisibleArrow(false)
+            .setCornerRadius(8f)
+            .setPadding(8)
+            .setDismissWhenOverlayClicked(true)
+            .setDismissWhenShowAgain(true)
+            .setDismissWhenClicked(true)
+            .setDismissWhenTouchOutside(true)
+            .setLifecycleOwner(this)
+            .setOnBalloonDismissListener {
+              Preference.setARWalkthroughDone()
+            }
+            .build()
+            .showAlign(BalloonAlign.END,arNavigationFab, xOff = -500)
+        }
       }
     }
-
   }
 
   private fun setupNavigationRouteCard() {
@@ -426,6 +580,19 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     navNextButton = findViewById(R.id.nav_next_button)
     stepIndicatorsContainer = findViewById(R.id.step_indicators_container)
 
+    navTitleText.ellipsize = TextUtils.TruncateAt.END
+    navTitleText.setOnClickListener {
+      if(navTitleText.maxLines != 0) {
+        navTitleText.apply {
+          maxLines = 3
+        }
+      } else {
+        navTitleText.apply {
+          maxLines = 0
+        }
+      }
+    }
+
     // Previous button click
     navPreviousButton.setOnClickListener {
       mapxusSharedViewModel.previousStep()
@@ -435,22 +602,53 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     // Next button click
     navNextButton.setOnClickListener {
       mapxusSharedViewModel.nextStep()
-      arNavigationViewModel.nextInstruction(mapxusSharedViewModel.instructionList.value?.size ?: 1)
+      arNavigationViewModel.nextInstruction((mapxusSharedViewModel.instructionList.value ?: listOf()).size)
     }
 
     // Observe instruction index and update card
 
     // Observe instruction list and index reactively
-    mapxusSharedViewModel.instructionList.observe(this) { instructionList ->
-      val instructionIndex = mapxusSharedViewModel.instructionIndex.value ?: 0
-      val isNavigating = mapxusSharedViewModel.isNavigating
+    mapxusSharedViewModel.navTitleText.observe(this) {
+      if(navTitleText.maxLines != 0) {
+        navTitleText.apply {
+          maxLines = 3
+        }
+      }
+      navTitleText.text = it
+    }
+    mapxusSharedViewModel.navDistanceText.observe(this) {
+      navDistanceText.text = it
+    }
+    mapxusSharedViewModel.navTimeText.observe(this) {
+      navTimeText.text = it
+    }
+    mapxusSharedViewModel.timeInSeconds.observe(this) {
+      if(mapxusSharedViewModel.isNavigating) {
+        if(it <= 2 && ((mapxusSharedViewModel.instructionList.value ?: listOf()).size - (mapxusSharedViewModel.instructionIndex.value ?: 0)) <= 2) {
+          mapxusSharedViewModel.isNavigating = false
+          showArriveAtDestinationDialog()
+        }
+      }
+    }
+    mapxusSharedViewModel.signIcon.observe(this) {
+      if(mapxusSharedViewModel.isNavigating) {
+        navIcon.setImageDrawable(resources.getDrawable(getStepIcon(it), null))
+      }
+    }
 
-      updateNavigationUI(instructionList, instructionIndex, isNavigating)
+    mapxusSharedViewModel.instructionList.observe(this) { instructionList ->
+      if(instructionList.size > 0) {
+        updateNavigationUI(instructionList, (mapxusSharedViewModel.instructionIndex.value ?: 0), mapxusSharedViewModel.isNavigating)
+      } else {
+        arNavigationFab.visibility = View.GONE
+      }
     }
 
     mapxusSharedViewModel.instructionIndex.observe(this) { instructionIndex ->
       val instructionList = mapxusSharedViewModel.instructionList.value.orEmpty()
       val isNavigating = mapxusSharedViewModel.isNavigating
+
+      arNavigationViewModel.setInstructionIndex(instructionIndex)
 
       updateNavigationUI(instructionList, instructionIndex, isNavigating)
 
@@ -505,14 +703,8 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
   ) {
     if (instructionList.isNotEmpty() && instructionIndex in instructionList.indices && isNavigating) {
       val instruction = instructionList[instructionIndex]
-      navTitleText.text = instruction.text ?: ""
-      navDistanceText.text = "${instruction.distance.toMeterText(Locale.getDefault())}"
       val totalDistanceMeters = (instructionList.subList(instructionIndex.absoluteValue, instructionList.size).map { instructionDto -> instructionDto.distance }.reduce { a,b -> a + b } / 1.2).roundToInt()
       val estimatedSeconds = (totalDistanceMeters/1.2).roundToInt()
-      if(estimatedSeconds > 60)
-        navTimeText.text = getString(R.string.minute, (estimatedSeconds/60).toInt())
-      else
-        navTimeText.text = getString(R.string.second, estimatedSeconds)
 
       // Check if we should show arrival dialog
       if (isLastStepOrLowTimeEstimation(instructionIndex, instructionList.size, estimatedSeconds)) {
@@ -583,6 +775,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     // Don't show if already showing
     lastSpoken = -1;
     mapxusSharedViewModel.routeShortener = null
+    mapxusSharedViewModel.routeAdsorber = null
     if (arriveAtDestinationDialog?.isShowing == true) {
       return
     }
@@ -610,12 +803,24 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     // Finished button
     btnFinished.setOnClickListener {
       // End navigation
+      endARNavigation()
       endNavigation()
       arriveAtDestinationDialog?.dismiss()
       arriveAtDestinationDialog = null
     }
 
     arriveAtDestinationDialog?.show()
+
+    // ADD THIS: Force the dialog to manually trigger the Activity's back logic
+    arriveAtDestinationDialog?.setOnKeyListener { _, keyCode, event ->
+      if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
+        // Just trigger the activity's dispatcher so we don't repeat code
+        this@XmlActivity.onBackPressedDispatcher.onBackPressed()
+        true
+      } else {
+        false
+      }
+    }
   }
 
   private fun endNavigation() {
@@ -633,27 +838,30 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     mapxusSharedViewModel.routePainter?.cleanRoute()
   }
 
-
   private fun showARFragment() {
+    // Move the callback to the top of the stack whenever AR starts
+    navigationBackCallbackOnFinishedAlertDialog.remove()
+    onBackPressedDispatcher.addCallback(this, navigationBackCallbackOnFinishedAlertDialog)
+
     val startLocationSerializable = SerializableRoutePoint(
       mapxusSharedViewModel.startLatLng?.lat ?: 0.0,
       mapxusSharedViewModel.startLatLng?.lon ?: 0.0,
       mapxusSharedViewModel.startLatLng?.floorId ?: ""
     )
     val destinationLocationSerializable = SerializableRoutePoint(
-      mapxusSharedViewModel.selectedPoi?.value?.location?.lat ?: 0.0,
-      mapxusSharedViewModel.selectedPoi?.value?.location?.lon ?: 0.0,
-      mapxusSharedViewModel.selectedPoi?.value?.floorId ?: mapxusSharedViewModel.selectedPoi?.value?.sharedFloorId ?: ""
+      mapxusSharedViewModel.selectedPoi.value?.location?.lat ?: 0.0,
+      mapxusSharedViewModel.selectedPoi.value?.location?.lon ?: 0.0,
+      mapxusSharedViewModel.selectedPoi.value?.floorId ?: mapxusSharedViewModel.selectedPoi.value?.sharedFloorId ?: ""
     )
 
-    val instructionListSerializable = (mapxusSharedViewModel.instructionList.value ?: listOf()).mapNotNull {
+    val instructionListSerializable = mapxusSharedViewModel.instructionList.value?.mapNotNull {
       it.floorId?.let { floorId ->
         SerializableRouteInstruction(it.text, it.distance, floorId)
       }
     }
 
     val instructionPointList : MutableList<RoutePlanningPoint> = mutableListOf()
-    (mapxusSharedViewModel.instructionList.value ?: listOf()).forEachIndexed { index, instruction ->
+    mapxusSharedViewModel.instructionList.value?.forEachIndexed { index, instruction ->
       instruction.indoorPoints.firstOrNull()?.let { point ->
         instructionPointList.add(
           RoutePlanningPoint(
@@ -662,7 +870,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
             floorId = point.floorId
           )
         )
-        Log.e("InstructionCoord", "Instruction $index → (${point.lat}, ${point.lon})")
+        Log.e("InstructionCoord", "Instruction $index → (${point.lat}, ${point.lon}, ${point.floorId})")
       }
     }
 
@@ -674,28 +882,103 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
       it.floorId?.let { it1 -> ParcelizeRoutePoint(it.lat, it.lon, it1) }
     }
 
-    val fragment = FourthLocalARFragment()
+    val fm = supportFragmentManager
+    var fragment = fm.findFragmentById(R.id.ar_fragment_container) as? FourthLocalARFragment
 
-    val args = Bundle().apply {
-      putSerializable("yourLocation", startLocationSerializable!!)
-      putSerializable("destination", destinationLocationSerializable!!)
-      putInt("instructionIndex", mapxusSharedViewModel.instructionIndex.value ?: 0)
-      putInt("secondInstructionIndex", mapxusSharedViewModel.instructionIndex.value ?: 0)
-      putSerializable("instructionList", ArrayList(instructionListSerializable))
-      putSerializable("instructionPoints", ArrayList(instructionPointSerializable))
-      putParcelableArrayList("secondInstructionPoints", ArrayList(secondInstructionPointSerializable))
+    if (fragment == null) {
+      // 2. Only create a NEW one if it doesn't exist yet
+      fragment = FourthLocalARFragment()
+
+      // ... (Keep your bundle/args logic here) ...
+      val args = Bundle().apply {
+        putSerializable("yourLocation", startLocationSerializable)
+        putSerializable("destination", destinationLocationSerializable)
+        putInt("instructionIndex", (mapxusSharedViewModel.instructionIndex.value ?: 0))
+        putInt("secondInstructionIndex", (mapxusSharedViewModel.instructionIndex.value ?: 0))
+        putSerializable("instructionList", ArrayList(instructionListSerializable))
+        putSerializable("instructionPoints", ArrayList(instructionPointSerializable))
+        putParcelableArrayList("secondInstructionPoints", ArrayList(secondInstructionPointSerializable))
+      }
+      fragment.arguments = args
+
+      fm.beginTransaction()
+        .add(R.id.ar_fragment_container, fragment) // Use .add instead of .replace
+        .commit()
+    } else {
+      // 3. If it exists, JUST SHOW IT. No variables are reset.
+      fm.beginTransaction()
+        .show(fragment)
+        .commit()
+
+      // Optional: If the destination or path changed, you can call a function inside
+      // the fragment here to update the path without restarting calibration.
     }
-
-    fragment.arguments = args
-
-    supportFragmentManager.beginTransaction()
-      .replace(R.id.ar_fragment_container, fragment)
-      .commit()
 
     arFragmentContainer.visibility = View.VISIBLE
   }
 
   private fun hideARFragment() {
+    val fm = supportFragmentManager
+    val fragment = fm.findFragmentById(R.id.ar_fragment_container)
+
+    if (fragment != null) {
+      fm.beginTransaction()
+        .hide(fragment) // Use .hide instead of doing nothing
+        .commit()
+    }
+    arFragmentContainer.visibility = View.GONE
+  }
+
+  private fun toggleAR(isVisible: Boolean) {
+    val fm = supportFragmentManager
+    // Use the container ID to find the existing fragment instance
+    var fragment = fm.findFragmentById(R.id.ar_fragment_container)
+
+    fm.beginTransaction().apply {
+      if (isVisible) {
+        if (fragment == null) {
+          // Not in memory yet: Create and Add
+          fragment = FourthLocalARFragment()
+          add(R.id.ar_fragment_container, fragment!!)
+        } else {
+          // It exists: Just show it. Variables like isCalibrated are preserved!
+          show(fragment!!)
+        }
+        arFragmentContainer.visibility = View.VISIBLE
+      } else {
+        // Hide it: This keeps the Fragment instance alive in the background
+        fragment?.let { hide(it) }
+        arFragmentContainer.visibility = View.GONE
+      }
+      commit()
+    }
+  }
+
+  private fun endARNavigation() {
+    val fm = supportFragmentManager
+    // 1. Find the fragment instance
+    val fragment = fm.findFragmentById(R.id.ar_fragment_container)
+
+    // 2. Update the ViewModel Flag first
+    // This stops any observers from trying to interact with the AR view
+    arNavigationViewModel.isShowingAndClosingARNavigation.value = false
+
+    // 3. Remove the Fragment properly
+    if (fragment != null && !fm.isStateSaved) {
+      try {
+        fm.beginTransaction()
+          .remove(fragment)
+          .commitAllowingStateLoss()
+
+        // Pop the backstack only if the fragment was part of it
+        fm.popBackStack()
+        Log.d("EndARContainer", "AR Fragment removed and backstack popped")
+      } catch (e: Exception) {
+        Log.e("EndARContainer", "Error during fragment removal: ${e.message}")
+      }
+    }
+
+    // 5. Final UI Cleanups
     arFragmentContainer.visibility = View.GONE
   }
 
@@ -713,6 +996,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
   override fun onStart() {
     super.onStart()
     mapxusSharedViewModel.mapView.value?.onStart()
+    compassViewModel.start()
   }
 
   override fun onResume() {
@@ -723,11 +1007,13 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
   override fun onPause() {
     mapxusSharedViewModel.mapView.value?.onPause()
     super.onPause()
+    compassViewModel.stop()
   }
 
   override fun onStop() {
     mapxusSharedViewModel.mapView.value?.onStop()
     super.onStop()
+    compassViewModel.stop()
   }
 
   private fun initializeTTS() {
@@ -1013,7 +1299,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
       // Open app details settings where user can configure location permissions
       // This is the correct way to open app-specific location settings on Android 12+
       val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-        data = Uri.fromParts("package", packageName, null)
+        data = android.net.Uri.fromParts("package", packageName, null)
       }
       locationSettingsLauncher.launch(intent)
     } else {

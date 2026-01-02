@@ -1,6 +1,7 @@
 package com.mapxushsitp.fragments
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -15,24 +16,20 @@ import androidx.lifecycle.Observer
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.mapxushsitp.adapter.CategoryAdapter
 import com.mapxushsitp.adapter.CategoryAdapter.CategoryItem
 import com.mapxushsitp.service.getTranslation
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import com.mapxushsitp.R
+import com.mapxushsitp.databinding.FragmentVenueDetailsBinding
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 
 class VenueDetailsFragment : Fragment() {
 
-    private lateinit var venueName: TextView
-    private lateinit var venueAddress: TextView
-    private lateinit var closeButton: ImageButton
-    private lateinit var searchLayout: LinearLayout
-    private lateinit var searchField: TextView
-    private lateinit var tilSearch: LinearLayout
-    private lateinit var categoryList: RecyclerView
+    var _binding : FragmentVenueDetailsBinding? = null
+    val binding get() = _binding!!
 
     // Shared ViewModel
     private val sharedViewModel: MapxusSharedViewModel by activityViewModels()
@@ -42,7 +39,8 @@ class VenueDetailsFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        return inflater.inflate(R.layout.fragment_venue_details, container, false)
+        _binding = FragmentVenueDetailsBinding.inflate(inflater, container, false)
+        return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -54,34 +52,27 @@ class VenueDetailsFragment : Fragment() {
     }
 
     private fun initializeViews(view: View) {
-        venueName = view.findViewById(R.id.venue_name)
-        venueAddress = view.findViewById(R.id.venue_address)
-        closeButton = view.findViewById(R.id.close_button)
-        searchLayout = view.findViewById(R.id.text_input_layout)
-        searchField = view.findViewById(R.id.et_search)
-        tilSearch = view.findViewById(R.id.text_input_layout)
-        categoryList = view.findViewById(R.id.category_list)
-
         // Prevent editing by removing key listener and preventing focus
-        searchField.keyListener = null
-        searchField.isFocusable = false
-        searchField.isFocusableInTouchMode = false
-        searchField.setText(getString(R.string.search))
-        sharedViewModel.mapxusMap?.selectBuildingById(sharedViewModel.selectedBuilding.value?.buildingId ?: "")
+        binding.etSearch.keyListener = null
+        binding.etSearch.isFocusable = false
+        binding.etSearch.isFocusableInTouchMode = false
     }
 
     private fun setupClickListeners() {
-        searchLayout.setOnClickListener({
+        binding.textInputLayout.setOnClickListener({
             findNavController().navigate(R.id.action_venueDetails_to_searchResult)
+            sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
         })
-        searchField.setOnClickListener({
+        binding.etSearch.setOnClickListener({
             findNavController().navigate(R.id.action_venueDetails_to_searchResult)
+            sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
         })
-        tilSearch.setOnClickListener({
+        binding.textInputLayout.setOnClickListener({
             findNavController().navigate(R.id.action_venueDetails_to_searchResult)
+            sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
         })
 
-        closeButton.setOnClickListener {
+        binding.closeButton.setOnClickListener {
             findNavController().navigateUp()
         }
 
@@ -89,20 +80,21 @@ class VenueDetailsFragment : Fragment() {
     }
 
     private fun observeSharedViewModel() {
-        // Observe selected venue from shared ViewModel
         sharedViewModel.selectedBuilding.observe(viewLifecycleOwner, Observer { venue ->
             venue?.let {
-                venueName.text = it.buildingNamesMap?.getTranslation(sharedViewModel.locale)
-                venueAddress.text = it.addressMap?.getTranslation(sharedViewModel.locale)?.street
+                sharedViewModel.mapxusMap?.selectBuildingById(it.buildingId)
+                binding.venueName.text = it.buildingNamesMap?.getTranslation(sharedViewModel.locale)
+                binding.venueAddress.text = it.addressMap?.getTranslation(sharedViewModel.locale)?.street
             }
+            sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+//            sharedViewModel.bottomSheet?.post {
+//                sharedViewModel.mapxusMap?.selectBuildingById(venue?.buildingId ?: "")
+//            }
         })
-//        sharedViewModel.bottomSheet?.post {
-//          sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
-//        }
     }
 
     private fun setupCategoryRecyclerView() {
-        categoryList.layoutManager =
+        binding.categoryList.layoutManager =
             LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
 
         val categories = listOf(
@@ -113,6 +105,7 @@ class VenueDetailsFragment : Fragment() {
                 onItemClick = {
                     sharedViewModel.selectedCategory = "workplace"
                     findNavController().navigate(R.id.action_venueDetails_to_categoryList)
+                    sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
                 }
             ),
             CategoryItem(
@@ -122,6 +115,7 @@ class VenueDetailsFragment : Fragment() {
                 onItemClick = {
                     sharedViewModel.selectedCategory = "shopping"
                     findNavController().navigate(R.id.action_venueDetails_to_categoryList)
+                    sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
                 }
             ),
             CategoryItem(
@@ -131,6 +125,7 @@ class VenueDetailsFragment : Fragment() {
                 onItemClick = {
                     sharedViewModel.selectedCategory = "restaurants"
                     findNavController().navigate(R.id.action_venueDetails_to_categoryList)
+                    sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
                 }
             ),
             CategoryItem(
@@ -140,6 +135,7 @@ class VenueDetailsFragment : Fragment() {
                 onItemClick = {
                     sharedViewModel.selectedCategory = "facility.restroom"
                     findNavController().navigate(R.id.action_venueDetails_to_toiletScreen)
+                    sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
                 }
             ),
             CategoryItem(
@@ -149,6 +145,7 @@ class VenueDetailsFragment : Fragment() {
                 onItemClick = {
                     sharedViewModel.selectedCategory = "transport"
                     findNavController().navigate(R.id.action_venueDetails_to_categoryList)
+                    sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
                 }
             ),
             CategoryItem(
@@ -159,10 +156,16 @@ class VenueDetailsFragment : Fragment() {
                     sharedViewModel.selectedCategory = "facility"
                     sharedViewModel.excludedCategory = "facility.restroom"
                     findNavController().navigate(R.id.action_venueDetails_to_categoryList)
+                    sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
                 }
             ),
         )
 
-        categoryList.adapter = CategoryAdapter(categories)
+        binding.categoryList.adapter = CategoryAdapter(categories)
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }
