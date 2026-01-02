@@ -914,9 +914,9 @@ class XmlFragment(
       val totalDistanceMeters = (instructionList.subList(instructionIndex.absoluteValue, instructionList.size).map { instructionDto -> instructionDto.distance }.reduce { a,b -> a + b } / 1.2).roundToInt()
       val estimatedSeconds = (totalDistanceMeters/1.2).roundToInt()
       if(estimatedSeconds > 60)
-        binding.navTimeText.text = resources.getString(R.string.minute, (estimatedSeconds/60).toInt())
+        binding.navTimeText.text = getString(R.string.minute, (estimatedSeconds/60).toInt())
       else
-        binding.navTimeText.text = resources.getString(R.string.second, estimatedSeconds)
+        binding.navTimeText.text = getString(R.string.second, estimatedSeconds)
 
       // Check if we should show arrival dialog
       if (isLastStepOrLowTimeEstimation(instructionIndex, instructionList.size, estimatedSeconds)) {

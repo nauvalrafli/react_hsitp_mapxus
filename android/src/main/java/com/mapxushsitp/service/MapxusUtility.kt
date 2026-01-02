@@ -1,5 +1,7 @@
 package com.mapxushsitp.service
 
+import java.util.Locale
+
 object MapxusUtility {
-//    fun generateRoutePlanningPoint()
+    var selectedLocale = Locale.getDefault()
 }

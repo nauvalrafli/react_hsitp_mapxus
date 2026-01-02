@@ -1,6 +1,6 @@
 {
   "name": "react-native-mapxus-hsitp",
-  "version": "0.1.13",
+  "version": "0.1.16",
   "description": "react native for mapxus hsitp",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",

@@ -8,12 +8,14 @@ import android.view.ViewGroup
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.views.view.ReactViewGroup
 import com.mapxushsitp.XmlActivity
+import java.util.Locale
 
 class MapxusButtonWrapperView(context: ThemedReactContext) : ReactViewGroup(context) {
 
   private var targetActivityClass: Class<*>? = null
 
   private var lastClick = 0L
+  var locale = Locale.getDefault()
 
   init {
     isClickable = true
@@ -55,6 +57,7 @@ class MapxusButtonWrapperView(context: ThemedReactContext) : ReactViewGroup(cont
     Log.d("REACT-MAPXUS", "Launching activity: $targetActivityClass")
     val intent = Intent(context, XmlActivity::class.java)
     intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+    intent.putExtra("locale", locale)
     context.startActivity(intent)
   }
 

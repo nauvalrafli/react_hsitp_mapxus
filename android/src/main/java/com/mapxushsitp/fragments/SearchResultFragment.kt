@@ -66,7 +66,7 @@ class SearchResultFragment : Fragment() {
         emptyState = view.findViewById(R.id.empty_state)
         notFoundState = view.findViewById(R.id.not_found_state)
 
-        searchInput.hint = sharedViewModel.context.resources.getString(R.string.search)
+        searchInput.hint = getString(R.string.search)
 
         // Show empty state initially instead of performing empty search
         showEmptyState()
@@ -79,13 +79,13 @@ class SearchResultFragment : Fragment() {
 
         searchInput.setOnEditorActionListener { p0, p1, p2 ->
           if (p2?.keyCode == KeyEvent.KEYCODE_ENTER) {
-            performSearch()
-            val imm =
-              requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
-            imm?.hideSoftInputFromWindow(searchInput.windowToken, 0)
-          }
-          if (p1 == EditorInfo.IME_ACTION_SEARCH) {
-            performSearch()
+              performSearch()
+              val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+              imm?.hideSoftInputFromWindow(searchInput.windowToken, 0)
+          } else if (p1 == EditorInfo.IME_ACTION_SEARCH) {
+              performSearch()
+              val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+              imm?.hideSoftInputFromWindow(searchInput.windowToken, 0)
           }
           true
         }
@@ -107,11 +107,11 @@ class SearchResultFragment : Fragment() {
     private fun performSearch() {
         val query = searchInput.text.toString().trim()
 
-        // If query is empty, show empty state
-        if (query.isEmpty()) {
-            showEmptyState()
-            return
-        }
+//        // If query is empty, show empty state
+//        if (query.isEmpty()) {
+//            showEmptyState()
+//            return
+//        }
 
         showLoadingState()
         val poiSearch = PoiSearch.newInstance()
@@ -145,10 +145,11 @@ class SearchResultFragment : Fragment() {
         val searchOption = PoiSearchOption().apply {
             setKeywords(query)
             setExcludeCategories("facility.steps,facility.elevator")
-            pageCapacity(20)
+            pageCapacity(30)
             // Add venue filter if available
-            sharedViewModel.selectedVenue.value?.id?.let { venueId ->
-                setVenueId(venueId)
+            sharedViewModel.selectedBuilding.value?.let {
+                setBuildingId(it.buildingId)
+                setVenueId(it.venueId)
             }
         }
         poiSearch.searchPoiByOption(searchOption)

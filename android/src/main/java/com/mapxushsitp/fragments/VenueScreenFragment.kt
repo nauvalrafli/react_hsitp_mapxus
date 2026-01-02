@@ -66,7 +66,6 @@ class VenueScreenFragment : Fragment() {
     private fun initializeViews(view: View) {
         venuePager = view.findViewById(R.id.venue_pager)
         paginationIndicators = view.findViewById(R.id.pagination_indicators)
-        view.findViewById<TextView>(R.id.tvExplore).setText(sharedViewModel.context.resources.getString(R.string.explore_by_building))
     }
 
     private fun setupViewPager() {

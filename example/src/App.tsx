@@ -1,5 +1,5 @@
 import { View, StyleSheet, Text, Button } from 'react-native';
-import { MapxusButtonWrapperView, MapxusHsitpView } from 'react-native-mapxus-hsitp';
+import { CustomLocale, MapxusButtonWrapperView, MapxusHsitpView } from 'react-native-mapxus-hsitp';
 import { PermissionsAndroid, Platform, Alert } from 'react-native';
 import { useEffect, useRef } from 'react';
 import {
@@ -45,7 +45,7 @@ function HomeScreen() {
         onPress={() => navigation.navigate('Broken' as never)}
       />
 
-      <MapxusButtonWrapperView>
+      <MapxusButtonWrapperView customLocale={CustomLocale.ZH_TW}>
         <Text>Open Map</Text>
       </MapxusButtonWrapperView>
     </View>

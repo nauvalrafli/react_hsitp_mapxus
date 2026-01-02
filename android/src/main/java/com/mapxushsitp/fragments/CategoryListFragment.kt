@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -29,6 +30,9 @@ class CategoryListFragment : Fragment() {
     private lateinit var headerTitle: TextView
     private lateinit var categoryRecycler: RecyclerView
     private lateinit var categoryHeaderTitle: TextView
+    private lateinit var loadingStateText : LinearLayout
+    private lateinit var emptyStateText : LinearLayout
+    private lateinit var notFoundStateText : LinearLayout
 
     private val sharedViewModel: MapxusSharedViewModel by activityViewModels()
     private var categoryAdapter: CategoryListAdapter? = null
@@ -56,16 +60,21 @@ class CategoryListFragment : Fragment() {
         headerTitle = root.findViewById(R.id.category_header_title)
         categoryRecycler = root.findViewById(R.id.category_recycler_view)
         categoryHeaderTitle = root.findViewById(R.id.category_header_title)
+        notFoundStateText = root.findViewById(R.id.not_found_state)
+        emptyStateText = root.findViewById(R.id.empty_state)
+        loadingStateText = root.findViewById(R.id.loading_state)
 
-        val text = when(sharedViewModel.selectedCategory) {
-            "workplace" -> sharedViewModel.context.getString(R.string.category_company)
-            "shopping" -> sharedViewModel.context.getString(R.string.category_shops)
-            "restaurants" -> sharedViewModel.context.getString(R.string.category_restaurant)
-            "facility.restroom" -> sharedViewModel.context.getString(R.string.category_washroom)
-            "transport" -> sharedViewModel.context.getString(R.string.category_transportation)
-            "facility" -> sharedViewModel.context.getString(R.string.category_utilities)
+
+      val text = when(sharedViewModel.selectedCategory) {
+            "workplace" -> getString(R.string.category_company)
+            "shopping" -> getString(R.string.category_shops)
+            "restaurants" -> getString(R.string.category_restaurant)
+            "facility.restroom" -> getString(R.string.category_washroom)
+            "transport" -> getString(R.string.category_transportation)
+            "facility" -> getString(R.string.category_utilities)
             else -> "General"
         }
+        showEmptyState()
         categoryHeaderTitle.setText(text)
     }
 
@@ -96,6 +105,7 @@ class CategoryListFragment : Fragment() {
     }
 
     private fun fetchCategoryData() {
+        showLoading()
         val category = sharedViewModel.selectedCategory.takeIf { it.isNotBlank() }
         val poiSearch = PoiSearch.newInstance()
         poiSearch.searchPoiByOption(
@@ -111,8 +121,41 @@ class CategoryListFragment : Fragment() {
             }
         ) { result ->
             val pois = result.allPoi ?: emptyList()
-            renderCategories(pois)
+            if(pois.size > 0) {
+              renderCategories(pois)
+              showResult()
+            } else {
+              showNotFound()
+            }
         }
+    }
+
+    private fun showLoading() {
+        notFoundStateText.visibility = View.GONE
+        loadingStateText.visibility = View.VISIBLE
+        emptyStateText.visibility = View.GONE
+        categoryRecycler.visibility = View.GONE
+    }
+
+    private fun showNotFound() {
+        notFoundStateText.visibility = View.VISIBLE
+        loadingStateText.visibility = View.GONE
+        emptyStateText.visibility = View.GONE
+        categoryRecycler.visibility = View.GONE
+    }
+
+    private fun showEmptyState() {
+        notFoundStateText.visibility = View.GONE
+        loadingStateText.visibility = View.GONE
+        emptyStateText.visibility = View.VISIBLE
+        categoryRecycler.visibility = View.GONE
+    }
+
+    private fun showResult() {
+        notFoundStateText.visibility = View.GONE
+        loadingStateText.visibility = View.GONE
+        emptyStateText.visibility = View.GONE
+        categoryRecycler.visibility = View.VISIBLE
     }
 
     private fun setupClickListeners() {

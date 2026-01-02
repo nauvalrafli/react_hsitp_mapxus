@@ -57,7 +57,7 @@ class PoiDetailsFragment : Fragment() {
         poiSubtitle = view.findViewById(R.id.poi_subtitle)
         shareButton = view.findViewById(R.id.share_button)
         directionButton = view.findViewById(R.id.direction_button)
-        directionButton.text = sharedViewModel.context.resources.getString(R.string.direction)
+        directionButton.text = getString(R.string.direction)
 
         sharedViewModel.startLatLng = null
         sharedViewModel.selectedStartText = ""

@@ -51,14 +51,14 @@ class PrepareNavigationFragment : Fragment() {
     private fun initializeViews(view: View) {
         chips = listOf(binding.shortestWalkChip, binding.liftOnlyChip, binding.escalatorOnlyChip)
 
-        binding.tvHeader.setText(sharedViewModel.context.resources.getString(R.string.navigation))
-        binding.tvRouteType.setText(sharedViewModel.context.resources.getString(R.string.route_type))
-        binding.showRouteButton.setText(sharedViewModel.context.resources.getString(R.string.shortest_walk))
-        binding.liftOnlyChip.setText(sharedViewModel.context.resources.getString(R.string.lift_only))
-        binding.escalatorOnlyChip.setText(sharedViewModel.context.resources.getString(R.string.escalator_only))
-        binding.showRouteButton.setText(sharedViewModel.context.resources.getString(R.string.show_route))
-        binding.startNavigationButton.setText(sharedViewModel.context.resources.getString(R.string.start_navigation))
-        binding.startPointInput.hint = sharedViewModel.context.resources.getString(R.string.select_start_point)
+        binding.tvHeader.setText(getString(R.string.navigation))
+        binding.tvRouteType.setText(getString(R.string.route_type))
+        binding.showRouteButton.setText(getString(R.string.shortest_walk))
+        binding.liftOnlyChip.setText(getString(R.string.lift_only))
+        binding.escalatorOnlyChip.setText(getString(R.string.escalator_only))
+        binding.showRouteButton.setText(getString(R.string.show_route))
+        binding.startNavigationButton.setText(getString(R.string.start_navigation))
+        binding.startPointInput.hint = getString(R.string.select_start_point)
 
         if(sharedViewModel.selectedStartText.isNotEmpty()) {
             binding.startPointInput.setText(sharedViewModel.selectedStartText)
@@ -158,19 +158,22 @@ class PrepareNavigationFragment : Fragment() {
 
     private fun setupDropdown() {
         val popupMenu = PopupMenu(requireContext(), binding.startPointInput)
-        popupMenu.menu.add(sharedViewModel.context.resources.getString(R.string.current_location))
-        popupMenu.menu.add(sharedViewModel.context.resources.getString(R.string.select_location_on_map))
+        popupMenu.menu.add(getString(R.string.current_location))
+        popupMenu.menu.add(getString(R.string.select_location_on_map))
 
         popupMenu.setOnMenuItemClickListener {
             when (it.title) {
-                sharedViewModel.context.resources.getString(R.string.current_location) -> {
-                    selectedStartPoint = sharedViewModel.context.resources.getString(R.string.current_location)
+                getString(R.string.current_location) -> {
+                    selectedStartPoint = getString(R.string.current_location)
                     binding.startPointInput.setText(selectedStartPoint)
                     sharedViewModel.startLatLng = sharedViewModel.userLocation
                     showRouteTypeSection()
-                    sharedViewModel.selectedStartText = sharedViewModel.context.resources.getString(R.string.current_location)
+                    sharedViewModel.selectedStartText = getString(R.string.current_location)
+                    sharedViewModel.bottomSheet?.postDelayed({
+                      sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+                    }, 200)
                 }
-              sharedViewModel.context.resources.getString(R.string.select_location_on_map) -> {
+              getString(R.string.select_location_on_map) -> {
                     findNavController().navigate(R.id.action_prepareNavigation_to_positionMark)
                 }
             }

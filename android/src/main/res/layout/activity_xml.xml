@@ -128,17 +128,17 @@
                     android:layout_height="wrap_content"
                     />
 
-<!--                <TextView-->
-<!--                    android:id="@+id/version"-->
-<!--                    android:layout_width="wrap_content"-->
-<!--                    android:layout_height="wrap_content"-->
-<!--                    android:text="version"-->
-<!--                    android:textColor="#9B9B9B"-->
-<!--                    android:textSize="12sp"-->
-<!--                    android:layout_gravity="end"-->
-<!--                    android:paddingHorizontal="8dp"-->
-<!--                    android:paddingVertical="8dp"-->
-<!--                    />-->
+                <TextView
+                    android:id="@+id/version"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="version"
+                    android:textColor="#9B9B9B"
+                    android:textSize="12sp"
+                    android:layout_gravity="end"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="8dp"
+                    />
 
             </LinearLayout>
 

@@ -66,7 +66,7 @@ class VenueDetailsFragment : Fragment() {
         searchField.keyListener = null
         searchField.isFocusable = false
         searchField.isFocusableInTouchMode = false
-        searchField.setText(sharedViewModel.context.resources.getString(R.string.search))
+        searchField.setText(getString(R.string.search))
         sharedViewModel.mapxusMap?.selectBuildingById(sharedViewModel.selectedBuilding.value?.buildingId ?: "")
     }
 
@@ -107,7 +107,7 @@ class VenueDetailsFragment : Fragment() {
 
         val categories = listOf(
             CategoryItem(
-                name = sharedViewModel.context.getString(R.string.category_company),
+                name = getString(R.string.category_company),
                 iconResId = R.drawable.workplace,
                 backgroundColor = ContextCompat.getColor(requireContext(), R.color.soft_blue),
                 onItemClick = {
@@ -116,7 +116,7 @@ class VenueDetailsFragment : Fragment() {
                 }
             ),
             CategoryItem(
-                name = sharedViewModel.context.getString(R.string.category_shops),
+                name = getString(R.string.category_shops),
                 iconResId = R.drawable.shopping_bag,
                 backgroundColor = ContextCompat.getColor(requireContext(), R.color.soft_blue),
                 onItemClick = {
@@ -125,7 +125,7 @@ class VenueDetailsFragment : Fragment() {
                 }
             ),
             CategoryItem(
-                name = sharedViewModel.context.getString(R.string.category_restaurant),
+                name = getString(R.string.category_restaurant),
                 iconResId = R.drawable.restaurant,
                 backgroundColor = ContextCompat.getColor(requireContext(), R.color.soft_blue),
                 onItemClick = {
@@ -134,7 +134,7 @@ class VenueDetailsFragment : Fragment() {
                 }
             ),
             CategoryItem(
-                name = sharedViewModel.context.getString(R.string.category_washroom),
+                name = getString(R.string.category_washroom),
                 iconResId = R.drawable.ic_toilet,
                 backgroundColor = ContextCompat.getColor(requireContext(), R.color.soft_blue),
                 onItemClick = {
@@ -143,7 +143,7 @@ class VenueDetailsFragment : Fragment() {
                 }
             ),
             CategoryItem(
-                name = sharedViewModel.context.getString(R.string.category_transportation),
+                name = getString(R.string.category_transportation),
                 iconResId = R.drawable.car,
                 backgroundColor = ContextCompat.getColor(requireContext(), R.color.soft_blue),
                 onItemClick = {
@@ -152,7 +152,7 @@ class VenueDetailsFragment : Fragment() {
                 }
             ),
             CategoryItem(
-                name = sharedViewModel.context.getString(R.string.category_utilities),
+                name = getString(R.string.category_utilities),
                 iconResId = R.drawable.facility,
                 backgroundColor = ContextCompat.getColor(requireContext(), R.color.soft_blue),
                 onItemClick = {

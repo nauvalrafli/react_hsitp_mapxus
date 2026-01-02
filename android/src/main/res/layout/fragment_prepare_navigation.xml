@@ -160,7 +160,7 @@
                     android:gravity="center"
                     android:paddingVertical="8dp"
                     android:paddingHorizontal="12dp"
-                    android:text="Shortest Walk"
+                    android:text="@string/shortest_walk"
                     android:textSize="12sp"
                     android:background="@drawable/bg_chip_unselected"
                     android:textColor="@color/black" />

@@ -1,6 +1,7 @@
 package com.mapxushsitp
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
@@ -53,6 +54,7 @@ import com.mapxushsitp.arComponents.FourthLocalARFragment
 import com.mapxushsitp.data.model.ParcelizeRoutePoint
 import com.mapxushsitp.data.model.SerializableRouteInstruction
 import com.mapxushsitp.data.model.SerializableRoutePoint
+import com.mapxushsitp.service.MapxusUtility
 import com.mapxushsitp.service.generateSpeakText
 import com.mapxushsitp.service.toMeterText
 import com.mapxushsitp.view.onboarding.OnboardingPage
@@ -102,6 +104,20 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
   private var isSpeaking: Boolean = true
   var lastSpoken = -1;
 
+  override fun attachBaseContext(newBase: Context?) {
+    var base = newBase
+
+    if (base != null) {
+      val config = base.resources.configuration
+      Locale.setDefault(MapxusUtility.selectedLocale)
+      config.setLocale(MapxusUtility.selectedLocale)
+
+      base = base.createConfigurationContext(config)
+    }
+
+    super.attachBaseContext(base)
+  }
+
   // Permission launcher
   private val requestPermissionLauncher = registerForActivityResult(
     ActivityResultContracts.RequestMultiplePermissions()
@@ -132,6 +148,17 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     setContentView(R.layout.activity_xml)
 //    setupVersion()
 
+    mapxusSharedViewModel.locale =
+      intent.getStringExtra("locale")?.let { loc ->
+        if (loc.contains("-")) {
+          val p = loc.split("-")
+          Locale(p[0], p[1])
+        } else {
+          Locale(loc)
+        }
+      } ?: resources.configuration.locale
+    Log.d("REACT-MAPXUS", intent.getStringExtra("locale") ?: "null")
+    Log.d("REACT-MAPXUS", mapxusSharedViewModel.locale.toLanguageTag())
     mapxusSharedViewModel.selectVehicle(mapxusSharedViewModel.sharedPreferences.getString("vehicle", RoutePlanningVehicle.FOOT) ?: RoutePlanningVehicle.FOOT)
     isSpeaking = mapxusSharedViewModel.sharedPreferences.getBoolean("isSpeaking", true)
 
@@ -158,6 +185,8 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
         it.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
       }
     }
+
+    findViewById<TextView>(R.id.version).setText("0.1.16")
 
     val boarded = mapxusSharedViewModel.sharedPreferences.getBoolean("onboardingDone", false)
     if(!boarded) {
@@ -252,30 +281,23 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
 
     mapView.addOnDidFinishRenderingFrameListener { _,_,_ ->
       bottomSheetBehavior.isHideable = mapxusSharedViewModel.isNavigating
-      if(bottomSheetBehavior.state != BottomSheetBehavior.STATE_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_DRAGGING && !mapxusSharedViewModel.isNavigating) {
-        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
-      }
       if(mapxusSharedViewModel.isNavigating) {
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+        arNavigationFab.visibility = View.VISIBLE
+      } else if(bottomSheetBehavior.state != BottomSheetBehavior.STATE_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_DRAGGING && !mapxusSharedViewModel.isNavigating) {
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+        arNavigationFab.visibility = View.GONE
       }
     }
-
     bottomSheet.viewTreeObserver.addOnGlobalLayoutListener {
       val newHeight = bottomSheet.measuredHeight
       // Only update peekHeight if not in half-expanded state (to preserve half-height setting)
       if (bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED) {
         if (bottomSheetBehavior.peekHeight != newHeight) {
           bottomSheetBehavior.peekHeight = newHeight
-          arNavigationFab.visibility = View.GONE
         } else if(!mapxusSharedViewModel.isNavigating) {
           bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
-          arNavigationFab.visibility = View.GONE
-        } else {
-          arNavigationFab.visibility = View.VISIBLE
         }
-      } else {
-        // When in half-expanded state, keep it draggable and maintain visibility
-        arNavigationFab.visibility = View.GONE
       }
 
       if(bottomSheetBehavior.state != BottomSheetBehavior.STATE_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_DRAGGING && !mapxusSharedViewModel.isNavigating) {
@@ -327,9 +349,11 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
           mapxusSharedViewModel.navController = navController
           navController?.addOnDestinationChangedListener { _, destination, _ ->
             // Don't expand if navigating to ShowRouteFragment (keep half-expanded)
-            if (destination.id != R.id.showRouteFragment) {
-              bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
-            }
+            bottomSheet.postDelayed({
+              if (destination.id != R.id.showRouteFragment) {
+                bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+              }
+            }, 200)
           }
         }
       }
@@ -486,9 +510,9 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
       val totalDistanceMeters = (instructionList.subList(instructionIndex.absoluteValue, instructionList.size).map { instructionDto -> instructionDto.distance }.reduce { a,b -> a + b } / 1.2).roundToInt()
       val estimatedSeconds = (totalDistanceMeters/1.2).roundToInt()
       if(estimatedSeconds > 60)
-        navTimeText.text = resources.getString(R.string.minute, (estimatedSeconds/60).toInt())
+        navTimeText.text = getString(R.string.minute, (estimatedSeconds/60).toInt())
       else
-        navTimeText.text = resources.getString(R.string.second, estimatedSeconds)
+        navTimeText.text = getString(R.string.second, estimatedSeconds)
 
       // Check if we should show arrival dialog
       if (isLastStepOrLowTimeEstimation(instructionIndex, instructionList.size, estimatedSeconds)) {
