@@ -66,6 +66,7 @@ import com.mapxushsitp.service.Preference
 import com.mapxushsitp.service.toMeterText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
@@ -77,9 +78,7 @@ import kotlin.math.roundToInt
 
 class MapxusSharedViewModel(application: Application) : AndroidViewModel(application), MapxusPositioningListener {
 
-    // Context access helper
     var context: Context = getApplication<Application>()
-
     var navController : NavController? = null
 
     // Map-related data
@@ -180,7 +179,7 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
     }
 
     var lastUpdateTime = 0L
-    var isFirst = true
+    var counter = 0
     var isOnceFinished = false
     var onLocationChangedOnceListener : () -> Unit = {}
         set(value) {
@@ -190,7 +189,6 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
 
     fun initPositioning() {
         viewModelScope.launch {
-            var isFirst = true
             mapxusPositioningClient = MapxusPositioningClient.getInstance(application.applicationContext)
             mapxusIssueReportClient = MapxusIssueReportClient.getInstance(application.applicationContext)
             mapxusIssueReportClient.addIssueReportListener(reportListener)
@@ -204,9 +202,14 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                 .conflate()
                 .collect {
                     onLocationFlowUpdated(it)
-                    if(isFirst) {
-                        isFirst = false
-                        mapxusMap?.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
+                    if(counter < 2) {
+                        counter++
+                    } else {
+                      maplibreMap?.getStyle { p0 ->
+                        if(p0.isFullyLoaded) {
+                          mapxusMap?.followUserMode = FollowUserMode.FOLLOW_USER_AND_HEADING
+                        }
+                      }
                     }
                     if(!isOnceFinished) {
                         isOnceFinished = true
@@ -546,14 +549,14 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
     fun nextStep() {
         if((instructionIndex.value ?: 0) < (instructionList.value ?: listOf()).size - 1) {
           _instructionIndex.value = _instructionIndex.value?.plus(1)
-            updateRoutePlanning()
+          updateRoutePlanning()
         }
     }
 
     fun previousStep() {
         if((instructionIndex.value ?: 0) > 0) {
           _instructionIndex.value = _instructionIndex.value?.minus(1)
-            updateRoutePlanning()
+          updateRoutePlanning()
         }
     }
 
@@ -572,6 +575,12 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
 
     fun nextInstruction() {
         _instructionIndex.value = (_instructionIndex.value ?: 0) + 1
+    }
+
+    fun startPositioning() {
+      if(::mapxusPositioningClient.isInitialized) {
+        mapxusPositioningClient.start()
+      }
     }
 
     fun endNavigation() {
@@ -695,5 +704,15 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
         }
 
     }
+
+  fun remeasureBottomSheet() {
+    val newHeight = bottomSheet?.measuredHeight
+    if (bottomSheetBehavior?.state != BottomSheetBehavior.STATE_HALF_EXPANDED) {
+      if (bottomSheetBehavior?.peekHeight != newHeight && newHeight != null) {
+        bottomSheetBehavior?.peekHeight = newHeight
+      }
+      bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+    }
+  }
 }
 

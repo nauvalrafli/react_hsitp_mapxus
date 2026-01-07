@@ -53,6 +53,7 @@ import com.mapxus.map.mapxusmap.api.services.model.planning.InstructionDto
 import com.mapxus.map.mapxusmap.api.services.model.planning.RoutePlanningPoint
 import com.mapxus.map.mapxusmap.impl.MapLibreMapViewProvider
 import com.mapxus.positioning.api.positioning.PositioningState
+import com.mapxus.positioning.p1
 import com.mapxushsitp.arComponents.ARNavigationViewModel
 import com.mapxushsitp.arComponents.FourthLocalARFragment
 import com.mapxushsitp.compassComponents.CompassViewModel
@@ -240,6 +241,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     }
 
     findViewById<TextView>(R.id.version).setText("0.1.17")
+    findViewById<TextView>(R.id.version).setText("0.1.19")
     val boarded = Preference.getOnboardingDone()
     if (!boarded) {
       setupWalkthroughOverlay()
@@ -404,12 +406,6 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
         lifecycleScope.launch(Dispatchers.Main) {
           isBackEnabled = false
           if (mapxusSharedViewModel.isNavigating) {
-//                        endARNavigation()
-//                        endNavigation()
-//                        mapxusSharedViewModel.routePainter?.cleanRoute()
-//                        mapxusSharedViewModel.clearInstructions()
-//                        mapxusSharedViewModel.setInstructionIndex(0)
-//                        mapxusSharedViewModel.isNavigating = false
             val dialog = AlertDialog.Builder(this@XmlActivity)
               .setTitle("Quit Navigation?")
               .setMessage("Do you really want to quit ongoing navigation?")
@@ -430,7 +426,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
               .setOnDismissListener { isBackEnabled = true }
               .create()
             dialog.show()
-          } else if (navController?.currentDestination?.route == "venue_screen") {
+          } else if (navController?.currentDestination?.id == R.id.venueScreenFragment) {
             finish()
             isBackEnabled = true
           } else {
@@ -1001,11 +997,13 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
 
   override fun onResume() {
     super.onResume()
+    mapxusSharedViewModel.startPositioning()
     mapxusSharedViewModel.mapView.value?.onResume()
   }
 
   override fun onPause() {
     mapxusSharedViewModel.mapView.value?.onPause()
+    mapxusSharedViewModel.mapxusPositioningClient.stop()
     super.onPause()
     compassViewModel.stop()
   }
@@ -1048,6 +1046,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
 
   override fun onDestroy() {
     mapxusSharedViewModel.mapView.value?.onDestroy()
+    mapxusSharedViewModel.mapxusPositioningClient.stop()
     // Clean up TTS
     if (::tts.isInitialized) {
       tts.stop()
