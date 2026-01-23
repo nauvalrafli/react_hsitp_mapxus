@@ -4,6 +4,7 @@ import android.content.res.ColorStateList
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
@@ -11,7 +12,10 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Observer
 import androidx.navigation.fragment.findNavController
+import androidx.viewpager.widget.PagerAdapter
+import androidx.viewpager.widget.ViewPager
 import androidx.viewpager2.widget.ViewPager2
+// import androidx.viewpager2.widget.ViewPager2  // Commented out - using ViewPager instead
 import com.mapxushsitp.adapters.VenueAdapter
 import com.mapxushsitp.viewmodel.MapxusSharedViewModel
 import com.mapxushsitp.R
@@ -22,12 +26,15 @@ import com.mapxus.map.mapxusmap.api.services.model.BuildingSearchOption
 import com.mapxus.map.mapxusmap.api.services.model.VenueSearchOption
 import com.mapxus.map.mapxusmap.api.services.model.building.IndoorBuildingInfo
 import com.mapxus.map.mapxusmap.api.services.model.venue.VenueInfo
+import kotlin.math.abs
 
 class VenueScreenFragment : Fragment() {
 
   private lateinit var venuePager: ViewPager2
   private lateinit var paginationIndicators: LinearLayout
   private var venueAdapter: VenueAdapter? = null
+  private var initialTouchX: Float = 0f
+  private var initialTouchY: Float = 0f
 
   // Shared ViewModel
   private val sharedViewModel: MapxusSharedViewModel by activityViewModels()
@@ -66,12 +73,56 @@ class VenueScreenFragment : Fragment() {
 
     venuePager.adapter = venueAdapter
 
+    // Prevent bottom sheet from intercepting horizontal swipe gestures
+    venuePager.setOnTouchListener { view, event ->
+      when (event.action) {
+        MotionEvent.ACTION_DOWN -> {
+          // Store initial touch position
+          initialTouchX = event.x
+          initialTouchY = event.y
+          // Prevent parent (bottom sheet) from intercepting touch events
+          view.parent?.requestDisallowInterceptTouchEvent(true)
+          // Ensure bottom sheet stays expanded
+          sharedViewModel.bottomSheetBehavior?.let { behavior ->
+            if (behavior.state == BottomSheetBehavior.STATE_HIDDEN ||
+                behavior.state == BottomSheetBehavior.STATE_COLLAPSED) {
+              behavior.state = BottomSheetBehavior.STATE_EXPANDED
+            }
+          }
+        }
+        MotionEvent.ACTION_MOVE -> {
+          // Calculate movement deltas
+          val deltaX = abs(event.x - initialTouchX)
+          val deltaY = abs(event.y - initialTouchY)
+
+          // If horizontal movement is greater than vertical, prevent parent from intercepting
+          if (deltaX > deltaY) {
+            view.parent?.requestDisallowInterceptTouchEvent(true)
+            // Keep bottom sheet expanded during horizontal swipe
+            sharedViewModel.bottomSheetBehavior?.let { behavior ->
+              if (behavior.state == BottomSheetBehavior.STATE_HIDDEN ||
+                  behavior.state == BottomSheetBehavior.STATE_COLLAPSED) {
+                behavior.state = BottomSheetBehavior.STATE_EXPANDED
+              }
+            }
+          } else {
+            view.parent?.requestDisallowInterceptTouchEvent(false)
+          }
+        }
+        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+          view.parent?.requestDisallowInterceptTouchEvent(false)
+        }
+      }
+      false // Let ViewPager2 handle the event
+    }
+
     // Add page change listener for pagination indicators
     venuePager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
       override fun onPageSelected(position: Int) {
         super.onPageSelected(position)
         updatePaginationIndicators(position)
         sharedViewModel.bottomSheet?.postDelayed({
+//          sharedViewModel.remeasureBottomSheet()
           sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
         }, 200)
       }

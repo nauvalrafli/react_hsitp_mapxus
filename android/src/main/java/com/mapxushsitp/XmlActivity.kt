@@ -233,14 +233,15 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     setupFloatingActionButtons()
 
 
-    mapViewProvider.getMapxusMapAsync {
-      mapxusSharedViewModel.initPositioning()
-      setupBottomSheet()
-      setupNavigation()
-      setupNavigationRouteCard()
+    mapView.getMapAsync {
+      mapViewProvider.getMapxusMapAsync {
+        mapxusSharedViewModel.initPositioning()
+        setupBottomSheet()
+        setupNavigation()
+        setupNavigationRouteCard()
+      }
     }
 
-    findViewById<TextView>(R.id.version).setText("0.1.17")
     findViewById<TextView>(R.id.version).setText("0.1.19")
     val boarded = Preference.getOnboardingDone()
     if (!boarded) {
@@ -362,11 +363,28 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     mapxusSharedViewModel.bottomSheetBehavior = bottomSheetBehavior
 
     bottomSheetBehavior.isHideable = false
-    bottomSheetBehavior.isDraggable = true
+    bottomSheetBehavior.isDraggable = false
     bottomSheetBehavior.skipCollapsed = false
     bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
+    bottomSheetBehavior.isFitToContents = true
 
-//        bottomSheetBehavior.peekHeight = (200 * resources.displayMetrics.density).toInt()
+    bottomSheetBehavior.peekHeight = 200
+
+    bottomSheetBehavior.addBottomSheetCallback(object: BottomSheetBehavior.BottomSheetCallback() {
+      override fun onStateChanged(p0: View, p1: Int) {
+        Log.d("STATE", p1.toString())
+      }
+
+      override fun onSlide(p0: View, p1: Float) {
+//        STATE_DRAGGING = 1;
+//        STATE_SETTLING = 2;
+//        STATE_EXPANDED = 3;
+//        STATE_COLLAPSED = 4;
+//        STATE_HIDDEN = 5;
+//        STATE_HALF_EXPANDED = 6;
+      }
+
+    })
 
     bottomSheet.visibility = View.VISIBLE
     mapView.addOnDidFinishRenderingFrameListener { _,_,_ ->
@@ -379,22 +397,6 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
         && bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED
       ) {
         arNavigationFab.visibility = View.GONE
-        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
-      }
-    }
-
-    // removed for efficiency
-    bottomSheet.viewTreeObserver.addOnGlobalLayoutListener {
-      val newHeight = bottomSheet.measuredHeight
-      if (bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED) {
-        if (bottomSheetBehavior.peekHeight != newHeight) {
-          bottomSheetBehavior.peekHeight = newHeight
-        } else if(!mapxusSharedViewModel.isNavigating) {
-          bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
-        }
-      }
-
-      if(bottomSheetBehavior.state != BottomSheetBehavior.STATE_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_HALF_EXPANDED && bottomSheetBehavior.state != BottomSheetBehavior.STATE_DRAGGING && !mapxusSharedViewModel.isNavigating) {
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
       }
     }
