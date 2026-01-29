@@ -1,6 +1,8 @@
 package com.mapxushsitp.fragments
 
+import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -27,6 +29,8 @@ import com.mapxus.map.mapxusmap.api.services.model.poi.PoiDetailResult
 import com.mapxus.map.mapxusmap.api.services.model.poi.PoiInfo
 import com.mapxus.map.mapxusmap.api.services.model.poi.PoiOrientationResult
 import com.mapxus.map.mapxusmap.api.services.model.poi.PoiResult
+import com.mapxushsitp.adapters.ToiletPoi
+import com.mapxushsitp.data.api.DeviceTelemetryResponse
 import kotlin.getValue
 
 class ToiletScreenFragment : Fragment() {
@@ -71,15 +75,16 @@ class ToiletScreenFragment : Fragment() {
 
     private fun setupRecyclerView() {
         toiletListAdapter = ToiletListAdapter((sharedViewModel.building.value ?: listOf()), sharedViewModel.locale) { toiletItem ->
-            sharedViewModel.setSelectedPoi(toiletItem) {
+            sharedViewModel.setSelectedPoi(toiletItem.poiInfo) {
                 findNavController().navigate(R.id.action_toiletScreen_to_poiDetails)
                 sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
             }
         }
 
         toiletList.apply {
-            layoutManager = LinearLayoutManager(requireContext())
+            layoutManager = SafeLayoutManager(requireContext())
             adapter = toiletListAdapter
+            setHasFixedSize(true)
         }
     }
 
@@ -110,10 +115,72 @@ class ToiletScreenFragment : Fragment() {
 
     private fun setupData(type: ToiletType = ToiletType.ALL) {
         val poiSearch = PoiSearch.newInstance()
+        updateToiletList(emptyList())
+        sharedViewModel.bottomSheet?.postDelayed({
+          sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+        }, 100)
         poiSearch.setPoiSearchResultListener(object : PoiSearch.PoiSearchResultListener {
             override fun onGetPoiResult(p0: PoiResult?) {
-                updateToiletList(p0?.allPoi ?: listOf())
+              if((System.currentTimeMillis() - sharedViewModel.lastUpdateTime) < 30000 && sharedViewModel.selectedBuilding.value?.buildingId == sharedViewModel.lastUpdateBuilding) {
+                val toiletPoiList = (p0?.allPoi ?: listOf()).map { poi ->
+                    val occupancyRate = calculateOccupancyForDevices((sharedViewModel.deviceStatusBatch.value ?: mapOf())[poi.poiId] ?: emptyList())
+                      ToiletPoi(
+                        poiInfo = poi,
+                        occupancy = occupancyRate // This is your Double (0.0 to 100.0)
+                      )
+                  }
+
+                  if(selectedFilter == type) {
+                    updateToiletList(toiletPoiList)
+                  }
+                } else {
+                  val toiletPoiList = (p0?.allPoi ?: listOf()).map { poi ->
+                    val occupancyRate = calculateOccupancyForDevices((sharedViewModel.deviceStatusBatch.value ?: mapOf())[poi.poiId] ?: emptyList())
+                    ToiletPoi(
+                      poiInfo = poi,
+                      occupancy = occupancyRate // This is your Double (0.0 to 100.0)
+                    )
+                  }
+
+                  if(selectedFilter == type) {
+                    updateToiletList(toiletPoiList)
+                  }
+
+                  sharedViewModel.getToiletStatus(
+                    sharedViewModel.selectedBuilding.value?.buildingId,
+                    { toiletStatus ->
+                      val toiletPoiList = (p0?.allPoi ?: listOf()).map { poi ->
+                        val occupancyRate = calculateOccupancyForDevices((sharedViewModel.deviceStatusBatch.value ?: mapOf())[poi.poiId] ?: emptyList())
+                        ToiletPoi(
+                          poiInfo = poi,
+                          occupancy = occupancyRate // This is your Double (0.0 to 100.0)
+                        )
+                      }
+
+                      if(selectedFilter == type) {
+                        updateToiletList(toiletPoiList)
+                      }
+                    }, onFail = {
+                      val toiletPoiList = (p0?.allPoi ?: listOf()).map { poi ->
+                        ToiletPoi(
+                          poiInfo = poi,
+                          occupancy = 0.0 // This is your Double (0.0 to 100.0)
+                        )
+                      }
+
+                      updateToiletList(toiletPoiList)
+                    })
+                }
             }
+
+              fun calculateOccupancyForDevices(
+                response: List<DeviceTelemetryResponse>
+              ): Double {
+                if (response.isEmpty()) return 0.0
+                // Count how many individual telemetry entries indicate "Occupied"
+                val occupiedCount = response.count { it.isVacant() == 1 }
+                return (occupiedCount.toDouble() / response.size) * 100.0
+              }
 
             override fun onGetPoiDetailResult(p0: PoiDetailResult?) {
                 TODO("Not yet implemented")
@@ -145,7 +212,18 @@ class ToiletScreenFragment : Fragment() {
         poiSearch.searchPoiByOption(opt)
     }
 
-    fun updateToiletList(toilets: List<PoiInfo>) {
+    fun updateToiletList(toilets: List<ToiletPoi>) {
         toiletListAdapter?.updateToilets(toilets)
     }
+}
+
+
+class SafeLayoutManager(context: Context): LinearLayoutManager(context) {
+  override fun onLayoutChildren(recycler: RecyclerView.Recycler?, state: RecyclerView.State?) {
+    try {
+      super.onLayoutChildren(recycler, state)
+    } catch (e: IndexOutOfBoundsException) {
+      Log.e("RecyclerView", "Inconsistency detected")
+    }
+  }
 }

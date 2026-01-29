@@ -76,6 +76,7 @@ import org.maplibre.android.maps.MapView
 import java.util.Locale
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
+import com.mapxushsitp.R
 
 class XmlActivity : AppCompatActivity(), SensorEventListener {
 
@@ -93,6 +94,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
 
   // UI Elements
   private lateinit var gpsFab: FloatingActionButton
+  private lateinit var gpsFabRefresh: FloatingActionButton
   private lateinit var volumeFab: FloatingActionButton
   private lateinit var arNavigationFab: FloatingActionButton
   private lateinit var arFragmentContainer: FragmentContainerView
@@ -167,7 +169,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
         arriveAtDestinationDialog = null
       }
 
-      lifecycleScope.launch(Dispatchers.Main) {
+      lifecycleScope.launch(Dispatchers.IO) {
         try {
           val fragment = supportFragmentManager.findFragmentById(R.id.ar_fragment_container) as? FourthLocalARFragment
           fragment?.onPause()
@@ -179,21 +181,18 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
 
           Log.d("EndARContainer", "Shutdown complete")
 
-          // --- FIX STARTS HERE ---
-          isEnabled = false // Disable this specific callback
-          remove()          // Remove it from the back button stack
-          // --- FIX ENDS HERE ---
-
-          isShuttingDown = false
-
-          // Optional: If you want to go back one more screen automatically
-          // onBackPressedDispatcher.onBackPressed()
-
+          withContext(Dispatchers.Main) {
+            isEnabled = false
+            remove()
+            isShuttingDown = false
+          }
         } catch (e: Exception) {
           Log.e("EndARContainer", "Error: ${e.message}")
-          isShuttingDown = false
-          isEnabled = false
-          remove()
+          withContext(Dispatchers.Main) {
+            isShuttingDown = false
+            isEnabled = false
+            remove()
+          }
         }
       }
     }
@@ -217,6 +216,12 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
       } ?: resources.configuration.locale
     mapxusSharedViewModel.selectVehicle(Preference.getVehicle() ?: RoutePlanningVehicle.FOOT)
     isSpeaking = Preference.getIsSpeaking()
+
+    val nameProp = intent.getStringExtra("name")
+
+    if (!nameProp.isNullOrEmpty()) {
+      supportActionBar?.title = nameProp
+    }
 
     initializeTTS()
 
@@ -242,7 +247,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
       }
     }
 
-    findViewById<TextView>(R.id.version).setText("0.1.19")
+    findViewById<TextView>(R.id.version).setText("0.1.20")
     val boarded = Preference.getOnboardingDone()
     if (!boarded) {
       setupWalkthroughOverlay()
@@ -340,7 +345,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
         lifecycleScope.launch {
           withContext(Dispatchers.Default) {
             delay(1000)
-            withContext(Dispatchers.Main) {
+            withContext(Dispatchers.IO) {
               versionRetries++
               setupVersion()
             }
@@ -450,7 +455,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     fragmentContainer = findViewById(R.id.fragment_container)
 
     lifecycleScope.launch {
-      withContext(Dispatchers.IO) {
+      withContext(Dispatchers.Default) {
         delay(300)
         fragmentContainer.visibility = View.VISIBLE
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.fragment_container) as? NavHostFragment
@@ -473,8 +478,10 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     mapxusSharedViewModel.selectionMark = findViewById(R.id.select_location)
   }
 
+  var lastRefresh = 0L
   private fun setupFloatingActionButtons() {
     gpsFab = findViewById(R.id.gps_fab)
+    gpsFabRefresh = findViewById(R.id.gps_fab_2)
     volumeFab = findViewById(R.id.volume_fab)
     arNavigationFab = findViewById(R.id.ar_navigation_fab)
     arFragmentContainer = findViewById(R.id.ar_fragment_container)
@@ -485,9 +492,6 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
         mapxusSharedViewModel.mapxusPositioningClient.start()
       }
       mapxusSharedViewModel.mapxusPositioningClient.refreshLocation()
-      mapxusSharedViewModel.mapxusPositioningClient.checkReadiness {
-        Log.d("Readiness", it.toString())
-      }
       if (hasLocationPermissions()) {
         if (isLocationEnabled()) {
           mapxusSharedViewModel.mapxusMap?.let { mapxusMap ->
@@ -507,6 +511,17 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
         }
       } else {
         requestLocationPermissions()
+      }
+    }
+
+    gpsFabRefresh.setOnClickListener {
+      val clickTime = System.currentTimeMillis()
+      if(clickTime - lastRefresh > 120000) {
+        lastRefresh = clickTime
+        mapxusSharedViewModel.mapxusPositioningClient.refreshLocation()
+      } else {
+        val remainingTimeInSeconds = 120 - ((clickTime - lastRefresh) / 1000)
+        Toast.makeText(this, "${remainingTimeInSeconds} second(s) left to next refresh", Toast.LENGTH_SHORT).show()
       }
     }
 
@@ -801,6 +816,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     // Finished button
     btnFinished.setOnClickListener {
       // End navigation
+      arNavigationViewModel.isWaitingForFloorConfirmation.value = false
       endARNavigation()
       endNavigation()
       arriveAtDestinationDialog?.dismiss()
@@ -834,6 +850,9 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
 
     // Clear route painter if exists
     mapxusSharedViewModel.routePainter?.cleanRoute()
+
+    arNavigationViewModel.isWaitingForFloorConfirmation.value = false
+    arNavigationViewModel.isShowingAnARNavigationFloorAlertDialog.value = false
   }
 
   private fun showARFragment() {
@@ -913,6 +932,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     }
 
     arFragmentContainer.visibility = View.VISIBLE
+    arNavigationViewModel.isShowingAnARNavigationFloorAlertDialog.value = true
   }
 
   private fun hideARFragment() {
@@ -960,6 +980,8 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     // 2. Update the ViewModel Flag first
     // This stops any observers from trying to interact with the AR view
     arNavigationViewModel.isShowingAndClosingARNavigation.value = false
+    arNavigationViewModel.isWaitingForFloorConfirmation.value = false
+    arNavigationViewModel.isShowingAnARNavigationFloorAlertDialog.value = false
 
     // 3. Remove the Fragment properly
     if (fragment != null && !fm.isStateSaved) {

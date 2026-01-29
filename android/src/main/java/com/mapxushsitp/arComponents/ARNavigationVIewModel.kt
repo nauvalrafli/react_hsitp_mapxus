@@ -30,6 +30,8 @@ class ARNavigationViewModel : ViewModel() {
     var isShowingAndClosingARNavigation: MutableState<Boolean> = mutableStateOf(false)
     var isSelectingGPSCurrentLocation: MutableState<Boolean> = mutableStateOf(false)
 
+    var isShowingAnARNavigationFloorAlertDialog: MutableState<Boolean> = mutableStateOf(false)
+    var isWaitingForFloorConfirmation: MutableState<Boolean> = mutableStateOf(false)
     var mutableSharedFlow = MutableSharedFlow<Int>(
         replay = 1,
         extraBufferCapacity = 1,

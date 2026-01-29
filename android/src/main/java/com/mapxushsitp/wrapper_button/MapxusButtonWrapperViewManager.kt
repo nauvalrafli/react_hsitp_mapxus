@@ -46,4 +46,14 @@ class MapxusButtonWrapperViewManager : ViewGroupManager<MapxusButtonWrapperView>
     view?.locale = parsedLocale
     MapxusUtility.selectedLocale = parsedLocale
   }
+
+  @ReactProp(name = "name", customType = "String")
+  fun setCustomName(view: MapxusButtonWrapperView?, name: String?) {
+    if (name == null) {
+      return
+    }
+
+    view?.name = name
+    MapxusUtility.name = name
+  }
 }

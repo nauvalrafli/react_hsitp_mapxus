@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.location.Location
 import android.os.Build
-import android.os.Bundle
 import android.util.Log
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -17,7 +16,6 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
-import com.mapxushsitp.R
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.mapxus.map.mapxusmap.api.map.FollowUserMode
 import com.mapxus.map.mapxusmap.api.map.MapViewProvider
@@ -61,16 +59,31 @@ import com.mapxus.positioning.api.positioning.MapxusPositioningListener
 import com.mapxus.positioning.api.positioning.PositioningMode
 import com.mapxus.positioning.api.positioning.PositioningState
 import com.mapxus.positioning.api.positioning.UserMode
+import com.mapxushsitp.R
+import com.mapxushsitp.data.api.DeviceTelemetryResponse
+import com.mapxushsitp.data.api.SheetsApiService
+import com.mapxushsitp.data.api.SheetsConfig
+import com.mapxushsitp.data.api.SheetsValuesResponse
+import com.mapxushsitp.data.api.TelemetryApiService
+import com.mapxushsitp.data.api.TokenResponse
+import com.mapxushsitp.data.repository.AuthRepository
 import com.mapxushsitp.service.MapxusPositioningProvider
 import com.mapxushsitp.service.Preference
+import com.mapxushsitp.service.RetrofitClient
 import com.mapxushsitp.service.toMeterText
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import java.util.Locale
@@ -130,6 +143,47 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
     private val _timeInSeconds = MutableLiveData<Int>()
     val timeInSeconds: LiveData<Int> = _timeInSeconds
 
+
+    // Auth token state
+    private val authRepository = AuthRepository()
+
+    private val _tokenResponse = MutableLiveData<TokenResponse?>()
+    val tokenResponse: LiveData<TokenResponse?> = _tokenResponse
+
+    private val _accessToken = MutableLiveData<String?>()
+    val accessToken : LiveData<String?> = _accessToken
+
+    private val _authError = MutableLiveData<String?>()
+    val authError: LiveData<String?> = _authError
+
+    private val _deviceTimeseries = MutableLiveData<DeviceTelemetryResponse?>()
+    val deviceTimeseries: LiveData<DeviceTelemetryResponse?> = _deviceTimeseries
+
+    // High-concurrency batch results (single emission per batch)
+    private val _deviceStatusBatch = MutableLiveData<Map<String, List<DeviceTelemetryResponse>>>()
+    val deviceStatusBatch: LiveData<Map<String, List<DeviceTelemetryResponse>>> = _deviceStatusBatch
+
+    private val _deviceStatusBatchErrors = MutableLiveData<Map<String, String>>()
+    val deviceStatusBatchErrors: LiveData<Map<String, String>> = _deviceStatusBatchErrors
+
+    private val _telemetryError = MutableLiveData<String?>()
+    val telemetryError: LiveData<String?> = _telemetryError
+
+    private val _isLoadingTelemetry = MutableLiveData(false)
+    val isLoadingTelemetry: LiveData<Boolean> = _isLoadingTelemetry
+
+
+    // Sheets
+    private val _sheetsValues = MutableLiveData<SheetsValuesResponse?>()
+    val sheetsValues: LiveData<SheetsValuesResponse?> = _sheetsValues
+
+    private val _sheetsError = MutableLiveData<String?>()
+    val sheetsError: LiveData<String?> = _sheetsError
+
+    private val _isLoadingSheets = MutableLiveData(false)
+    val isLoadingSheets: LiveData<Boolean> = _isLoadingSheets
+
+
     // Venue data
     private val _venues = MutableLiveData<List<VenueInfo>>()
     val venues: LiveData<List<VenueInfo>> = _venues
@@ -168,8 +222,11 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
 
     val sharedPreferences : SharedPreferences? = null
 
+    var fetchJob: Job? = null
+
     init {
         Preference.init(context)
+        fetchSheetsValues()
     }
 
     var selectedVehicle: String = RoutePlanningVehicle.FOOT
@@ -179,6 +236,7 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
     }
 
     var lastUpdateTime = 0L
+    var lastUpdateBuilding = ""
     var counter = 0
     var isOnceFinished = false
     var onLocationChangedOnceListener : () -> Unit = {}
@@ -219,7 +277,186 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    // Methods to update data
+    fun getToiletStatus(buildingId: String?, onSuccess: (deviceStatus: Map<String, List<DeviceTelemetryResponse>>) -> Unit = {}, onFail: () -> Unit = {}) {
+      _isLoadingTelemetry.value = true
+      val devices = _sheetsValues.value?.getDevicesFromBuildingId(buildingId)
+      val currentTime = System.currentTimeMillis()//        }
+      lastUpdateTime = currentTime
+      fetchJob?.cancel()
+      fetchJob = viewModelScope.launch {
+        try {
+          requestAuthToken(
+            onFinished = {
+              fetchDeviceStatusesBatch(
+                devices ?: listOf(),
+                accessToken.value ?: "",
+                {
+                  onSuccess(it)
+                }
+              )
+              _isLoadingTelemetry.value = false
+            },
+            onFail = {
+              Log.d("Fail", "E")
+              onFail()
+            }
+          )
+        } catch (e: TimeoutCancellationException) {
+          Log.d("Fail", "F")
+          Toast.makeText(context, "Toilet status request timeout: ${e.message}", Toast.LENGTH_SHORT)
+            .show()
+          onFail()
+        } catch (e: CancellationException) {
+          Log.d("Fail", "H")
+        } catch (e: Exception) {
+          Log.d("Fail", "G")
+          Toast.makeText(context, e.message, Toast.LENGTH_SHORT).show()
+          onFail()
+        }
+      }
+    }
+
+    suspend fun requestAuthToken(onFinished: () -> Unit = {}, onFail: () -> Unit = {}) {
+      viewModelScope.launch {
+        try {
+          withTimeout(15000L, {
+            runCatching { authRepository.fetchToken("client_credentials", "graviteeGW", "IDLecASjFsi06msaVqX3C3XoKGqtGbfz") }
+              .onSuccess {
+                _tokenResponse.value = it
+                _accessToken.value = it.accessToken
+                onFinished()
+              }
+              .onFailure {
+                _authError.value = it.message
+                Log.d("Fail", "A")
+                onFail()
+              }
+          })
+        } catch (e: TimeoutCancellationException) {
+          Log.d("Fail", "B")
+          Toast.makeText(context, "Toilet status request timeout: ${e.message}", Toast.LENGTH_SHORT).show()
+          onFail()
+        } catch (e: CancellationException) {
+          Log.d("Fail", "HH")
+        } catch(e: Exception) {
+          Log.d("Fail", "C")
+          Toast.makeText(context, e.message, Toast.LENGTH_SHORT).show()
+          onFail()
+        }
+      }
+    }
+
+  val lastRequest : Long = 0L
+  fun fetchDeviceTimeseries(
+      deviceId: String,
+      bearerToken: String
+    ) {
+      viewModelScope.launch {
+        _isLoadingTelemetry.value = true
+        _telemetryError.value = null
+        runCatching {
+          val service: TelemetryApiService = RetrofitClient.telemetryService()
+          service.getDeviceTelemetry(
+            authorization = "Bearer $bearerToken",
+            deviceId = deviceId,
+            useStrictDataTypes = false
+          )
+        }.onSuccess { response ->
+          _deviceTimeseries.value = response
+          fetchSheetsValues()
+        }.onFailure { t ->
+          _telemetryError.value = t.message
+          _deviceTimeseries.value = null
+        }
+        _isLoadingTelemetry.value = false
+      }
+    }
+
+
+    /**
+     * Fetch many device statuses concurrently (100+ in parallel).
+     *
+     * - Uses async + awaitAll on Dispatchers.IO
+     * - Posts ONE aggregated result to LiveData after all calls complete
+     */
+    fun fetchDeviceStatusesBatch(
+      deviceIds: List<String>,
+      bearerToken: String,
+      onSuccess: (Map<String, List<DeviceTelemetryResponse>>) -> Unit = {}
+    ) {
+      viewModelScope.launch(Dispatchers.IO) {
+        _isLoadingTelemetry.postValue(true)
+        _telemetryError.postValue(null)
+
+        val service: TelemetryApiService = RetrofitClient.telemetryService()
+
+        val results = mutableMapOf<String, MutableList<DeviceTelemetryResponse>>()
+        val errors = mutableMapOf<String, String>()
+
+        coroutineScope {
+          deviceIds
+            .distinct()
+            .map { id ->
+              async {
+                runCatching {
+                  service.getDeviceTelemetry(
+                    authorization = "Bearer $bearerToken",
+                    deviceId = id,
+                    useStrictDataTypes = false
+                  )
+                }.onSuccess { resp ->
+                  synchronized(results) {
+                    results.getOrPut(id) { mutableListOf() }.add(resp)
+                  }
+                }.onFailure { t ->
+                  synchronized(errors) { errors[id] = t.message ?: "Unknown error" }
+                }
+              }
+            }
+            .awaitAll()
+        }
+
+        // Single post to avoid hammering Main thread
+        _deviceStatusBatch.postValue(results)
+        _deviceStatusBatchErrors.postValue(errors)
+        _isLoadingTelemetry.postValue(false)
+        onSuccess(results)
+      }
+    }
+
+
+
+    /**
+     * Fetch Google Sheets values. Range is supplied by caller.
+     *
+     * Requires:
+     * - SheetsConfig.API_KEY
+     * - SheetsConfig.SHEET_ID
+     */
+    fun fetchSheetsValues() {
+      viewModelScope.launch {
+        _isLoadingSheets.value = true
+        _sheetsError.value = null
+        runCatching {
+          val service: SheetsApiService = RetrofitClient.sheetsService()
+          service.getValues(
+            spreadsheetId = SheetsConfig.SHEET_ID,
+            range = "Sheet1!B:I",
+            apiKey = SheetsConfig.API_KEY
+          )
+        }.onSuccess { resp ->
+          _sheetsValues.value = resp
+        }.onFailure { t ->
+          _sheetsError.value = t.message
+          _sheetsValues.value = null
+        }
+        _isLoadingSheets.value = false
+      }
+    }
+
+
+
+  // Methods to update data
     fun setMapView(mapView: MapView) {
         _mapView.value = mapView
         mapView.isNestedScrollingEnabled = false

@@ -119,6 +119,10 @@ class FourthLocalARFragment : androidx.fragment.app.Fragment(), CoroutineScope b
     private var currentlyRenderedFloorId: String? = null // Track the floor currently being rendered
     private var lastRenderedFloorId: String? = null
 
+    // Define this at the class level (outside the functions)
+    private var arFloorAlertDialog: AlertDialog? = null
+    private var isWaitingForFloorConfirmation = false
+
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -279,8 +283,11 @@ class FourthLocalARFragment : androidx.fragment.app.Fragment(), CoroutineScope b
         // 4. RESET UI STATE
         // We update the ViewModel flag BEFORE cancelling the scope
         arNavigationViewModel.isShowingAndClosingARNavigation.value = false
+        arNavigationViewModel.isWaitingForFloorConfirmation.value = false
+        arNavigationViewModel.isShowingAnARNavigationFloorAlertDialog.value = false
 
-        // 5. IDENTIFY AND REMOVE FRAGMENT
+
+      // 5. IDENTIFY AND REMOVE FRAGMENT
         if (isManualExit) {
             // Find by ID as we discussed earlier for consistency
             val fragment = fm.findFragmentById(R.id.ar_fragment_container)
@@ -577,7 +584,7 @@ class FourthLocalARFragment : androidx.fragment.app.Fragment(), CoroutineScope b
             )
 
             // Define the background shape once
-            val darkShape = android.graphics.drawable.GradientDrawable().apply {
+            val darkShape = GradientDrawable().apply {
                 setColor(android.graphics.Color.argb(180, 0, 0, 0)) // Semi-transparent black
                 cornerRadius = 0f // Rounded corners look better
             }
@@ -736,7 +743,7 @@ class FourthLocalARFragment : androidx.fragment.app.Fragment(), CoroutineScope b
                         directionStatusTextView.visibility = View.GONE
                     } else {
                         // Re-apply the dark background when text appears
-                        val darkShape = android.graphics.drawable.GradientDrawable().apply {
+                        val darkShape = GradientDrawable().apply {
                             setColor(android.graphics.Color.argb(180, 0, 0, 0))
                             cornerRadius = 0f
                         }
@@ -1121,8 +1128,10 @@ class FourthLocalARFragment : androidx.fragment.app.Fragment(), CoroutineScope b
             return
         }
 
-        val instruction = instructionList.getOrNull(index)?.instruction ?: "Straight"
-        val isDestination = instruction.equals("Arrive at destination", ignoreCase = true)
+        val instruction = instructionList.getOrNull(index)?.instruction?.lowercase() ?: "straight"
+        val isDestination = instruction.contains("arrive")
+
+        // Determine the model path
         val modelPath = if (isDestination) "models/arrive_at_destination.glb" else "models/direction_arrow.glb"
 
         modelLoader.loadModelInstanceAsync(modelPath) { modelInstance ->
@@ -1135,8 +1144,23 @@ class FourthLocalARFragment : androidx.fragment.app.Fragment(), CoroutineScope b
                 scale = if (isDestination) Float3(0.1f) else Float3(3.0f)
                 position = Float3(0f, 1.5f, 0f)
 
+                // 1. Point the arrow horizontally first (Yaw)
                 val correctedYaw = (yaw - 90f + 360f) % 360f
                 rotation = Float3(0f, correctedYaw, 0f)
+
+                // 2. Determine tilt angle
+                var arrowUpOrDown = 0f
+                if (instruction.contains("up")) {
+                    arrowUpOrDown = 90f // Tilt nose UP
+                } else if (instruction.contains("down")) {
+                    arrowUpOrDown = -90f  // Tilt nose DOWN
+                }
+
+                // 3. Apply the tilt RELATIVE to the current yaw
+                // This forces the arrow to tilt "up" regardless of which compass direction it faces
+                if (arrowUpOrDown != 0f) {
+                    rotation = Float3(110f, 0f, arrowUpOrDown)
+                }
             }
 
             val anchorNode = AnchorNode(sceneView.engine, anchor).apply {
@@ -2237,7 +2261,13 @@ class FourthLocalARFragment : androidx.fragment.app.Fragment(), CoroutineScope b
         val currentStepPoint = instructionPoints.getOrNull(index) ?: return
         val currentTargetFloor = currentStepPoint.floorId
 
-        // Double check: if someone manually reset isDrawingStarted but floor is same
+        // Check if current instruction involves a floor change
+        val currentInstruction = instructionList.getOrNull(index)?.instruction?.lowercase() ?: ""
+        val isFloorChangeAction = currentInstruction.contains("stairs") || currentInstruction.contains("elevator")
+
+        Log.d("ARFloorLogicAlertDialog", "stairs or elevator: ${isFloorChangeAction}")
+
+      // Double check: if someone manually reset isDrawingStarted but floor is same
         if (isDrawingStarted && currentTargetFloor == lastRenderedFloorId) return
 
         isDrawingStarted = true // Mark as drawing so monitor loop doesn't restart this
@@ -2301,88 +2331,167 @@ class FourthLocalARFragment : androidx.fragment.app.Fragment(), CoroutineScope b
         }
     }
 
-    private fun isShowingTheARNavigationAllAtOnceGeminiBasedOnCompassDegreesAndFloorId(
-        index: Int,
-        instructionPoints: List<SerializableRoutePoint>,
-        compassClassDegrees: Float
-    ) {
-        val session = sceneView.session ?: return
-        val frame = sceneView.frame ?: return
+  private fun isShowingTheARNavigationAllAtOnceGeminiBasedOnCompassDegreesAndFloorId(
+    index: Int,
+    instructionPoints: List<SerializableRoutePoint>,
+    compassClassDegrees: Float
+  ) {
+    val session = sceneView.session ?: return
+    val frame = sceneView.frame ?: return
 
-        // 1. GET THE FLOOR ID OF THE CURRENT INDEX
-        val currentStepPoint = instructionPoints.getOrNull(index) ?: return
-        val currentTargetFloor = currentStepPoint.floorId
+    // 1. GET THE FLOOR ID OF THE CURRENT INDEX
+    val currentStepPoint = instructionPoints.getOrNull(index) ?: return
+    val currentTargetFloor = currentStepPoint.floorId
 
-        // 2. FLOOR CHANGE TRIGGER
-        if (lastRenderedFloorId != null && currentTargetFloor != lastRenderedFloorId) {
-            Log.d("ARFloorLogic", "Floor change: $lastRenderedFloorId -> $currentTargetFloor")
-            navigationDrawingJob?.cancel()
-            hideAllArrowsGeminiBasedOnFloorId()
+    // Check if current instruction involves a floor change
+    val currentInstruction = instructionList.getOrNull(index)?.instruction?.lowercase() ?: ""
+    val isFloorChangeAction = currentInstruction.contains("stairs") || currentInstruction.contains("elevator")
 
-            // Reset calibration for the new floor so the user is prompted to face the right way
-            isCalibrated = false
-            offsetSamples.clear()
+    Log.d("ARFloorLogicAlertDialog", "stairs or elevator: ${isFloorChangeAction}")
 
-            isDrawingStarted = false
-            lastRenderedFloorId = currentTargetFloor
+    // 2. FLOOR CHANGE TRIGGER
+    if (lastRenderedFloorId != null && currentTargetFloor != lastRenderedFloorId && !arNavigationViewModel.isWaitingForFloorConfirmation.value) {
+      arNavigationViewModel.isWaitingForFloorConfirmation.value = true
+
+      // Stop everything until confirmed
+      navigationDrawingJob?.cancel()
+      hideAllArrowsGeminiBasedOnFloorId()
+      isShowingDirectionDegree = ""
+
+      isShowingARNavigationDifferentFloorAlertDialog(
+        isShowing = arNavigationViewModel.isShowingAnARNavigationFloorAlertDialog.value,
+        onArrived = {
+          // RESET EVERYTHING FOR THE NEW FLOOR
+          lastRenderedFloorId = currentTargetFloor
+          isCalibrated = false
+          offsetSamples.clear()
+          isDrawingStarted = false // CRITICAL: Allow a new drawing job
+          arNavigationViewModel.isWaitingForFloorConfirmation.value = false
+          Log.d("ARFloorLogic", "Confirmed. Starting calibration for floor: $lastRenderedFloorId")
+        }
+      )
+
+//            AlertDialog.Builder(ctx)
+//                .setTitle("Floor Change Detected")
+//                .setMessage("Have you arrived at floor $currentTargetFloor?")
+//                .setCancelable(false)
+//                .setPositiveButton("Yes") { _, _ ->
+//
+//                }
+//                .setNegativeButton("No") { d, _ -> d.dismiss() }
+//                .show()
+      return
+    }
+
+    // Block logic if waiting for dialog
+    if (isWaitingForFloorConfirmation) return
+
+    /// For backup from me - don't delete this one
+//        if (lastRenderedFloorId != null && currentTargetFloor != lastRenderedFloorId) {
+//            Log.d("ARFloorLogic", "Floor change: $lastRenderedFloorId -> $currentTargetFloor")
+//            navigationDrawingJob?.cancel()
+//            hideAllArrowsGeminiBasedOnFloorId()
+//
+//            // Reset calibration for the new floor so the user is prompted to face the right way
+//            isCalibrated = false
+//            offsetSamples.clear()
+//
+//            isDrawingStarted = false
+//            lastRenderedFloorId = currentTargetFloor
+//        }
+
+    if (lastRenderedFloorId == null) lastRenderedFloorId = currentTargetFloor
+
+    // 3. FIND POINTS FOR THE CURRENT FLOOR ONLY
+    // We need the first two points of THIS floor to set the initial bearing
+    val floorPoints = instructionPoints.filter { it.floorId == currentTargetFloor }
+    if (floorPoints.size < 2) return
+
+    // Use the first two points of the CURRENT floor for calibration
+    val startPoint = floorPoints[0]
+    val endPoint = floorPoints[1]
+
+    val targetBearing = normalizedBearingDegrees(startPoint, endPoint).toFloat()
+    val getCompassDirectionString = getDirectionString(start = startPoint, end = endPoint)
+    val currentPhoneHeading = compassClassDegrees
+
+    if (isDrawingStarted) return
+
+    // 4. CALIBRATION LOGIC
+    if (!isCalibrated) {
+      val diff = abs(currentPhoneHeading - targetBearing)
+      val normalizedDiff = min(diff, 360f - diff)
+
+      if (normalizedDiff < 20.0f) {
+        isShowingDirectionDegree = "Locking to True North... ⏳ (${offsetSamples.size}/20)"
+
+        val cameraQuaternion = frame.camera.displayOrientedPose.rotationQuaternion
+        val arKitYaw = atan2(
+          2.0 * (cameraQuaternion[3] * cameraQuaternion[1] + cameraQuaternion[0] * cameraQuaternion[2]),
+          1.0 - 2.0 * (cameraQuaternion[1] * cameraQuaternion[1] + cameraQuaternion[2] * cameraQuaternion[2])
+        )
+        val arKitDegrees = Math.toDegrees(arKitYaw).toFloat()
+
+        val currentStableNorth = (currentPhoneHeading + arKitDegrees + 360f) % 360f
+        offsetSamples.add(currentStableNorth.toDouble())
+
+        if (offsetSamples.size >= 20) {
+          val averageNorth = offsetSamples.average().toFloat()
+          this.arWorldRotationOffset = averageNorth
+          isCalibrated = true
+          isShowingDirectionDegree = ""
+          Log.d("ARCalibration", "🎯 TRUE NORTH LOCKED: $arWorldRotationOffset")
+        }
+      } else {
+        isShowingDirectionDegree = "Face your phone to:\n$getCompassDirectionString\n(Target: ${targetBearing.toInt()}°)"
+        offsetSamples.clear()
+      }
+      return // Stop here if not calibrated
+    }
+
+    // 5. DRAWING TRIGGER
+    if (isCalibrated && !isDrawingStarted) {
+      val rotationAngleRad = Math.toRadians((-arWorldRotationOffset).toDouble()).toFloat()
+      navigationDrawingJob?.cancel()
+      navigationDrawingJob = lifecycleScope.launch {
+        isShowingARNavigationArrowAllAtOnceBasedOnCompassAndFloorId(index, rotationAngleRad)
+      }
+    }
+  }
+
+    fun isShowingARNavigationDifferentFloorAlertDialog(isShowing: Boolean, onArrived: () -> Unit) {
+
+      // 1. Prevent overlapping dialogs
+        if (arFloorAlertDialog?.isShowing == true) return
+
+        val dialogView = layoutInflater.inflate(R.layout.ar_navigation_alert_dialog, null)
+        val btnArrived = dialogView.findViewById<TextView>(R.id.ar_navigation_alert_dialog_correct_button)
+        val btnPrevious = dialogView.findViewById<TextView>(R.id.ar_navigation_alert_dialog_go_previous_button)
+
+        // 2. Build the dialog
+        arFloorAlertDialog = AlertDialog.Builder(requireContext())
+            .setView(dialogView)
+            .setCancelable(false)
+            .create()
+
+        // 3. SET THE CLICK LISTENER
+        btnArrived.setOnClickListener {
+            Log.d("ARFloorLogicChanging", "Arrived button clicked!") // Check if button works
+            arFloorAlertDialog?.dismiss()
+
+            // THIS LINE TRIGGERS YOUR LOGS IN THE FRAGMENT
+            onArrived()
         }
 
-        if (lastRenderedFloorId == null) lastRenderedFloorId = currentTargetFloor
-
-        // 3. FIND POINTS FOR THE CURRENT FLOOR ONLY
-        // We need the first two points of THIS floor to set the initial bearing
-        val floorPoints = instructionPoints.filter { it.floorId == currentTargetFloor }
-        if (floorPoints.size < 2) return
-
-        // Use the first two points of the CURRENT floor for calibration
-        val startPoint = floorPoints[0]
-        val endPoint = floorPoints[1]
-
-        val targetBearing = normalizedBearingDegrees(startPoint, endPoint).toFloat()
-        val getCompassDirectionString = getDirectionString(start = startPoint, end = endPoint)
-        val currentPhoneHeading = compassClassDegrees
-
-        if (isDrawingStarted) return
-
-        // 4. CALIBRATION LOGIC
-        if (!isCalibrated) {
-            val diff = abs(currentPhoneHeading - targetBearing)
-            val normalizedDiff = min(diff, 360f - diff)
-
-            if (normalizedDiff < 20.0f) {
-                isShowingDirectionDegree = "Locking to True North... ⏳ (${offsetSamples.size}/20)"
-
-                val cameraQuaternion = frame.camera.displayOrientedPose.rotationQuaternion
-                val arKitYaw = atan2(
-                    2.0 * (cameraQuaternion[3] * cameraQuaternion[1] + cameraQuaternion[0] * cameraQuaternion[2]),
-                    1.0 - 2.0 * (cameraQuaternion[1] * cameraQuaternion[1] + cameraQuaternion[2] * cameraQuaternion[2])
-                )
-                val arKitDegrees = Math.toDegrees(arKitYaw).toFloat()
-
-                val currentStableNorth = (currentPhoneHeading + arKitDegrees + 360f) % 360f
-                offsetSamples.add(currentStableNorth.toDouble())
-
-                if (offsetSamples.size >= 20) {
-                    val averageNorth = offsetSamples.average().toFloat()
-                    this.arWorldRotationOffset = averageNorth
-                    isCalibrated = true
-                    isShowingDirectionDegree = ""
-                    Log.d("ARCalibration", "🎯 TRUE NORTH LOCKED: $arWorldRotationOffset")
-                }
-            } else {
-                isShowingDirectionDegree = "Face your phone to:\n$getCompassDirectionString\n(Target: ${targetBearing.toInt()}°)"
-                offsetSamples.clear()
-            }
-            return // Stop here if not calibrated
+        btnPrevious.setOnClickListener {
+            arFloorAlertDialog?.dismiss()
+            arNavigationViewModel.isWaitingForFloorConfirmation.value = false // Reset so it doesn't stay stuck
         }
 
-        // 5. DRAWING TRIGGER
-        if (isCalibrated && !isDrawingStarted) {
-            val rotationAngleRad = Math.toRadians((-arWorldRotationOffset).toDouble()).toFloat()
-            navigationDrawingJob?.cancel()
-            navigationDrawingJob = lifecycleScope.launch {
-                isShowingARNavigationArrowAllAtOnceBasedOnCompassAndFloorId(index, rotationAngleRad)
-            }
+        if (isShowing) {
+          arFloorAlertDialog?.show()
+        } else {
+          arFloorAlertDialog?.dismiss()
         }
     }
 

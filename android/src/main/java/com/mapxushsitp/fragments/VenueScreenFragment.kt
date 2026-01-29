@@ -12,6 +12,9 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Observer
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.PagerSnapHelper
+import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager.widget.PagerAdapter
 import androidx.viewpager.widget.ViewPager
 import androidx.viewpager2.widget.ViewPager2
@@ -30,11 +33,11 @@ import kotlin.math.abs
 
 class VenueScreenFragment : Fragment() {
 
-  private lateinit var venuePager: ViewPager2
+  private lateinit var venueRecycler: RecyclerView
   private lateinit var paginationIndicators: LinearLayout
   private var venueAdapter: VenueAdapter? = null
-  private var initialTouchX: Float = 0f
-  private var initialTouchY: Float = 0f
+
+  val snapHelper = PagerSnapHelper()
 
   // Shared ViewModel
   private val sharedViewModel: MapxusSharedViewModel by activityViewModels()
@@ -51,8 +54,7 @@ class VenueScreenFragment : Fragment() {
     super.onViewCreated(view, savedInstanceState)
 
     initializeViews(view)
-    setupViewPager()
-    setupPaginationIndicators()
+    setupRecyclerView()
 
     // Observe shared ViewModel
     observeSharedViewModel()
@@ -62,89 +64,118 @@ class VenueScreenFragment : Fragment() {
   }
 
   private fun initializeViews(view: View) {
-    venuePager = view.findViewById(R.id.venue_pager)
+    venueRecycler = view.findViewById<RecyclerView>(R.id.venue_recycler)
     paginationIndicators = view.findViewById(R.id.pagination_indicators)
   }
 
-  private fun setupViewPager() {
+  private fun setupRecyclerView() {
     venueAdapter = VenueAdapter(sharedViewModel.locale) { venueItem ->
       onVenueSelected(venueItem)
     }
+    venueRecycler.apply {
+      // Set vertical scrolling
+      layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
+      adapter = venueAdapter
 
-    venuePager.adapter = venueAdapter
+      snapHelper.attachToRecyclerView(this)
 
-    // Prevent bottom sheet from intercepting horizontal swipe gestures
-    venuePager.setOnTouchListener { view, event ->
-      when (event.action) {
-        MotionEvent.ACTION_DOWN -> {
-          // Store initial touch position
-          initialTouchX = event.x
-          initialTouchY = event.y
-          // Prevent parent (bottom sheet) from intercepting touch events
-          view.parent?.requestDisallowInterceptTouchEvent(true)
-          // Ensure bottom sheet stays expanded
-          sharedViewModel.bottomSheetBehavior?.let { behavior ->
-            if (behavior.state == BottomSheetBehavior.STATE_HIDDEN ||
-                behavior.state == BottomSheetBehavior.STATE_COLLAPSED) {
-              behavior.state = BottomSheetBehavior.STATE_EXPANDED
-            }
-          }
-        }
-        MotionEvent.ACTION_MOVE -> {
-          // Calculate movement deltas
-          val deltaX = abs(event.x - initialTouchX)
-          val deltaY = abs(event.y - initialTouchY)
+      addOnScrollListener(object : RecyclerView.OnScrollListener() {
+        override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+          super.onScrollStateChanged(recyclerView, newState)
 
-          // If horizontal movement is greater than vertical, prevent parent from intercepting
-          if (deltaX > deltaY) {
-            view.parent?.requestDisallowInterceptTouchEvent(true)
-            // Keep bottom sheet expanded during horizontal swipe
-            sharedViewModel.bottomSheetBehavior?.let { behavior ->
-              if (behavior.state == BottomSheetBehavior.STATE_HIDDEN ||
-                  behavior.state == BottomSheetBehavior.STATE_COLLAPSED) {
-                behavior.state = BottomSheetBehavior.STATE_EXPANDED
+          // Only update when the scrolling stops to prevent flickering
+          if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+            val centerView = snapHelper.findSnapView(layoutManager)
+            centerView?.let {
+              val pos = layoutManager?.getPosition(it)
+              if (pos != null) {
+                updatePaginationIndicators(pos)
               }
             }
-          } else {
-            view.parent?.requestDisallowInterceptTouchEvent(false)
           }
         }
-        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-          view.parent?.requestDisallowInterceptTouchEvent(false)
-        }
-      }
-      false // Let ViewPager2 handle the event
+      })
+
+      // Enable nested scrolling so it plays nice with BottomSheetBehavior
+//            isNestedScrollingEnabled = true
     }
 
-    // Add page change listener for pagination indicators
-    venuePager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
-      override fun onPageSelected(position: Int) {
-        super.onPageSelected(position)
-        updatePaginationIndicators(position)
-        sharedViewModel.bottomSheet?.postDelayed({
-//          sharedViewModel.remeasureBottomSheet()
-          sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
-        }, 200)
+    // Optional: Auto-expand sheet when the user interacts with the list
+    venueRecycler.setOnTouchListener { _, _ ->
+      if (sharedViewModel.bottomSheetBehavior?.state == BottomSheetBehavior.STATE_COLLAPSED) {
+        sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
       }
-    })
-
-    venuePager.currentItem = (sharedViewModel.building.value?.indexOfFirst { it.buildingId == sharedViewModel.selectedBuilding.value?.buildingId } ?: 0)
+      false
+    }
   }
 
-  private fun setupPaginationIndicators() {
-    // This will be called when venue data is loaded
+  private fun updatePaginationIndicators(currentPosition: Int) {
+    val childCount = paginationIndicators.childCount
+    for (i in 0 until childCount) {
+      val indicator = paginationIndicators.getChildAt(i)
+      // Check if this dot is the one the user is looking at
+      val isSelected = (i == currentPosition)
+
+      // Call the smooth function we created in the previous step
+      updateIndicatorAppearance(indicator, isSelected)
+    }
   }
+
+  private fun setupPaginationIndicatorsForVenues(venueCount: Int) {
+    paginationIndicators.removeAllViews()
+
+    // If there is only 1 item, we don't usually need dots
+    if (venueCount <= 1) return
+
+    for (i in 0 until venueCount) {
+      val indicator = View(requireContext())
+
+      // Use a fixed size for the "box" the dot lives in
+      val size = 24 // this is roughly 8dp-10dp depending on density
+      val layoutParams = LinearLayout.LayoutParams(size, size)
+      layoutParams.setMargins(8, 0, 8, 0)
+
+      indicator.layoutParams = layoutParams
+      indicator.background = resources.getDrawable(R.drawable.indicator_background, null)
+
+      // Initial state: dimmed and normal size
+      indicator.alpha = 0.3f
+      indicator.scaleX = 1.0f
+      indicator.scaleY = 1.0f
+
+      paginationIndicators.addView(indicator)
+    }
+
+    // Highlight the first one by default
+    if (paginationIndicators.childCount > 0) {
+      updateIndicatorAppearance(paginationIndicators.getChildAt(0), true)
+    }
+  }
+
+  private fun updateIndicatorAppearance(indicator: View, isSelected: Boolean) {
+    // 1. Change Alpha (Instantly shows which one is active)
+    val targetAlpha = if (isSelected) 1.0f else 0.3f
+
+
+    // Use a short animation for a premium "Material" feel
+    indicator.animate()
+      .alpha(targetAlpha)
+      .setDuration(150) // Fast enough to feel responsive
+      .start()
+
+    // 3. Optional: Change Tint
+    indicator.backgroundTintList = ColorStateList.valueOf(
+      if (isSelected) resources.getColor(R.color.primary_blue, null)
+      else resources.getColor(android.R.color.darker_gray, null)
+    )
+  }
+
 
   private fun observeSharedViewModel() {
-    // Observe venues data from shared ViewModel
-//        sharedViewModel.venues.observe(viewLifecycleOwner, Observer { venues ->
-//            if (venues.isNotEmpty()) {
-//                updateVenues(venues)
-//            }
-//        })
     sharedViewModel.building.observe(viewLifecycleOwner, Observer {
       if (it.isNotEmpty()) {
         updateBuilding(it)
+        setupPaginationIndicatorsForVenues(it.size)
       }
     })
   }
@@ -170,28 +201,6 @@ class VenueScreenFragment : Fragment() {
     }
   }
 
-  private fun updatePaginationIndicators(currentPage: Int) {
-    val childCount = paginationIndicators.childCount
-    for (i in 0 until childCount) {
-      val indicator = paginationIndicators.getChildAt(i)
-      val isSelected = i == currentPage
-      updateIndicatorAppearance(indicator, isSelected)
-    }
-  }
-
-  private fun updateIndicatorAppearance(indicator: View, isSelected: Boolean) {
-    val layoutParams = indicator.layoutParams
-    val size = if (isSelected) 32 else 24
-    layoutParams.width = size
-    layoutParams.height = size
-    indicator.layoutParams = layoutParams
-
-    indicator.backgroundTintList = ColorStateList.valueOf(
-      if (isSelected) resources.getColor(R.color.primary_blue, null)
-      else resources.getColor(android.R.color.darker_gray, null)
-    )
-  }
-
   private fun onVenueSelected(venueItem: IndoorBuildingInfo) {
     // Use shared ViewModel to select venue and show floor selector
 //        sharedViewModel.selectVenueAndShowFloorSelector(venueItem.venueId)
@@ -203,27 +212,10 @@ class VenueScreenFragment : Fragment() {
 
   fun updateVenues(venues: List<VenueInfo>) {
     venueAdapter?.updateVenues(venues)
-//        setupPaginationIndicatorsForVenues(venues.size)
   }
 
   fun updateBuilding(buildings: List<IndoorBuildingInfo>) {
     venueAdapter?.updateBuilding(buildings)
-    setupPaginationIndicatorsForVenues(buildings.size)
-  }
-
-  private fun setupPaginationIndicatorsForVenues(venueCount: Int) {
-    paginationIndicators.removeAllViews()
-
-    for (i in 0 until venueCount) {
-      val indicator = View(requireContext())
-      val size = 24 // 6dp in pixels
-      val layoutParams = LinearLayout.LayoutParams(size, size)
-      layoutParams.setMargins(8, 0, 8, 0) // 2dp margin
-      indicator.layoutParams = layoutParams
-      indicator.background = resources.getDrawable(R.drawable.indicator_background, null)
-      indicator.backgroundTintList = ColorStateList.valueOf(resources.getColor(android.R.color.darker_gray, null))
-      paginationIndicators.addView(indicator)
-    }
   }
 
 }

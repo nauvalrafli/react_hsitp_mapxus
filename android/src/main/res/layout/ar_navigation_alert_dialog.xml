@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto"
+  android:layout_width="match_parent"
+  android:layout_height="wrap_content"
+  android:layout_margin="32dp"
+  app:cardCornerRadius="34dp"
+  app:cardElevation="8dp"
+  android:background="@android:color/white">
+
+  <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp"
+    android:gravity="center_horizontal">
+
+    <!-- GIF Image -->
+    <ImageView
+      android:id="@+id/arrive_gif"
+      android:layout_width="100dp"
+      android:layout_height="100dp"
+      android:src="@drawable/arrive_at_destination_gif"
+      android:scaleType="fitCenter"
+      android:background="@android:color/transparent" />
+
+    <View
+      android:layout_width="match_parent"
+      android:layout_height="16dp" />
+
+    <!-- Title -->
+    <TextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="Floor is changing."
+      android:textSize="22sp"
+      android:textStyle="bold"
+      android:textColor="@android:color/black"
+      android:gravity="center"
+      android:textAlignment="center" />
+
+    <!-- Subtitle -->
+    <TextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="Have you arrived at the next floor?"
+      android:textSize="16sp"
+      android:textColor="@android:color/black"
+      android:gravity="center"
+      android:textAlignment="center"
+      android:layout_marginTop="4dp" />
+
+    <View
+      android:layout_width="match_parent"
+      android:layout_height="20dp" />
+
+    <!-- Buttons Row -->
+    <LinearLayout
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:orientation="horizontal"
+      android:gravity="center">
+
+      <!-- Go Previous Button -->
+      <TextView
+        android:id="@+id/ar_navigation_alert_dialog_go_previous_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="↺ Go previous"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="@color/primary_blue"
+        android:padding="12dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center" />
+
+      <View
+        android:layout_width="16dp"
+        android:layout_height="1dp" />
+
+      <!-- Finished Button -->
+      <TextView
+        android:id="@+id/ar_navigation_alert_dialog_correct_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="✓ Yes, I have"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="@color/primary_blue"
+        android:padding="12dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center" />
+
+    </LinearLayout>
+
+  </LinearLayout>
+
+</androidx.cardview.widget.CardView>

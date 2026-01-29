@@ -5,7 +5,10 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@android:color/white"
-    android:padding="16dp">
+    android:minHeight="200dp"
+    android:padding="16dp"
+    android:animateLayoutChanges="false"
+    >
 
     <!-- Title Section -->
     <LinearLayout
@@ -39,13 +42,15 @@
         android:layout_height="16dp" />
 
     <!-- Venue Carousel -->
-    <androidx.viewpager2.widget.ViewPager2
-        android:id="@+id/venue_pager"
-        android:background="@drawable/outlined_rounded"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/venue_recycler"
         android:layout_width="match_parent"
-        android:layout_height="120dp" />
+        android:layout_height="120dp"
+        android:overScrollMode="never"
+        android:orientation="horizontal"
+        android:nestedScrollingEnabled="true" />
 
-    <!-- Pagination Indicators -->
+  <!-- Pagination Indicators -->
     <LinearLayout
         android:id="@+id/pagination_indicators"
         android:layout_width="match_parent"

@@ -12,6 +12,7 @@ export const CustomLocale = {
 
 export interface MapxusButtonWrapperNativeProps extends ViewProps {
   customLocale: string;
+  name?: string;
 }
 
 export default codegenNativeComponent<MapxusButtonWrapperNativeProps>(

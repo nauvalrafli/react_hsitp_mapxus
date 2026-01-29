@@ -16,6 +16,7 @@ class MapxusButtonWrapperView(context: ThemedReactContext) : ReactViewGroup(cont
 
   private var lastClick = 0L
   var locale = Locale.getDefault()
+  var name = ""
 
   init {
     isClickable = true
@@ -58,6 +59,7 @@ class MapxusButtonWrapperView(context: ThemedReactContext) : ReactViewGroup(cont
     val intent = Intent(context, XmlActivity::class.java)
     intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
     intent.putExtra("locale", locale)
+    if(name.isNotEmpty()) intent.putExtra("name", name)
     context.startActivity(intent)
   }
 

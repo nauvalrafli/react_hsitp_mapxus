@@ -4,4 +4,5 @@ import java.util.Locale
 
 object MapxusUtility {
     var selectedLocale = Locale.getDefault()
+    var name = ""
 }

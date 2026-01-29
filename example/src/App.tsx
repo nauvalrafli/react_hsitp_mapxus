@@ -3,8 +3,7 @@ import { CustomLocale, MapxusButtonWrapperView, MapxusHsitpView } from 'react-na
 import { PermissionsAndroid, Platform, Alert } from 'react-native';
 import { useEffect, useRef } from 'react';
 import {
-  createStaticNavigation,
-  useNavigation,
+  NavigationContainer,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
@@ -36,16 +35,18 @@ async function requestLocationPermissions() {
 }
 
 function HomeScreen() {
-  const navigation = useNavigation();
+  // typed navigation omitted for brevity in example app
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const navigation: any = null;
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
       <Text>Home Screen</Text>
       <Button
         title="Go to Broken Screen"
-        onPress={() => navigation.navigate('Broken' as never)}
+        onPress={() => (navigation as any)?.navigate?.('Broken')}
       />
 
-      <MapxusButtonWrapperView customLocale={CustomLocale.ZH_TW}>
+      <MapxusButtonWrapperView name="My Name" customLocale={CustomLocale.ZH_TW}>
         <Text>Open Map</Text>
       </MapxusButtonWrapperView>
     </View>
@@ -53,7 +54,8 @@ function HomeScreen() {
 }
 
 function BrokenScreen() {
-  const navigation = useNavigation();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const navigation: any = null;
   const ref = useRef(null);
   const localeKey = 'en-US';
 
@@ -74,27 +76,27 @@ function BrokenScreen() {
       />
       <Button
         title="Go to Home Screen"
-        onPress={() => navigation.navigate('Home' as never)}
+        onPress={() => (navigation as any)?.navigate?.('Home')}
       />
     </View>
   );
 }
 
-const RootStack = createNativeStackNavigator({
-  screens: {
-    Home: HomeScreen,
-    Broken: BrokenScreen,
-  },
-});
-
-const Navigation = createStaticNavigation(RootStack);
+const Stack = createNativeStackNavigator();
 
 export default function App() {
   useEffect(() => {
     requestLocationPermissions();
   }, []);
 
-  return <Navigation />;
+  return (
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName="Home">
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Broken" component={BrokenScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
   // return (
   //   <View style={styles.container}>
   //     <MapxusHsitpView color="#32a852" style={styles.box} />
