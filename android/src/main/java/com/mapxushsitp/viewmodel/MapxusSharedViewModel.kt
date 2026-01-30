@@ -265,6 +265,20 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
         Preference.editVehicle(value)
     }
 
+    // Adsorber dialog threshold (meters). Modifiable from PrepareNavigationFragment.
+    // Range: 5.0..25.0, step: 0.5
+    private val _adsorberDistance = MutableLiveData<Double>(10.0)
+    val adsorberDistance: LiveData<Double> = _adsorberDistance
+
+    fun setAdsorberDistance(value: Double) {
+      val clamped = value.coerceIn(5.0, 25.0)
+      // round to nearest 0.5
+      val stepped = (Math.round(clamped * 2) / 2.0)
+      _adsorberDistance.value = stepped
+      Log.d("MapxusSharedVM", "adsorberDistance set to $stepped")
+      // update existing routeAdsorber behavior if needed (no-op for now)
+    }
+
     var lastUpdateTime = 0L
     var lastUpdateBuilding = ""
     var counter = 0
@@ -711,6 +725,7 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                 if(isNavigating && (instructionList.value ?: listOf()).isNotEmpty()) {
                     routeShortener = RouteShortener(NavigationPathDto(p0.routeResponseDto.paths.get(0)), p0.routeResponseDto.paths.get(0), p0.routeResponseDto.paths.get(0).indoorPoints)
                     routeAdsorber = RouteAdsorber(NavigationPathDto(p0.routeResponseDto.paths.get(0)), 55.0)
+                    Log.d("MapxusSharedVM", "created routeAdsorber=${routeAdsorber?.hashCode()} adsorberDistance=${_adsorberDistance.value}")
                     routeAdsorber?.setOnDriftsNumberExceededListener(object : RouteAdsorber.OnDriftsNumberExceededListener {
                       override fun onExceeded() {
                         if (!shouldShowDialog()) return
@@ -922,12 +937,15 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
 
             mapxusPositioningProvider.dispatchIndoorLocationChange(indoorLocation)
 
-            if(routeAdsorber != null) {
+                if(routeAdsorber != null) {
               routeAdsorber?.calculateTheAdsorptionLocation(indoorLocation, {
                 if(it == null) return@calculateTheAdsorptionLocation
                 val distance = distanceInMeters(indoorLocation.latitude, indoorLocation.longitude, it.latitude, it.longitude)
-                Log.d("Difference ${routeAdsorber}", distance.toString())
-                if(distance >= 10.0) {
+                val threshold = _adsorberDistance.value ?: 10.0
+                Log.d("MapxusSharedVM", "routeAdsorber=${routeAdsorber?.hashCode()} user=(%f,%f) ads=(%f,%f) dist=%.2f threshold=%.2f".format(
+                  indoorLocation.latitude, indoorLocation.longitude, it.latitude, it.longitude, distance, threshold
+                ))
+                if(distance >= threshold) {
                   if (!shouldShowDialog()) return@calculateTheAdsorptionLocation
                   val dialog = AlertDialog.Builder(getDialogContext())
                   dialog.apply {

@@ -37,6 +37,8 @@ class PrepareNavigationFragment : Fragment() {
     private lateinit var escalatorOnlyChip: TextView
     private lateinit var showRouteButton: Button
     private lateinit var startNavigationButton: Button
+    private lateinit var adsorberSeekBar: android.widget.SeekBar
+    private lateinit var adsorberValue: TextView
 
     private var selectedRouteType : String = RoutePlanningVehicle.FOOT
     private var selectedStartPoint = ""
@@ -69,6 +71,8 @@ class PrepareNavigationFragment : Fragment() {
         escalatorOnlyChip = view.findViewById(R.id.escalator_only_chip)
         showRouteButton = view.findViewById(R.id.show_route_button)
         startNavigationButton = view.findViewById(R.id.start_navigation_button)
+        adsorberSeekBar = view.findViewById(R.id.adsorber_seekbar)
+        adsorberValue = view.findViewById(R.id.adsorber_value)
         chips = listOf(shortestWalkChip, liftOnlyChip, escalatorOnlyChip)
 
         if(sharedViewModel.selectedStartText.isNotEmpty()) {
@@ -87,6 +91,24 @@ class PrepareNavigationFragment : Fragment() {
                 selectChip(escalatorOnlyChip)
             }
         }
+        // initialize adsorber seekbar: range 5.0..25.0 with step 0.5 -> seekbar max 40
+        val initial = sharedViewModel.adsorberDistance.value ?: 10.0
+        val progress = ((initial - 5.0) * 2).toInt().coerceIn(0,40)
+        adsorberSeekBar.max = 40
+        adsorberSeekBar.progress = progress
+        adsorberValue.text = String.format("%.1f", 5.0 + progress * 0.5)
+        adsorberSeekBar.setOnSeekBarChangeListener(object: android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: android.widget.SeekBar?, p: Int, fromUser: Boolean) {
+                val v = 5.0 + p * 0.5
+                adsorberValue.text = String.format("%.1f", v)
+                if (fromUser) {
+                    sharedViewModel.setAdsorberDistance(v)
+                }
+            }
+
+            override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
+        })
     }
 
     override fun onResume() {
