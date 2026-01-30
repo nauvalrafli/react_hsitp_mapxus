@@ -6,9 +6,12 @@ import android.content.SharedPreferences
 import android.location.Location
 import android.os.Build
 import android.util.Log
+import android.view.ContextThemeWrapper
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
+import androidx.compose.material.AlertDialog
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
@@ -17,6 +20,7 @@ import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.mapxus.map.mapxusmap.api.map.FollowUserMode
 import com.mapxus.map.mapxusmap.api.map.MapViewProvider
 import com.mapxus.map.mapxusmap.api.map.MapxusMap
@@ -93,6 +97,32 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
 
     var context: Context = getApplication<Application>()
     var navController : NavController? = null
+
+    private fun getDialogContext(): Context {
+        val mapViewContext = _mapView.value?.context
+        return mapViewContext ?: ContextThemeWrapper(context, R.style.MapxusHsitpTheme)
+    }
+
+    private var isShowingDialog = false
+    private var lastDialogShown: Long = 0
+    private val DIALOG_DEBOUNCE_MS = 30000L // 30 seconds
+
+    private fun shouldShowDialog(): Boolean {
+        val now = System.currentTimeMillis()
+        return if (isShowingDialog) {
+            false
+        } else if (now - lastDialogShown < DIALOG_DEBOUNCE_MS) {
+            false
+        } else {
+            lastDialogShown = now
+            isShowingDialog = true
+            true
+        }
+    }
+
+    private fun onDialogDismissed() {
+        isShowingDialog = false
+    }
 
     // Map-related data
     private val _mapView = MutableLiveData<MapView?>()
@@ -591,9 +621,9 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
         override fun onPathChange(pathDto: PathDto?) {
             try {
                 if(pathDto != null) {
-                    if(routePainter == null) {
-                        routePainter = RoutePainter(context, maplibreMap, mapxusMap)
-                    }
+//                    if(routePainter == null) {
+//                        routePainter = RoutePainter(context, maplibreMap, mapxusMap)
+//                    }
                     if(pathDto.instructions[0].distance <= 1 && instructionIndex.value == instructionList.value?.size?.minus(pathDto.instructions.size)) {
                         nextStep()
                         return;
@@ -620,7 +650,7 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                             RoutePlanningPoint(start.lon, start.lat, start.floorId),
                             RoutePlanningPoint(selectedPoi.value?.location?.lon ?: 0.0, selectedPoi.value?.location?.lat  ?: 0.0, selectedPoi.value?.floorId)
                         )
-                        routePainter?.paintRouteUsingResult(pathDto!!, pathDto!!.indoorPoints,false)
+//                        routePainter?.paintRouteUsingResult(pathDto!!, pathDto!!.indoorPoints,false)
 //                                        routePainter?.paintRouteUsingResult( p0.routeResponseDto, isAutoZoom = false)
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -680,7 +710,34 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
 
                 if(isNavigating && (instructionList.value ?: listOf()).isNotEmpty()) {
                     routeShortener = RouteShortener(NavigationPathDto(p0.routeResponseDto.paths.get(0)), p0.routeResponseDto.paths.get(0), p0.routeResponseDto.paths.get(0).indoorPoints)
-                    routeAdsorber = RouteAdsorber(NavigationPathDto(p0.routeResponseDto.paths.get(0)))
+                    routeAdsorber = RouteAdsorber(NavigationPathDto(p0.routeResponseDto.paths.get(0)), 55.0)
+                    routeAdsorber?.setOnDriftsNumberExceededListener(object : RouteAdsorber.OnDriftsNumberExceededListener {
+                      override fun onExceeded() {
+                        if (!shouldShowDialog()) return
+                        val dialog = AlertDialog.Builder(getDialogContext())
+                        dialog.apply {
+                          setTitle("You’re off the route")
+                          setMessage("It looks like you’ve moved away from the suggested path. Would you like to return to the original route or restart navigation from your current location?")
+                          setPositiveButton("Restart Navigation") { _, _ ->
+                            onDialogDismissed()
+                            startLatLng = RoutePlanningPoint(
+                              userLocation?.longitude ?: 0.0,
+                              userLocation?.latitude ?: 0.0,
+                              userLocation?.mapxusFloor?.id
+                            )
+                            requestRoutePlanning(true, selectedVehicle)
+                          }
+                          setNegativeButton("Back to original route") { _, _ ->
+                            onDialogDismissed()
+                          }
+                          setOnDismissListener {
+                            onDialogDismissed()
+                          }
+                          show()
+                        }
+                      }
+
+                    })
                     routeShortener?.setOnPathChangeListener(shortenerListener)
                 }
                 _isLoadingroute.value = false
@@ -701,14 +758,13 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                 if(routePainter == null) {
                     routePainter = RoutePainter(context, maplibreMap, mapxusMap)
                 }
-                routePainter?.paintRouteUsingResult(p0.routeResponseDto.paths.get(0), p0.routeResponseDto.paths.get(0).indoorPoints, isAutoZoom = false)
-                routePainter?.setRoutePainterResource(RoutePainterResource().setHiddenTranslucentPaths(true).setIndoorLineColor(android.graphics.Color.BLUE));
+//                routePainter?.paintRouteUsingResult(p0.routeResponseDto.paths.get(0), p0.routeResponseDto.paths.get(0).indoorPoints, isAutoZoom = false)
+//                routePainter?.setRoutePainterResource(RoutePainterResource().setHiddenTranslucentPaths(true).setIndoorLineColor(android.graphics.Color.BLUE));
 
                 if(p0.routeResponseDto.paths[0].indoorPoints[0].floorId != null && _currentFloor.value != p0.routeResponseDto.paths[0].indoorPoints[0].floorId) {
                     mapxusMap?.selectFloorById(p0.routeResponseDto.paths[0].indoorPoints[0].floorId ?: "")
                 }
 
-                routeAdsorber = RouteAdsorber(NavigationPathDto(p0.routeResponseDto.paths[0]), 2.0, 3)
                 routeShortener = RouteShortener(NavigationPathDto(p0.routeResponseDto.paths[0]), p0.routeResponseDto.paths[0], p0.routeResponseDto.paths[0].indoorPoints)
                 routeShortener?.setOnPathChangeListener(shortenerListener)
                 try {
@@ -837,6 +893,7 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
 
     private suspend fun onLocationFlowUpdated(mapxusLocation: MapxusLocation) {
         userLocation = mapxusLocation
+        Log.d("User Location", userLocation.toString())
 
         val location = Location("MapxusPositioning").apply {
             latitude = mapxusLocation.latitude
@@ -863,25 +920,40 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                 mapxusMap?.selectFloorById(mapxusLocation.mapxusFloor!!.id)
             }
 
+            mapxusPositioningProvider.dispatchIndoorLocationChange(indoorLocation)
+
             if(routeAdsorber != null) {
-                val newLocation = withContext(Dispatchers.Default) {
-                    routeAdsorber?.calculateTheAdsorptionLocation(indoorLocation)
-                        ?: indoorLocation
-                }
-                if (indoorLocation.latitude != newLocation?.latitude || indoorLocation.longitude != newLocation?.longitude) {
-                    indoorLocation.latitude = newLocation?.latitude ?: indoorLocation.latitude
-                    indoorLocation.longitude = newLocation?.longitude ?: indoorLocation.longitude
-                }
-                mapxusPositioningProvider.dispatchIndoorLocationChange(indoorLocation)
-                if (routeShortener != null) {
-                    try {
-                        routeShortener?.cutFromTheLocationProjection(indoorLocation, maplibreMap)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+              routeAdsorber?.calculateTheAdsorptionLocation(indoorLocation, {
+                if(it == null) return@calculateTheAdsorptionLocation
+                val distance = distanceInMeters(indoorLocation.latitude, indoorLocation.longitude, it.latitude, it.longitude)
+                Log.d("Difference ${routeAdsorber}", distance.toString())
+                if(distance >= 10.0) {
+                  if (!shouldShowDialog()) return@calculateTheAdsorptionLocation
+                  val dialog = AlertDialog.Builder(getDialogContext())
+                  dialog.apply {
+                    setTitle("You’re off the route")
+                    setMessage("It looks like you’ve moved away from the suggested path. Would you like to return to the original route or restart navigation from your current location?")
+                    setPositiveButton("Restart Navigation") { _, _ ->
+                      onDialogDismissed()
+                      startLatLng = RoutePlanningPoint(
+                        userLocation?.longitude ?: 0.0,
+                        userLocation?.latitude ?: 0.0,
+                        userLocation?.mapxusFloor?.id
+                      )
+                      routeAdsorber?.stopAdsorption()
+                      endNavigation()
+                      requestRoutePlanning(true, selectedVehicle)
                     }
+                    setNegativeButton("Back to original route") { _, _ ->
+                      onDialogDismissed()
+                    }
+                    setOnDismissListener {
+                      onDialogDismissed()
+                    }
+                    show()
+                  }
                 }
-            } else {
-                mapxusPositioningProvider.dispatchIndoorLocationChange(indoorLocation)
+              })
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -903,6 +975,15 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
 
             else -> {}
         }
+    }
+
+    fun distanceInMeters(
+      lat1: Double, lon1: Double,
+      lat2: Double, lon2: Double
+    ): Float {
+      val result = FloatArray(1)
+      Location.distanceBetween(lat1, lon1, lat2, lon2, result)
+      return result[0]
     }
 
     override fun onBearingChange(bearing: Float) {

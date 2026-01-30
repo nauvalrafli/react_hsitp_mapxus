@@ -179,6 +179,9 @@ class PrepareNavigationFragment : Fragment() {
                     )
                     showRouteTypeSection()
                     sharedViewModel.selectedStartText = "Current Location"
+                    sharedViewModel.bottomSheet?.postDelayed({
+                      sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+                    }, 200)
                 }
                 "Select Location from Map" -> {
                     findNavController().navigate(R.id.action_prepareNavigation_to_positionMark)
