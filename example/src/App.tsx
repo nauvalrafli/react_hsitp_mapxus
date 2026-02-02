@@ -41,13 +41,13 @@ function HomeScreen() {
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
       <Text>Home Screen</Text>
-      <Button
-        title="Go to Broken Screen"
-        onPress={() => (navigation as any)?.navigate?.('Broken')}
-      />
 
       <MapxusButtonWrapperView name="My Name" customLocale={CustomLocale.ZH_TW}>
-        <Text>Open Map</Text>
+        <Text 
+          style={{ marginTop: 20, padding: 10, backgroundColor: '#007AFF', borderRadius: 5, color: 'white' }}
+        >
+          Go to Map
+        </Text>
       </MapxusButtonWrapperView>
     </View>
   );
