@@ -29,6 +29,8 @@
     "build:js": "bob build --target module",
     "obfuscate": "javascript-obfuscator lib/module --output lib/module --config obfuscator.config.js",
     "build:production": "yarn build && yarn clean:source-maps",
+    "build:apk": "cd example/android && ./gradlew clean assembleRelease && cd ../../ && echo '✅ APK built at: example/android/app/build/outputs/apk/release/app-release.apk'",
+    "build:apk:copy": "cd example/android && ./gradlew clean assembleRelease && cd ../../ && cp example/android/app/build/outputs/apk/release/app-release.apk ./ && echo '✅ APK copied to root: ./app-release.apk'",
     "clean:source-maps": "del-cli lib/**/*.map",
     "example": "yarn workspace react-native-mapxus-hsitp-example",
     "test": "jest",
