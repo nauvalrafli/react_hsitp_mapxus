@@ -19,26 +19,29 @@
             android:gravity="center_vertical">
 
             <ImageButton
-                android:id="@+id/back_button"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:src="@drawable/ic_arrow_back"
-                app:tint="@color/black"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Back" />
-
+              android:id="@+id/back_button"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:src="@drawable/ic_arrow_back"
+              android:backgroundTint="@color/white"
+              app:tint="@color/black"
+              />
             <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Navigation"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:gravity="center" />
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:text="@string/category_washroom"
+              android:textSize="20sp"
+              android:textStyle="bold" />
 
-            <View
-                android:layout_width="48dp"
-                android:layout_height="1dp" />
+            <ImageButton
+              android:id="@+id/refresh_button"
+              android:layout_width="48dp"
+              android:layout_height="48dp"
+              android:src="@drawable/refresh_24dp_000000_fill0_wght400_grad0_opsz24"
+              android:background="?attr/selectableItemBackgroundBorderless"
+              android:contentDescription="Refresh"
+              />
 
         </LinearLayout>
 

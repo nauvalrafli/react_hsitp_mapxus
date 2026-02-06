@@ -84,6 +84,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -238,7 +239,17 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
     var routeAdsorber: RouteAdsorber? = null
     var routeShortener: RouteShortener? = null
 
-    private val _instructionList = MutableLiveData<List<InstructionDto>>(listOf<InstructionDto>())
+    // SharedFlow to request the Activity to show/hide the AR fragment. Replay=1 so collectors get last state immediately.
+    private val _arVisibility = MutableSharedFlow<Boolean>(replay = 1)
+    val arVisibility = _arVisibility.asSharedFlow()
+
+    fun requestArVisibility(show: Boolean) {
+      viewModelScope.launch {
+        _arVisibility.emit(show)
+      }
+    }
+
+  private val _instructionList = MutableLiveData<List<InstructionDto>>(listOf<InstructionDto>())
     val instructionList: LiveData<List<InstructionDto>> = _instructionList
     private val _instructionPointList = MutableLiveData<List<IndoorLatLng>>(listOf())
     val instructionPointList: LiveData<List<IndoorLatLng>> = _instructionPointList
@@ -301,7 +312,6 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
             mapxusPositioningClient.start()
 
             locationFlow
-                .conflate()
                 .collect {
                     onLocationFlowUpdated(it)
                     if(counter < 2) {
@@ -740,7 +750,16 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                               userLocation?.latitude ?: 0.0,
                               userLocation?.mapxusFloor?.id
                             )
-                            requestRoutePlanning(true, selectedVehicle)
+                            routeAdsorber?.stopAdsorption()
+                            routeAdsorber = null
+                            endNavigation()
+
+                            // Request the Activity to hide AR fragment
+                            requestArVisibility(false)
+
+                            requestRoutePlanning(true, selectedVehicle) {
+                              requestArVisibility(true)
+                            }
                           }
                           setNegativeButton("Back to original route") { _, _ ->
                             onDialogDismissed()
@@ -950,8 +969,8 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                   val dialog = AlertDialog.Builder(getDialogContext())
                   dialog.apply {
                     setTitle("You’re off the route")
-                    setMessage("It looks like you’ve moved away from the suggested path. Would you like to return to the original route or restart navigation from your current location?")
-                    setPositiveButton("Restart Navigation") { _, _ ->
+                    setMessage("Do you want to start navigation with current location?")
+                    setPositiveButton("Yes") { _, _ ->
                       onDialogDismissed()
                       startLatLng = RoutePlanningPoint(
                         userLocation?.longitude ?: 0.0,
@@ -959,10 +978,11 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                         userLocation?.mapxusFloor?.id
                       )
                       routeAdsorber?.stopAdsorption()
+                      routeAdsorber = null
                       endNavigation()
                       requestRoutePlanning(true, selectedVehicle)
                     }
-                    setNegativeButton("Back to original route") { _, _ ->
+                    setNegativeButton("No") { _, _ ->
                       onDialogDismissed()
                     }
                     setOnDismissListener {

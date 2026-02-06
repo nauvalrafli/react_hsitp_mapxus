@@ -256,6 +256,20 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     onBackPressedDispatcher.addCallback(this, navigationBackCallbackOnFinishedAlertDialog)
     // Debug: Check if it's actually enabled
     Log.d("EndARContainer", "Callback registered. Enabled: ${navigationBackCallbackOnFinishedAlertDialog.isEnabled}")
+
+
+    lifecycleScope.launch {
+      mapxusSharedViewModel.arVisibility.collect {
+        val isARActive = arNavigationViewModel.isShowingAndClosingARNavigation.value
+        if(!mapxusSharedViewModel.isNavigating || !isARActive || mapxusSharedViewModel.instructionList.value == null) return@collect
+        arNavigationViewModel.isShowingAndClosingARNavigation.value = !isARActive
+        if(!it) {
+          hideARFragment()
+        } else {
+          showARFragment()
+        }
+      }
+    }
   }
 
   fun setupMap() {
@@ -863,7 +877,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     val startLocationSerializable = SerializableRoutePoint(
       mapxusSharedViewModel.startLatLng?.lat ?: 0.0,
       mapxusSharedViewModel.startLatLng?.lon ?: 0.0,
-      mapxusSharedViewModel.startLatLng?.floorId ?: ""
+      mapxusSharedViewModel.startLatLng?.floorId ?: mapxusSharedViewModel.selectedPoi.value?.sharedFloorId ?: ""
     )
     val destinationLocationSerializable = SerializableRoutePoint(
       mapxusSharedViewModel.selectedPoi.value?.location?.lat ?: 0.0,
@@ -892,11 +906,11 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     }
 
     val instructionPointSerializable = instructionPointList.map {
-      it.floorId?.let { it1 -> SerializableRoutePoint(it.lat, it.lon, it1) }
+      it.floorId.let { it1 -> SerializableRoutePoint(it.lat, it.lon, it1 ?: mapxusSharedViewModel.selectedBuilding.value?.floors?.firstOrNull { floor -> floor.ordinal == 0 }?.id ?: "") }
     }
 
     val secondInstructionPointSerializable = instructionPointList.map {
-      it.floorId?.let { it1 -> ParcelizeRoutePoint(it.lat, it.lon, it1) }
+      it.floorId.let { it1 -> ParcelizeRoutePoint(it.lat, it.lon, it1 ?: mapxusSharedViewModel.selectedBuilding.value?.floors?.firstOrNull { floor -> floor.ordinal == 0 }?.id ?: "") }
     }
 
     val fm = supportFragmentManager
