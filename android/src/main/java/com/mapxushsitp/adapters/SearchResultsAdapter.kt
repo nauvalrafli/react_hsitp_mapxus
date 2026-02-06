@@ -19,7 +19,7 @@ class SearchResultsAdapter(
     private val onItemClick: (PoiInfo) -> Unit
 ) : RecyclerView.Adapter<SearchResultsAdapter.SearchResultViewHolder>() {
 
-    private var searchResults = listOf<PoiInfo>()
+    private var searchResults: MutableList<PoiInfo> = mutableListOf()
     var buildings = listOf<IndoorBuildingInfo>()
 
     init {
@@ -32,8 +32,16 @@ class SearchResultsAdapter(
     }
 
     fun updateResults(results: List<PoiInfo>) {
-        searchResults = results
+        searchResults = results.toMutableList()
         notifyDataSetChanged()
+    }
+
+    // Append results (used for paginated next pages)
+    fun addResults(results: List<PoiInfo>) {
+      if (results.isEmpty()) return
+      val start = searchResults.size
+      searchResults.addAll(results)
+      notifyItemRangeInserted(start, results.size)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SearchResultViewHolder {
@@ -57,6 +65,16 @@ class SearchResultsAdapter(
 
         fun bind(result: PoiInfo) {
             title.text = result.nameMap?.getTranslation(locale = locale) ?: ""
+            // Choose icon based on common types (fallback to map icon)
+            val poiName = result.nameMap?.getTranslation(locale) ?: ""
+            val iconRes = when {
+              poiName.contains("Male Toilet", ignoreCase = true) -> R.drawable.ic_male
+              poiName.contains("Female Toilet", ignoreCase = true) -> R.drawable.ic_female
+              poiName.contains("Accessible Toilet", ignoreCase = true) -> R.drawable.ic_accessible
+              else -> R.drawable.ic_map
+            }
+            icon.setImageResource(iconRes)
+
             val buildingName = buildings.firstOrNull { result.buildingId == it.buildingId }
                 ?.buildingNamesMap?.getTranslation(locale) ?: ""
             subtitle.text = if (buildingName.isNotEmpty()) {

@@ -651,14 +651,6 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
                     if(pathDto.instructions[0].distance <= 1 && instructionIndex.value == instructionList.value?.size?.minus(pathDto.instructions.size)) {
                         nextStep()
                         return;
-                    } else if((_instructionList.value ?: listOf()).size >= pathDto.instructions.size) {
-                        val value = _instructionList.value?.size?.minus(pathDto.instructions.size)
-                        if(_instructionIndex.value != value) {
-                            _instructionIndex.value = value
-                            updateRoutePlanning()
-                            updateNavigationText(pathDto.instructions[0]?.text ?: "", pathDto.instructions[0].distance?.toMeterText(
-                                Locale.getDefault()) ?: "", pathDto.instructions.map { it.distance }.reduce { a,b -> a + b } ?: 0.0, pathDto.instructions[0].sign)
-                        }
                     }
                     //prevent auto zoom everytime
                     if(pathDto.indoorPoints[(_instructionIndex.value ?: 0)].floorId != null && mapxusMap?.selectedFloor?.id != pathDto.indoorPoints[(_instructionIndex.value ?: 0)].floorId) {
@@ -957,48 +949,151 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
             mapxusPositioningProvider.dispatchIndoorLocationChange(indoorLocation)
 
                 if(routeAdsorber != null) {
-              routeAdsorber?.calculateTheAdsorptionLocation(indoorLocation, {
-                if(it == null) return@calculateTheAdsorptionLocation
-                val distance = distanceInMeters(indoorLocation.latitude, indoorLocation.longitude, it.latitude, it.longitude)
-                val threshold = _adsorberDistance.value ?: 10.0
-                Log.d("MapxusSharedVM", "routeAdsorber=${routeAdsorber?.hashCode()} user=(%f,%f) ads=(%f,%f) dist=%.2f threshold=%.2f".format(
-                  indoorLocation.latitude, indoorLocation.longitude, it.latitude, it.longitude, distance, threshold
-                ))
-                if(distance >= threshold) {
-                  if (!shouldShowDialog()) return@calculateTheAdsorptionLocation
-                  val dialog = AlertDialog.Builder(getDialogContext())
-                  dialog.apply {
-                    setTitle("You’re off the route")
-                    setMessage("Do you want to start navigation with current location?")
-                    setPositiveButton("Yes") { _, _ ->
-                      onDialogDismissed()
-                      startLatLng = RoutePlanningPoint(
-                        userLocation?.longitude ?: 0.0,
-                        userLocation?.latitude ?: 0.0,
-                        userLocation?.mapxusFloor?.id
-                      )
-                      routeAdsorber?.stopAdsorption()
-                      routeAdsorber = null
-                      endNavigation()
-                      requestRoutePlanning(true, selectedVehicle)
+                  routeAdsorber?.calculateTheAdsorptionLocation(indoorLocation, {
+                    if(it == null) return@calculateTheAdsorptionLocation
+                    val distance = distanceInMeters(indoorLocation.latitude, indoorLocation.longitude, it.latitude, it.longitude)
+                    val threshold = _adsorberDistance.value ?: 10.0
+                    Log.d("MapxusSharedVM", "routeAdsorber=${routeAdsorber?.hashCode()} user=(%f,%f) ads=(%f,%f) dist=%.2f threshold=%.2f".format(
+                      indoorLocation.latitude, indoorLocation.longitude, it.latitude, it.longitude, distance, threshold
+                    ))
+                    if(distance >= threshold) {
+                      if (!shouldShowDialog()) return@calculateTheAdsorptionLocation
+                      val dialog = AlertDialog.Builder(getDialogContext())
+                      dialog.apply {
+                        setTitle("You’re off the route")
+                        setMessage("Do you want to start navigation with current location?")
+                        setPositiveButton("Yes") { _, _ ->
+                          onDialogDismissed()
+                          startLatLng = RoutePlanningPoint(
+                            userLocation?.longitude ?: 0.0,
+                            userLocation?.latitude ?: 0.0,
+                            userLocation?.mapxusFloor?.id
+                          )
+                          routeAdsorber?.stopAdsorption()
+                          routeAdsorber = null
+                          endNavigation()
+                          requestRoutePlanning(true, selectedVehicle)
+                        }
+                        setNegativeButton("No") { _, _ ->
+                          onDialogDismissed()
+                        }
+                        setOnDismissListener {
+                          onDialogDismissed()
+                        }
+                        show()
+                      }
                     }
-                    setNegativeButton("No") { _, _ ->
-                      onDialogDismissed()
-                    }
-                    setOnDismissListener {
-                      onDialogDismissed()
-                    }
-                    show()
-                  }
+                  })
                 }
-              })
-            }
+            maybeAdjustInstructionIndexByProximity(mapxusLocation)
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
-    override fun onStateChange(positionerState: PositioningState) {
+    // --- Auto-indexing by proximity helpers ---
+    private val AUTO_ADVANCE_DISTANCE_METERS = 2.0f
+    private val AUTO_REGRESS_DISTANCE_METERS = 5.0f
+    private val INSTRUCTION_CHANGE_DEBOUNCE_MS = 2000L
+    private var lastInstructionChangeTime = 0L
+
+    private fun getInstructionTargetPoint(index: Int) = instructionList.value?.getOrNull(index)?.indoorPoints?.firstOrNull()
+
+    private fun distanceToInstructionIndex(mapxusLocation: MapxusLocation, index: Int): Double? {
+      val pt = getInstructionTargetPoint(index) ?: return null
+      return distanceInMeters(mapxusLocation.latitude, mapxusLocation.longitude, pt.lat, pt.lon).toDouble()
+    }
+
+    /**
+     * Decide whether to advance/regress the instruction index based on proximity to next/previous
+     * instruction points. This is floor-aware: it won't switch to an instruction on a different
+     * floor than the user's current floor.
+     */
+    private suspend fun maybeAdjustInstructionIndexByProximity(mapxusLocation: MapxusLocation) {
+      try {
+        if (!isNavigating) return
+        val instrs = instructionList.value.orEmpty()
+        if (instrs.isEmpty()) return
+
+        val now = System.currentTimeMillis()
+        val curIdx = instructionIndex.value ?: 0
+        val userFloorId = mapxusLocation.mapxusFloor?.id
+
+        // helper to check floor match
+        fun sameFloor(ptFloorId: String?): Boolean {
+          if (userFloorId == null) return true // no floor info; allow
+          if (ptFloorId == null) return true
+          return ptFloorId == userFloorId
+        }
+
+        // check next
+        val nextIdx = curIdx + 1
+        if (nextIdx < instrs.size) {
+          val nextPt = instrs[nextIdx].indoorPoints?.firstOrNull()
+          if (nextPt != null && sameFloor(nextPt.floorId)) {
+            val dNext = distanceInMeters(mapxusLocation.latitude, mapxusLocation.longitude, nextPt.lat, nextPt.lon)
+            if (dNext <= AUTO_ADVANCE_DISTANCE_METERS && now - lastInstructionChangeTime >= INSTRUCTION_CHANGE_DEBOUNCE_MS) {
+              lastInstructionChangeTime = now
+              withContext(Dispatchers.Main) {
+                _instructionIndex.value = nextIdx
+                // update text for new index
+                val instr = instrs.getOrNull(nextIdx)
+                val target = instr?.indoorPoints?.firstOrNull()
+                val distToTarget = if (target != null) distanceInMeters(mapxusLocation.latitude, mapxusLocation.longitude, target.lat, target.lon).toDouble() else 0.0
+                val remaining = (instr?.distance ?: 0.0) + instrs.drop(nextIdx + 1).sumOf { it.distance ?: 0.0 }
+                // show the distance reported by the instruction list (do not recalc live)
+                val displayDist = (instr?.distance ?: 0.0).toMeterText(Locale.getDefault())
+                updateNavigationText(instr?.text ?: "", displayDist, remaining, instr?.sign ?: 0)
+              }
+              return
+            }
+          }
+        }
+
+        // check previous
+        val prevIdx = curIdx - 1
+        if (prevIdx >= 0) {
+          val prevPt = instrs[prevIdx].indoorPoints?.firstOrNull()
+          if (prevPt != null && sameFloor(prevPt.floorId)) {
+            val dPrev = distanceInMeters(mapxusLocation.latitude, mapxusLocation.longitude, prevPt.lat, prevPt.lon)
+            if (dPrev <= AUTO_REGRESS_DISTANCE_METERS && now - lastInstructionChangeTime >= INSTRUCTION_CHANGE_DEBOUNCE_MS) {
+              lastInstructionChangeTime = now
+              withContext(Dispatchers.Main) {
+                _instructionIndex.value = prevIdx
+                val instr = instrs.getOrNull(prevIdx)
+                val target = instr?.indoorPoints?.firstOrNull()
+                val distToTarget = if (target != null) distanceInMeters(mapxusLocation.latitude, mapxusLocation.longitude, target.lat, target.lon).toDouble() else 0.0
+                val remaining = (instr?.distance ?: 0.0) + instrs.drop(prevIdx + 1).sumOf { it.distance ?: 0.0 }
+                // show the distance reported by the instruction list (do not recalc live)
+                val displayDist = (instr?.distance ?: 0.0).toMeterText(Locale.getDefault())
+                updateNavigationText(instr?.text ?: "", displayDist, remaining, instr?.sign ?: 0)
+              }
+              return
+            }
+          }
+        }
+
+        // If neither neighbor caused a change, refresh navigation text for current index
+        val liveIdx = instructionIndex.value ?: 0
+        if (liveIdx in instrs.indices) {
+          val instr = instrs[liveIdx]
+          val target = instr.indoorPoints?.firstOrNull()
+          val distToTargetMeters = if (target != null) distanceInMeters(mapxusLocation.latitude, mapxusLocation.longitude, target.lat, target.lon).toDouble() else 0.0
+          val remainingDistance = distToTargetMeters + instrs.drop(liveIdx + 1).sumOf { it.distance ?: 0.0 }
+          withContext(Dispatchers.Main) {
+            // use the distance value from the instruction list for display
+            val displayDist = (instr.distance ?: 0.0).toMeterText(Locale.getDefault())
+            updateNavigationText(instr.text ?: "", displayDist, remainingDistance, instr.sign ?: 0)
+          }
+        }
+
+      } catch (e: Exception) {
+
+      }
+    }
+
+
+      override fun onStateChange(positionerState: PositioningState) {
         when (positionerState) {
             PositioningState.STOPPED -> {
                 mapxusMap?.setLocationEnabled(false)

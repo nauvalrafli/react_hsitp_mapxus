@@ -25,7 +25,16 @@
 
         <View
             android:layout_width="8dp"
-            android:layout_height="1dp" />
+            android:layout_height="1dp"
+            android:layout_weight="1"
+        />
+
+      <androidx.appcompat.widget.AppCompatCheckBox
+          android:id="@+id/checkboxAllBuilding"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="All building"
+          />
 
     </LinearLayout>
 
@@ -72,7 +81,7 @@
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/search_results_list"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
+        android:layout_height="match_parent"
         android:layout_weight="1"
         android:paddingHorizontal="20dp" />
 
@@ -80,7 +89,7 @@
     <LinearLayout
         android:id="@+id/loading_state"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:gravity="center"
         android:visibility="gone">
 
@@ -99,7 +108,7 @@
     <LinearLayout
         android:id="@+id/empty_state"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:gravity="center"
         android:visibility="gone">
 
@@ -118,7 +127,7 @@
     <LinearLayout
         android:id="@+id/not_found_state"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:gravity="center"
         android:visibility="gone">
 
