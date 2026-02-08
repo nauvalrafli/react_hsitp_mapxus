@@ -1,9 +1,9 @@
-#import <react/renderer/components/MapxusButtonWrapperViewSpec/RCTComponentViewHelpers.h>
-#import <UIKit/UIKit.h>
+#import <react/renderer/components/MapxusHsitpSpec/RCTComponentViewHelpers.h>
+#import <React/RCTViewComponentView.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface MapxusButtonWrapperView : UIView <RCTMapxusButtonWrapperViewViewProtocol>
+@interface MapxusButtonWrapperView : RCTViewComponentView <RCTMapxusButtonWrapperViewViewProtocol>
 
 @end
 

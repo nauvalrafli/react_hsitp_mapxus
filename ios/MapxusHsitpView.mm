@@ -1,9 +1,9 @@
 #import "MapxusHsitpView.h"
 
-#import <react/renderer/components/MapxusHsitpViewSpec/ComponentDescriptors.h>
-#import <react/renderer/components/MapxusHsitpViewSpec/EventEmitters.h>
-#import <react/renderer/components/MapxusHsitpViewSpec/Props.h>
-#import <react/renderer/components/MapxusHsitpViewSpec/RCTComponentViewHelpers.h>
+#import <react/renderer/components/MapxusHsitpSpec/ComponentDescriptors.h>
+#import <react/renderer/components/MapxusHsitpSpec/EventEmitters.h>
+#import <react/renderer/components/MapxusHsitpSpec/Props.h>
+#import <react/renderer/components/MapxusHsitpSpec/RCTComponentViewHelpers.h>
 
 #import "RCTFabricComponentsPlugins.h"
 

@@ -1,9 +1,11 @@
 #import "MapxusButtonWrapperView.h"
 
-#import <react/renderer/components/MapxusButtonWrapperViewSpec/ComponentDescriptors.h>
-#import <react/renderer/components/MapxusButtonWrapperViewSpec/EventEmitters.h>
-#import <react/renderer/components/MapxusButtonWrapperViewSpec/Props.h>
-#import <react/renderer/components/MapxusButtonWrapperViewSpec/RCTComponentViewHelpers.h>
+// The codegen in the example generates MapxusHsitpSpec for both components;
+// import the generated headers from that directory so includes resolve during build.
+#import <react/renderer/components/MapxusHsitpSpec/ComponentDescriptors.h>
+#import <react/renderer/components/MapxusHsitpSpec/EventEmitters.h>
+#import <react/renderer/components/MapxusHsitpSpec/Props.h>
+#import <react/renderer/components/MapxusHsitpSpec/RCTComponentViewHelpers.h>
 
 #import "RCTFabricComponentsPlugins.h"
 

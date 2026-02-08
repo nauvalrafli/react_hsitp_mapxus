@@ -30,7 +30,6 @@ class CategoryListFragment : Fragment() {
     private lateinit var closeButton: ImageButton
     private lateinit var headerTitle: TextView
     private lateinit var categoryRecycler: RecyclerView
-    private lateinit var categoryHeaderTitle: TextView
     private lateinit var loadingStateText : LinearLayout
     private lateinit var emptyStateText : LinearLayout
     private lateinit var notFoundStateText : LinearLayout
@@ -39,6 +38,16 @@ class CategoryListFragment : Fragment() {
     private var categoryAdapter: CategoryListAdapter? = null
     private var onCategorySelected: ((PoiInfo) -> Unit)? = null
     private var pendingItems: List<PoiInfo>? = null
+
+    // Pagination state
+    private var currentPage = 1
+    private val pageSize = 30
+    private var isLoading = false
+    private var isLastPage = false
+    private val accumulatedItems = mutableListOf<PoiInfo>()
+    private var isScrollListenerAdded = false
+
+
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -63,7 +72,6 @@ class CategoryListFragment : Fragment() {
         closeButton = root.findViewById(R.id.category_close_button)
         headerTitle = root.findViewById(R.id.category_header_title)
         categoryRecycler = root.findViewById(R.id.category_recycler_view)
-        categoryHeaderTitle = root.findViewById(R.id.category_header_title)
         notFoundStateText = root.findViewById(R.id.not_found_state)
         emptyStateText = root.findViewById(R.id.empty_state)
         loadingStateText = root.findViewById(R.id.loading_state)
@@ -78,7 +86,7 @@ class CategoryListFragment : Fragment() {
             else -> "General"
         }
         showEmptyState()
-        categoryHeaderTitle.setText(text)
+        headerTitle.setText(text)
     }
 
     private fun setupRecycler() {
@@ -100,7 +108,13 @@ class CategoryListFragment : Fragment() {
             adapter = categoryAdapter
         }
 
-        pendingItems?.let {
+        // Add scroll listener once for pagination
+        if (!isScrollListenerAdded) {
+          addPaginationScrollListener()
+          isScrollListenerAdded = true
+        }
+
+      pendingItems?.let {
             categoryAdapter?.submitItems(it)
             pendingItems = null
         }
@@ -108,9 +122,43 @@ class CategoryListFragment : Fragment() {
         fetchCategoryData()
     }
 
+    private fun addPaginationScrollListener() {
+      val lm = categoryRecycler.layoutManager as? LinearLayoutManager ?: return
+      categoryRecycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+        override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+          super.onScrolled(recyclerView, dx, dy)
+          if (dy <= 0) return
+          val visibleItemCount = lm.childCount
+          val totalItemCount = lm.itemCount
+          val firstVisibleItemPosition = lm.findFirstVisibleItemPosition()
+          val threshold = 5
+          if (!isLoading && !isLastPage &&
+            (visibleItemCount + firstVisibleItemPosition >= totalItemCount - threshold)
+          ) {
+            loadPage(currentPage)
+          }
+        }
+      })
+    }
+
     private fun fetchCategoryData() {
+        // reset pagination
+        currentPage = 1
+        isLastPage = false
+        isLoading = false
+        accumulatedItems.clear()
         showLoading()
-        val category = sharedViewModel.selectedCategory.takeIf { it.isNotBlank() }
+        loadPage(1)
+    }
+
+
+
+    private fun loadPage(page: Int) {
+      if (isLoading || isLastPage) return
+      isLoading = true
+      if (page == 1) showLoading()
+
+      val category = sharedViewModel.selectedCategory.takeIf { it.isNotBlank() }
         val poiSearch = PoiSearch.newInstance()
         poiSearch.searchPoiByOption(
             PoiSearchOption().apply {
@@ -120,18 +168,32 @@ class CategoryListFragment : Fragment() {
                     setExcludeCategories("facility.steps,facility.connector,facility.restroom,workplace,shopping,restaurants,transport")
                 }
                 Log.d("Mapxus Category", category.toString())
-                pageCapacity(30)
+                pageCapacity(pageSize)
+                pageNum(page)
                 sharedViewModel.selectedBuilding.value?.buildingId?.let { setBuildingId(it) }
                 sharedViewModel.selectedVenue.value?.id?.let { setVenueId(it) }
             }
         ) { result ->
             val pois = result.allPoi ?: emptyList()
-            if(pois.size > 0) {
-                renderCategories(pois)
-                showResult()
-            } else {
-                showNotFound()
+
+            if (page == 1) {
+              accumulatedItems.clear()
             }
+            accumulatedItems.addAll(pois)
+
+            if (accumulatedItems.isEmpty()) {
+              showNotFound()
+            } else {
+              categoryAdapter?.submitItems(accumulatedItems)
+              showResult()
+            }
+
+            isLastPage = pois.size < pageSize
+            isLoading = false
+            if (!isLastPage) {
+              currentPage = page + 1
+            }
+            Log.d("CategoryPagination", "Loaded page $page, items=${pois.size}, isLast=$isLastPage")
         }
     }
 
@@ -185,6 +247,10 @@ class CategoryListFragment : Fragment() {
             pendingItems = items
         } else {
             categoryAdapter?.submitItems(items)
+            accumulatedItems.clear()
+            accumulatedItems.addAll(items)
+            categoryAdapter?.submitItems(accumulatedItems)
+            isLastPage = items.size < pageSize
         }
     }
 
