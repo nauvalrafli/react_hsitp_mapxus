@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSPredicatePathsKey</key>
+	<array>
+		<string>MGL_FUNCTION</string>
+		<string>mgl_does:have:</string>
+	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need to access your Location in order to use the Navigation on the map.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>We need to access your Camera in order to show the AR navigation arrows in the building.</string>
+</dict>
+</plist>

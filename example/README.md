@@ -84,7 +84,30 @@ You've successfully run and modified your React Native App. :partying_face:
 
 # Troubleshooting
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+## iOS: "Check with the developer… works with this version of macOS"
+
+That message usually appears when the **app or Simulator crashes on launch**, and macOS suggests a compatibility issue. Try this:
+
+1. **Quit Xcode** and any running Simulator or `xcodebuild` processes.
+2. **Clean build artifacts** (from the repo root):
+   ```sh
+   rm -rf ~/Library/Developer/Xcode/DerivedData/MapxusHsitpExample-*
+   ```
+3. **Reinstall iOS dependencies and rebuild** (from the repo root):
+   ```sh
+   cd example/ios
+   export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+   bundle exec pod install
+   cd ../..
+   yarn ios
+   ```
+   Or with npm: `npm run ios` from the `example` folder.
+4. **Use a supported simulator**: Pick an iPhone simulator with **iOS 15.1 or later** (e.g. iPhone 15 or iPhone 16).
+5. **Update software**: Install the latest **Xcode** and **macOS** updates so the app is built and run with current SDKs.
+
+If it still crashes, run from Xcode (open `example/ios/MapxusHsitpExample.xcworkspace`) and check the **Report navigator** (last icon in the left sidebar) or the **Console** for the real crash reason.
+
+If you're having other issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
 
 # Learn More
 

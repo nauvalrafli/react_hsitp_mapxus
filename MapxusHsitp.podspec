@@ -1,6 +1,9 @@
 require "json"
 
 package = JSON.parse(File.read(File.join(__dir__, "package.json")))
+def min_ios_version_supported
+  '13.4'
+end
 
 Pod::Spec.new do |s|
   s.name         = "MapxusHsitp"
@@ -13,9 +16,17 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => min_ios_version_supported }
   s.source       = { :git => "https://github.com/nauvalrafli/react-native-mapxus-hsitp.git", :tag => "#{s.version}" }
 
-  s.source_files = "ios/**/*.{h,m,mm,cpp}"
+  s.source_files = "ios/**/*.{h,m,mm,cpp,swift}"
   s.private_header_files = "ios/**/*.h"
+  s.header_mappings_dir = "ios"
 
+  s.resources = ['ios/Assets.xcassets']
+
+  s.dependency "MapxusMapSDK"
+  s.dependency "MapxusComponentKit"
+  s.dependency "MapxusVisualSDK"
+  s.dependency "SDWebImageSwiftUI"
+  s.dependency "Flow"
 
   install_modules_dependencies(s)
 end

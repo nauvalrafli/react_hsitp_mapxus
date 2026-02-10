@@ -102,58 +102,48 @@ using namespace facebook::react;
         return;
     }
     
-    // Create a simple map screen/view controller
-    UIViewController *mapViewController = [[UIViewController alloc] init];
-    mapViewController.view.backgroundColor = [UIColor whiteColor];
-    mapViewController.title = @"Mapxus View";
-    
-    // Create a label to show the locale and name
-    UILabel *infoLabel = [[UILabel alloc] init];
-    infoLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    infoLabel.text = [NSString stringWithFormat:@"Locale: %@\nName: %@", _customLocale, _name.length > 0 ? _name : @"N/A"];
-    infoLabel.numberOfLines = 0;
-    infoLabel.textAlignment = NSTextAlignmentCenter;
-    infoLabel.font = [UIFont systemFontOfSize:16];
-    
-    [mapViewController.view addSubview:infoLabel];
-    
-    [NSLayoutConstraint activateConstraints:@[
-        [infoLabel.centerXAnchor constraintEqualToAnchor:mapViewController.view.centerXAnchor],
-        [infoLabel.centerYAnchor constraintEqualToAnchor:mapViewController.view.centerYAnchor],
-        [infoLabel.leadingAnchor constraintEqualToAnchor:mapViewController.view.leadingAnchor constant:20],
-        [infoLabel.trailingAnchor constraintEqualToAnchor:mapViewController.view.trailingAnchor constant:-20]
-    ]];
-    
-    // Create a close button
-    UIButton *closeButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    closeButton.translatesAutoresizingMaskIntoConstraints = NO;
-    [closeButton setTitle:@"Close" forState:UIControlStateNormal];
-    closeButton.backgroundColor = [UIColor systemRedColor];
-    [closeButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
-    closeButton.layer.cornerRadius = 8;
-    closeButton.clipsToBounds = YES;
-    closeButton.contentEdgeInsets = UIEdgeInsetsMake(10, 16, 10, 16);
-    
-    [mapViewController.view addSubview:closeButton];
-    
-    [NSLayoutConstraint activateConstraints:@[
-        [closeButton.centerXAnchor constraintEqualToAnchor:mapViewController.view.centerXAnchor],
-        [closeButton.bottomAnchor constraintEqualToAnchor:mapViewController.view.bottomAnchor constant:-30],
-        [closeButton.widthAnchor constraintEqualToConstant:100]
-    ]];
-    
-    // Close button action
-    [closeButton addTarget:mapViewController action:@selector(dismissViewControllerAnimated:completion:) forControlEvents:UIControlEventTouchUpInside];
-    
-    // Find the navigation controller or use the root view controller
-    UIViewController *presentingViewController = rootViewController;
-    if ([rootViewController isKindOfClass:[UINavigationController class]]) {
-        presentingViewController = rootViewController;
+    // Try to instantiate HomeViewController from Swift without importing the Swift header.
+     Class homeVCClass = NSClassFromString(@"MapxusHsitpViewManager");
+     if (!homeVCClass) {
+         // Try module-prefixed symbol (common when Swift classes are namespaced)
+         homeVCClass = NSClassFromString(@"MapxusHsitp.HomeViewController");
+     }
+
+    UIViewController *toPresent = nil;
+     if (homeVCClass && [homeVCClass isSubclassOfClass:[UIViewController class]]) {
+         // Instantiate and present the Swift-backed view controller
+         @try {
+             toPresent = [[homeVCClass alloc] init];
+         } @catch (NSException *exception) {
+             NSLog(@"[MapxusButtonWrapper] Failed to instantiate HomeViewController: %@", exception);
+             toPresent = nil;
+         }
+     }
+
+    if (!toPresent) {
+        // Fallback: create a simple placeholder view controller
+        UIViewController *mapViewController = [[UIViewController alloc] init];
+        mapViewController.view.backgroundColor = [UIColor whiteColor];
+        mapViewController.title = @"Map Screen";
+
+        // Add a label to indicate this is the map screen
+        UILabel *label = [[UILabel alloc] init];
+        label.text = @"Map Screen Placeholder";
+        label.textAlignment = NSTextAlignmentCenter;
+        label.font = [UIFont systemFontOfSize:18];
+        label.translatesAutoresizingMaskIntoConstraints = NO;
+        [mapViewController.view addSubview:label];
+
+        NSLayoutConstraint *centerX = [NSLayoutConstraint constraintWithItem:label attribute:NSLayoutAttributeCenterX relatedBy:NSLayoutRelationEqual toItem:mapViewController.view attribute:NSLayoutAttributeCenterX multiplier:1 constant:0];
+        NSLayoutConstraint *centerY = [NSLayoutConstraint constraintWithItem:label attribute:NSLayoutAttributeCenterY relatedBy:NSLayoutRelationEqual toItem:mapViewController.view attribute:NSLayoutAttributeCenterY multiplier:1 constant:0];
+        [mapViewController.view addConstraints:@[centerX, centerY]];
+
+        toPresent = mapViewController;
     }
-    
+
     // Present the new screen
-    UINavigationController *navigationController = [[UINavigationController alloc] initWithRootViewController:mapViewController];
-    [presentingViewController presentViewController:navigationController animated:YES completion:^{
+    UINavigationController *navigationController = [[UINavigationController alloc] initWithRootViewController:toPresent];
+    [rootViewController presentViewController:navigationController animated:YES completion:^{
         NSLog(@"[MapxusButtonWrapper] Map screen opened with locale: %@", _customLocale);
     }];
 }
