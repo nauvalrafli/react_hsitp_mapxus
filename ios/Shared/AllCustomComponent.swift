@@ -169,36 +169,11 @@ struct CustomMenuButton<Content: View>: View {
                     .foregroundColor(foregroundColor)
                     .minimumScaleFactor(0.7)
             }, icon: {
-                if UIImage(systemName: icon) != nil {
-                    Image(systemName: icon)
-                        .foregroundColor(iconColor)
-                } else {
-                    let libraryBundle = Bundle(for: BundleFinder.self)
-                    
-                    if UIImage(named: icon, in: libraryBundle, with: nil) != nil {
-                        Image(icon, bundle: libraryBundle)
-                            .renderingMode(.template)
-                            .resizable()
-                            .scaledToFit()
-                            .foregroundColor(iconColor)
-                    } else {
-                        Image(icon)
-                            .renderingMode(.template)
-                            .resizable()
-                            .scaledToFit()
-                            .foregroundColor(iconColor)
-                    }
-                }
-              if UIImage(named: icon, in: Bundle(for: BundleFinder.self), with: nil) != nil {
-                    Image(icon, bundle: Bundle(for: BundleFinder.self))
-                        .foregroundColor(iconColor)
-                } else {
-                    Image(icon)
-                        .renderingMode(.template)
-                        .resizable()
-                        .scaledToFit()
-                        .foregroundColor(iconColor)
-                }
+                Image(icon, bundle: Bundle(for: BundleFinder.self))
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundColor(iconColor)
             })
             .padding(16)
             .frame(maxWidth: .infinity, minHeight: 50, maxHeight: 50, alignment: .center)
@@ -225,7 +200,7 @@ struct ContentMenuButton: View {
                 Text(title)
                     .font(.system(size: 16, weight: .semibold))
             }, icon: {
-                Image(icon)
+                Image(icon, bundle: Bundle(for: BundleFinder.self))
                     .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
@@ -337,22 +312,7 @@ struct CustomCircleIconButton: View {
         Button(action: {
             action()
         }, label: {
-            if UIImage(systemName: icon) != nil {
-                Image(systemName: icon)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 26, height: 26)
-                    .foregroundColor(iconColor)
-                    .padding(8)
-                    .background(backgroundColor)
-                    .overlay(alignment: .center, content: {
-                        Circle()
-                            .stroke(Color.white, lineWidth: 4)
-                    })
-                    .clipShape(Circle())
-                    .shadow(color: Color.gray.opacity(0.3), radius: 3)
-            } else {
-                Image(icon)
+            Image(icon, bundle: Bundle(for: BundleFinder.self))
                     .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
@@ -366,7 +326,6 @@ struct CustomCircleIconButton: View {
                     })
                     .clipShape(Circle())
                     .shadow(color: Color.gray.opacity(0.3), radius: 3)
-            }
         })
     }
 }
@@ -379,7 +338,7 @@ struct CustomBlueCircleIconButton: View {
         Button(action: {
             action()
         }, label: {
-            Image(icon)
+            Image(icon, bundle: Bundle(for: BundleFinder.self))
                 .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
@@ -406,7 +365,7 @@ struct CustomCircleCloseButton: View {
         Button(action: {
             action()
         }, label: {
-            Image(systemName: icon)
+            Image(icon, bundle: Bundle(for: BundleFinder.self))
                 .resizable()
                 .scaledToFit()
                 .frame(width: 18, height: 18)
@@ -433,35 +392,19 @@ struct PublicCustomBackButton: View {
         Button(action: {
             action()
         }, label: {
-            if UIImage(systemName: icon) != nil {
-                Image(systemName: icon)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 16, height: 16)
-                    .foregroundColor(iconColor)
-                    .padding(12)
-                    .background(backgroundColor)
-                    .overlay(alignment: .center, content: {
-                        Circle()
-                            .stroke(.ultraThickMaterial, lineWidth: 4)
-                    })
-                    .clipShape(Circle())
-            } else {
-                Image(icon)
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 16, height: 16)
-                    .foregroundColor(iconColor)
-                    .padding(12)
-                    .background(backgroundColor)
-                    .overlay(alignment: .center, content: {
-                        Circle()
-                            .stroke(.ultraThickMaterial, lineWidth: 4)
-                    })
-                    .clipShape(Circle())
-            }
-            
+            Image(icon, bundle: Bundle(for: BundleFinder.self))
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
+                .foregroundColor(iconColor)
+                .padding(12)
+                .background(backgroundColor)
+                .overlay(alignment: .center, content: {
+                    Circle()
+                        .stroke(.ultraThickMaterial, lineWidth: 4)
+                })
+                .clipShape(Circle())
         })
     }
 }
@@ -505,7 +448,7 @@ struct CustomRotationAnimationButton: View {
     
     @ViewBuilder
     private var iconView: some View {
-        let image = UIImage(systemName: icon) != nil ? Image(systemName: icon) : Image(icon).renderingMode(.template)
+        let image = Image(icon, bundle: Bundle(for: BundleFinder.self)).renderingMode(.template)
         
         image
             .resizable()
@@ -524,7 +467,7 @@ struct CustomRefreshButton: View {
         Button(action: {
             action()
         }, label: {
-            Image(icon)
+            Image(icon, bundle: Bundle(for: BundleFinder.self))
                 .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
@@ -737,7 +680,7 @@ struct Tooltip: View {
     private func ActivityItem(item: TooltipModel) -> some View {
         HStack(spacing: 2, content: {
             if let icon = item.icon {
-                Image(icon)
+                Image(icon, bundle: Bundle(for: BundleFinder.self))
                     .resizable()
                     .frame(width: 16, height: 16)
             }
@@ -1179,14 +1122,9 @@ struct CustomToast: View {
         VStack(content: {
             if isShown {
                 HStack(spacing: 16, content: {
-                    if UIImage(systemName: icon ?? "") != nil {
-                        Image(systemName: icon ?? "")
-                            .foregroundColor(iconColor)
-                    } else {
-                        Image(icon ?? "")
-                            .renderingMode(.template)
-                            .foregroundColor(iconColor)
-                    }
+                    Image(icon ?? "", bundle: Bundle(for: BundleFinder.self))
+                        .renderingMode(.template)
+                        .foregroundColor(iconColor)
                     
                     VStack(alignment: .center, spacing: 0, content: {
                         Text(message)
@@ -1243,7 +1181,7 @@ struct CustomToast: View {
     }
 }
 
-private class BundleFinder {}
+class BundleFinder {}
 
 extension Color {
     static let main = Color("MainColor", bundle: Bundle(for: BundleFinder.self))

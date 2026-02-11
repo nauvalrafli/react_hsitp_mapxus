@@ -100,19 +100,12 @@ struct NavigationCard: View {
                     
                     Spacer()
                     
-                    if UIImage(systemName: getAnIconForEveryDirection(direction: direction)) != nil {
-                        Image(systemName: getAnIconForEveryDirection(direction: direction))
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 50, height: 50)
-                    } else {
-                        Image(getAnIconForEveryDirection(direction: direction))
-                            .renderingMode(.template)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 50, height: 50)
-                            .foregroundColor(Color.primary)
-                    }
+                    Image(getAnIconForEveryDirection(direction: direction), bundle: Bundle(for: BundleFinder.self))
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 50, height: 50)
+                        .foregroundColor(Color.primary)
                 })
                 
                 Button(action: {

@@ -801,7 +801,7 @@ extension MapView {
                                     toggleTooltip(.mapping)
                                 }
                             }, label: {
-                                Image("custom-start-marker-pin-1")
+                                Image("custom-start-marker-pin-1", bundle: Bundle(for: BundleFinder.self))
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: 28, height: 28)
@@ -916,7 +916,7 @@ extension MapView {
         .toolbar(content: {
             ToolbarItem(placement: .navigation, content: {
                 HStack(spacing: 8, content: {
-                    Image("map-pin-2")
+                    Image("map-pin-2", bundle: Bundle(for: BundleFinder.self))
                         .renderingMode(.template)
                         .resizable()
                         .scaledToFit()
@@ -1255,7 +1255,7 @@ extension MapView {
                                 
                                 if mapxusController.isShowingAnEmptyFacilityCategory {
                                     VStack(alignment: .center, spacing: 12, content: {
-                                        Image("facilities_not_found")
+                                        Image("facilities_not_found", bundle: Bundle(for: BundleFinder.self))
                                             .renderingMode(.template)
                                             .resizable()
                                             .scaledToFit()
@@ -1968,17 +1968,10 @@ private struct IntroductionSection: View {
                 ForEach(introductions, id: \.id, content: { section in
                     VStack(alignment: .center, content: {
                         VStack(alignment: .center, spacing: 8, content: {
-                            if UIImage(systemName: section.icon) != nil {
-                                Image(systemName: section.icon)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 50, height: 50, alignment: .center)
-                            } else {
-                                Image(section.icon)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 50, height: 50, alignment: .center)
-                            }
+                            Image(section.icon, bundle: Bundle(for: BundleFinder.self))
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 50, height: 50, alignment: .center)
                             
                             Text(section.title)
                                 .font(.system(size: 28, weight: .bold))
@@ -2083,26 +2076,15 @@ private struct SpecificSectionBuildingItem: View {
             action()
         }, label: {
             VStack(alignment: .center, spacing: 8, content: {
-                if UIImage(systemName: icon) != nil {
-                    Image(systemName: icon)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 24, height: 24, alignment: .center)
-                        .padding(18)
-                        .foregroundColor(Color.mainColor)
-                        .background(Color.secondaryMainColor)
-                        .clipShape(Circle())
-                } else {
-                    Image(icon)
-                        .renderingMode(.template)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 24, height: 24, alignment: .center)
-                        .padding(18)
-                        .foregroundColor(Color.mainColor)
-                        .background(Color.secondaryMainColor)
-                        .clipShape(Circle())
-                }
+                Image(icon, bundle: Bundle(for: BundleFinder.self))
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 24, height: 24, alignment: .center)
+                    .padding(18)
+                    .foregroundColor(Color.mainColor)
+                    .background(Color.secondaryMainColor)
+                    .clipShape(Circle())
                 
                 Text(name)
                     .font(.system(size: 10))
@@ -2163,22 +2145,13 @@ private struct BuildingFacilityLists: View {
                 HStack(spacing: 16, content: {
                     HStack(content: {
                         VStack(content: {
-                            if UIImage(systemName: icon) != nil {
-                                Image(systemName: icon)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 30, height: 30)
-                                    .foregroundColor(.primary)
-                                    .padding(16)
-                            } else {
-                                Image(icon)
-                                    .renderingMode(.template)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 30, height: 30)
-                                    .foregroundColor(.primary)
-                                    .padding(16)
-                            }
+                            Image(icon, bundle: Bundle(for: BundleFinder.self))
+                                .renderingMode(.template)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 30, height: 30)
+                                .foregroundColor(.primary)
+                                .padding(16)
                         })
                         .frame(width: 44, height: 44)
                         .background(colorScheme == .dark ? Color.black : Color.white)
@@ -2335,16 +2308,11 @@ private struct StartDestinationNavigationLabel: View {
                 .foregroundColor(foregroundColor)
                 .minimumScaleFactor(0.3)
         }, icon: {
-            if UIImage(systemName: icon) != nil {
-                Image(systemName: icon)
-                    .foregroundColor(iconColor)
-            } else {
-                Image(icon)
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .foregroundColor(iconColor)
-            }
+            Image(icon, bundle: Bundle(for: BundleFinder.self))
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .foregroundColor(iconColor)
         })
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 50, maxHeight: 50, alignment: alignment)
