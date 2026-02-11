@@ -11,7 +11,8 @@ platform :ios, '18.0' # Explicit version is safer for New Arch
 prepare_react_native_project!
 
 target 'MapxusHsitpExample' do
-  use_frameworks! :linkage => :static
+  use_frameworks!
+  # use_frameworks! :linkage => :static
   # use_frameworks! :linkage => ENV['USE_FRAMEWORKS'].to_sym if ENV['USE_FRAMEWORKS']
   
   config = use_native_modules!

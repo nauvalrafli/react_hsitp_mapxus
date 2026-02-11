@@ -1,4 +1,11 @@
 PODS:
+  - AFNetworking (4.0.4):
+    - AFNetworking/NSURLSession (= 4.0.4)
+    - AFNetworking/PrivacyResources (= 4.0.4)
+    - AFNetworking/Reachability (= 4.0.4)
+    - AFNetworking/Security (= 4.0.4)
+    - AFNetworking/Serialization (= 4.0.4)
+    - AFNetworking/UIKit (= 4.0.4)
   - AFNetworking/NSURLSession (4.0.4):
     - AFNetworking/Reachability
     - AFNetworking/Security
@@ -10,6 +17,8 @@ PODS:
     - AFNetworking/PrivacyResources
   - AFNetworking/Serialization (4.0.4):
     - AFNetworking/PrivacyResources
+  - AFNetworking/UIKit (4.0.4):
+    - AFNetworking/NSURLSession
   - boost (1.84.0)
   - DoubleConversion (1.1.6)
   - fast_float (8.0.0)
@@ -30,6 +39,7 @@ PODS:
   - MapxusComponentKit (8.5.0):
     - MapxusMapSDK (= 8.5.0)
   - MapxusHsitp (0.1.21):
+    - AFNetworking
     - boost
     - DoubleConversion
     - fast_float
@@ -2945,7 +2955,7 @@ SPEC CHECKSUMS:
   hermes-engine: 4f8246b1f6d79f625e0d99472d1f3a71da4d28ca
   MapxusBaseSDK: 5bc594db7f5297334c36cce9168ad4f4876975e2
   MapxusComponentKit: 70b062d044a37cfaf4c3f31f491dba98af1450b9
-  MapxusHsitp: 426a942506426d0c1a6bfab54ec4e889b9e60bd8
+  MapxusHsitp: c677b1cd7b402e2be48e7b10ee2ca9f46c999502
   MapxusMapSDK: 9605f83f4aa05d2b78fc38783f8eaeaeab990fe3
   MapxusRenderSDK: 9afa40a07888b84ffe8ccb03b53958fb9e670def
   MapxusVisualSDK: 61d663ea71c012fe7acb40a9d7692153e09c1e6e
@@ -3024,6 +3034,6 @@ SPEC CHECKSUMS:
   Yoga: f95f7e60346fa6828def95fbe5017346ccc8940e
   YYModel: 30b7632ef7764dd1b40ae0875740e71c4393445f
 
-PODFILE CHECKSUM: c03516319a83b90ac7a91ef9753d10c98e9c9f03
+PODFILE CHECKSUM: a9ea7fa2288e8b9d3abc6f0bbd540aba939cd14a
 
 COCOAPODS: 1.15.2

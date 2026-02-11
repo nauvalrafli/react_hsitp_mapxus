@@ -75,13 +75,13 @@ struct RadioButton: View {
             HStack(spacing: 8, content: {
                 ZStack(content: {
                     // Outer Circle
-                    Image(systemName: "circle")
+                    Image("circle", bundle: Bundle(for: BundleFinder.self))
                         .font(.system(size: 18))
                         .foregroundColor(isSelected ? .main : .secondary)
                     
                     // Inner Dot (Only visible when selected)
                     if isSelected {
-                        Image(systemName: "circle.fill")
+                        Image("circle.fill", bundle: Bundle(for: BundleFinder.self))
                             .font(.system(size: 10))
                             .foregroundColor(.main)
                             .transition(.scale.combined(with: .opacity))
@@ -171,6 +171,26 @@ struct CustomMenuButton<Content: View>: View {
             }, icon: {
                 if UIImage(systemName: icon) != nil {
                     Image(systemName: icon)
+                        .foregroundColor(iconColor)
+                } else {
+                    let libraryBundle = Bundle(for: BundleFinder.self)
+                    
+                    if UIImage(named: icon, in: libraryBundle, with: nil) != nil {
+                        Image(icon, bundle: libraryBundle)
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .foregroundColor(iconColor)
+                    } else {
+                        Image(icon)
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .foregroundColor(iconColor)
+                    }
+                }
+              if UIImage(named: icon, in: Bundle(for: BundleFinder.self), with: nil) != nil {
+                    Image(icon, bundle: Bundle(for: BundleFinder.self))
                         .foregroundColor(iconColor)
                 } else {
                     Image(icon)
@@ -1223,9 +1243,14 @@ struct CustomToast: View {
     }
 }
 
+private class BundleFinder {}
+
 extension Color {
-    static let mainColor = Color("MainColor")
-    static let secondaryMainColor = Color("SecondaryColor")
+    static let main = Color("MainColor", bundle: Bundle(for: BundleFinder.self))
+    static let mainColor = Color("MainColor", bundle: Bundle(for: BundleFinder.self))
+    static let secondaryMainColor = Color("SecondaryColor", bundle: Bundle(for: BundleFinder.self))
+    static let secondary = Color("SecondaryColor", bundle: Bundle(for: BundleFinder.self))
+    static let whiteOnLightMode = Color("WhiteOnLightMode", bundle: Bundle(for: BundleFinder.self))
     
     init(hex: Int) {
         let r = Double((hex >> 16) & 0xFF) / 255.0

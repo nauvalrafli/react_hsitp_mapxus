@@ -30,5 +30,11 @@ Pod::Spec.new do |s|
   s.dependency "Flow"
   s.dependency "AFNetworking"
 
+  s.pod_target_xcconfig = {
+    'DEFINES_MODULE' => 'YES',
+    'HEADER_SEARCH_PATHS' => '$(inherited) "${PODS_CONFIGURATION_BUILD_DIR}/MapxusMapSDK/MapxusMapSDK.framework/Headers"',
+    'FRAMEWORK_SEARCH_PATHS' => '$(inherited) "${PODS_ROOT}/MapxusMapSDK" "${PODS_ROOT}/MapxusVisualSDK"'
+  }
+
   install_modules_dependencies(s)
 end

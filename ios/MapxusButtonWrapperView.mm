@@ -34,6 +34,10 @@ using namespace facebook::react;
     static const auto defaultProps = std::make_shared<const MapxusButtonWrapperViewProps>();
     _props = defaultProps;
     
+//    if (@available(iOS 16.0, *)) {
+//        [NSExpression setAllowInternalSymbolicFunctions:YES];
+//    }
+    
     [[MXMMapServices sharedServices] registerWithApiKey:@"66bd33b7409c4895862fbd32008acde0"
                                                  secret:@"4631c87ebe5c473f90463a458e6d642c"];
 
