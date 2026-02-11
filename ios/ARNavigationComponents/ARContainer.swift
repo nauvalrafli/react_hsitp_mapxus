@@ -22,6 +22,7 @@ private enum ARNavigationTransition {
     case none, floorChange, buildingChange
 }
 
+@available(iOS 18.0, *)
 struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
     var instructionList: [MXMInstruction]
     var instructionPointList: [MXMGeoPoint]
@@ -52,18 +53,18 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
 //        if context.coordinator.lastModeIsAllAtOnce != isAllAtOnce {
 //            context.coordinator.lastModeIsAllAtOnce = isAllAtOnce
 //        }
-//        
+//
 //        if isAllAtOnce {
 //            /// Showing AR Navigation one by one based on User Phone Compass
 //            context.coordinator.isShowingTheARNavigationBasedOnCompassDegreesOneByOne(instructionList: instructionList, instructionPoints: instructionPointList, currentIndex: currentInstructionIndex, compassClassDegrees: compassClassDegrees)
-//            
+//
 //            /// For backup from me - Show AR Navigation one by one - Works
 ////            context.coordinator.isShowingTurnArrowsOneByOne(instructions: instructionList, points: instructionPointList, currentIndex: currentInstructionIndex)
 ////            context.coordinator.isShowingCircleDirectionPathOneByOne(from: instructionPointList, instruction: instructionList, currentIndex: currentInstructionIndex)
 //        } else {
 //            /// Show the All AR Navigation all at once based on User Phone Compass
 //            context.coordinator.isShowingTheARNavigationBasedOnCompassDegreesOnceAtAll(currentIndex: currentInstructionIndex, instructionList: instructionList, instructionPoints: instructionPointList, compassClassDegrees: compassClassDegrees)
-//            
+//
 //            /// For backup from me - Show AR Navigation all at once without compass - Works
 ////            context.coordinator.isShowingArrowAllAtOnce(instructions: instructionList, points: instructionPointList)
 ////            context.coordinator.isShowingSmoothRectangleRoadAllAtOnce(instructions: instructionList, points: instructionPointList)
@@ -87,39 +88,42 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
         uiView.removeFromSuperview()
     }
 
-    class Coordinator: NSObject, ARSessionDelegate {
+  // Coordinator is used by SwiftUI's UIViewRepresentable makeCoordinator().
+  // Avoid marking the entire class as iOS 18+ so SwiftUI can see the type on older SDKs.
+  // Guard iOS 18+ APIs inside methods where needed with `if #available(iOS 18.0, *)` checks.
+  class Coordinator: NSObject, ARSessionDelegate {
         weak var arView: ARView?
         var instructionList: [MXMInstruction] = []
         var instructionPointList: [MXMGeoPoint] = []
         var compassClassDegrees: Double = 0.0
-        
+
         // Property to track the road drawing task
         private var roadDrawingTask: Task<Void, Never>?
         private var arrowDrawingTask: Task<Void, Never>? // Add this
-        
+
         var arrowAnchor: AnchorEntity?
         var instructionArrows: [AnchorEntity] = []
         var instructionArrowsByFloor: [String: [AnchorEntity]] = [:]
 
         var cancellables = Set<AnyCancellable>()
-        
+
         /// For Animations
         var blinkingCancellables: [Cancellable] = []
         var animationCancellables: [Cancellable] = []
         var jumpCancellables: [Cancellable] = []
-        
+
         var currentInstructionIndex: Int
         var currentFloorId: String? = nil
         var currentRenderedFloorId: String? = nil
-        
+
         var lastTurnIndex: Int = -1 // put this in Coordinator to persist between calls
-        
+
         var hasStartedARNavigation = false /// For showing the AR Navigation arrow based on Compass
         var hasCompassMatchedFirstSegment = false
-        
+
         var hasRenderedAllAtOnce = false
         var lastModeIsAllAtOnce = false
-        
+
         var arWorldRotationOffset: Float = 0.0
         /// Add this property to your class
         var calibrationAngleCovered: Double = 0.0
@@ -127,17 +131,17 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
         var isCalibrated: Bool = false
         var offsetSamples: [Double] = []
         var lastProcessedIndex: Int = -1
-        
+
         var lastRenderedFloorId: String? = nil
         var isWaitingForFloorConfirmation: Bool = false
         var isDrawingStarted: Bool = false
         var isStopping: Bool = false // Add this property
-        
+
         var alertDialogBuildingTitle: String = ""
         var alertDialogBuildingMessage: String = ""
-        
+
         var languageCode: String = ""
-        
+
         @AppStorage("ARNavigation-App-Enabling-TTS") private var isEnablingTTS: Bool = true
         @AppStorage("ARNavigation-App-Enabling-Motion-Sensor") private var isEnablingMotionSensor: Bool = false
         @AppStorage("ARNavigation-App-Showing-Direction") private var isShowingDirectionDegree: String = ""
@@ -1698,30 +1702,13 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                     else if text.contains("take elevator up")     { arrowName = "go_upstair_arrow" }
                     else if text.contains("take elevator down")   { arrowName = "go_downstair_arrow_copy" }
 
-                    if let modelName = arrowName {
-                        do {
-                            let model = try await ModelEntity(named: modelName)
-                            await MainActor.run {
-                                model.scale = [0.009, 0.009, 0.009]
-                                let anchor = AnchorEntity(world: arrowPos)
-                                anchor.addChild(model)
-                                arView.scene.addAnchor(anchor)
-                                newAnchors.append(anchor)
-                            }
-                        } catch { print("❌ Error loading special arrow: \(error)") }
-
-                        continue
-                    }
-
-                    // -------------------------------------------------------
-                    // 4. Default — horizontal arrow
-                    // -------------------------------------------------------
                     do {
-                        let arrow = try await ModelEntity(named: "direction_arrow_horizontal")
+                        let arrow = try await ModelEntity(named: arrowName ?? "direction_arrow_horizontal")
 
                         await MainActor.run {
-                            arrow.scale = [0.1, 0.1, 0.1]
-                            arrow.orientation = simd_quatf(angle: angle, axis: [0,1,0])
+                            arrow.scale = (arrowName == "direction_arrow_horizontal") ? [0.1, 0.1, 0.1] : [0.009, 0.009, 0.009]
+                            arrow.position = [0, 0.01, 0]
+                            arrow.orientation = simd_quatf(angle: angle, axis: [0, 1, 0]) // ← FIXED ANGLE
 
                             let anchor = AnchorEntity(world: arrowPos)
                             anchor.addChild(arrow)
@@ -1730,7 +1717,7 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                         }
 
                     } catch {
-                        print("❌ Failed to load default arrow: \(error)")
+                        print("❌ Failed to load arrow: \(error)")
                     }
                 }
 
@@ -1943,7 +1930,7 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                             let lon = Float(start.longitude) + deltaLon * t
 
                             let worldX = (lon - baseLon) * 100_000
-                            let worldZ = (baseLat - lat) * 100_000
+                            let worldZ = (lat - baseLat) * 100_000
 
                             let circleMaterial = SimpleMaterial(
                                 color: .systemBlue.withAlphaComponent(0.6),

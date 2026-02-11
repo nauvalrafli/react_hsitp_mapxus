@@ -7,7 +7,7 @@ ENV['RCT_NEW_ARCH_ENABLED'] ||= '1'
 rn_path = `node -p "require.resolve('react-native/scripts/react_native_pods.rb', {paths: ['#{__dir__}']})"`.strip
 require rn_path
 
-platform :ios, '17.4' # Explicit version is safer for New Arch
+platform :ios, '18.0' # Explicit version is safer for New Arch
 prepare_react_native_project!
 
 target 'MapxusHsitpExample' do
@@ -30,7 +30,7 @@ target 'MapxusHsitpExample' do
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |config|
         config.build_settings['DEFINES_MODULE'] = 'YES'
-        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '17.4'
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '18.0'
         config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
         config.build_settings['GCC_TREAT_WARNINGS_AS_ERRORS'] = 'NO'
       end

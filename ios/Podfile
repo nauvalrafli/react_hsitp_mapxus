@@ -9,6 +9,12 @@ target 'YourProjectName' do
   
   # Link your local Nitro module
   pod 'react-native-mapxus-hsitp', :path => '../modules/react-native-mapxus-hsitp'
+  pod 'MapxusMapSDK'
+  pod 'MapxusComponentKit'
+  pod 'MapxusVisualSDK'
+  pod 'SDWebImageSwiftUI'
+  pod 'Flow'
+  pod 'AFNetworking'
   
   use_frameworks! :linkage => :static
 end

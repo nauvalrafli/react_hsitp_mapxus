@@ -6,14 +6,16 @@
 #import <react/renderer/components/MapxusHsitpSpec/EventEmitters.h>
 #import <react/renderer/components/MapxusHsitpSpec/Props.h>
 #import <react/renderer/components/MapxusHsitpSpec/RCTComponentViewHelpers.h>
+#import <MapxusMapSDK/MapxusMapSDK.h>
+#import <MapxusBaseSDK/MapxusBaseSDK.h>
 
 #import "RCTFabricComponentsPlugins.h"
 
 using namespace facebook::react;
 
-@interface MapxusButtonWrapperView () <RCTMapxusButtonWrapperViewViewProtocol>
-
-@end
+//@interface MapxusButtonWrapperView () <RCTMapxusButtonWrapperViewViewProtocol>
+//
+//@end
 
 @implementation MapxusButtonWrapperView {
     UIButton * _button;
@@ -31,6 +33,9 @@ using namespace facebook::react;
   if (self = [super initWithFrame:frame]) {
     static const auto defaultProps = std::make_shared<const MapxusButtonWrapperViewProps>();
     _props = defaultProps;
+    
+    [[MXMMapServices sharedServices] registerWithApiKey:@"66bd33b7409c4895862fbd32008acde0"
+                                                 secret:@"4631c87ebe5c473f90463a458e6d642c"];
 
     // Initialize default values
     _customLocale = @"en-US";

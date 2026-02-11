@@ -28,6 +28,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       in: window,
       launchOptions: launchOptions
     )
+    
+//    MXMMapServices().register(withApiKey: "66bd33b7409c4895862fbd32008acde0", secret: "4631c87ebe5c473f90463a458e6d642c")
 
     return true
   }

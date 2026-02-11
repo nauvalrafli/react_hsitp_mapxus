@@ -723,7 +723,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
             var annotationImage = mapView.dequeueReusableAnnotationImage(withIdentifier: "Start")
             
             if annotationImage == nil {
-                let originalImage = UIImage(resource: .customStartMarkerPin1)
+                let originalImage = UIImage(named: "customStartMarkerPin1", in: .main, with: nil)
                 
                 // 1. Just define the icon size
                 let iconSize = CGSize(width: 28, height: 28)
@@ -731,7 +731,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
                 // 2. Simple resize without extra padding
                 let renderer = UIGraphicsImageRenderer(size: iconSize)
                 let resizedImage = renderer.image { _ in
-                    originalImage.draw(in: CGRect(origin: .zero, size: iconSize))
+                  originalImage?.draw(in: CGRect(origin: .zero, size: iconSize))
                 }
                 
                 annotationImage = MGLAnnotationImage(image: resizedImage, reuseIdentifier: "Start")

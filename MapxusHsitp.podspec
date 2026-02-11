@@ -2,7 +2,7 @@ require "json"
 
 package = JSON.parse(File.read(File.join(__dir__, "package.json")))
 def min_ios_version_supported
-  '13.4'
+  '18.0'
 end
 
 Pod::Spec.new do |s|
@@ -21,12 +21,14 @@ Pod::Spec.new do |s|
   s.header_mappings_dir = "ios"
 
   s.resources = ['ios/Assets.xcassets']
+  # s.resources = "ios/**/*.{xcassets,json,png}"
 
   s.dependency "MapxusMapSDK"
   s.dependency "MapxusComponentKit"
   s.dependency "MapxusVisualSDK"
   s.dependency "SDWebImageSwiftUI"
   s.dependency "Flow"
+  s.dependency "AFNetworking"
 
   install_modules_dependencies(s)
 end
