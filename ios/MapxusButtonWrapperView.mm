@@ -152,6 +152,7 @@ using namespace facebook::react;
 
     // Present the new screen
     UINavigationController *navigationController = [[UINavigationController alloc] initWithRootViewController:toPresent];
+    navigationController.modalPresentationStyle = UIModalPresentationFullScreen;
     [rootViewController presentViewController:navigationController animated:YES completion:^{
         NSLog(@"[MapxusButtonWrapper] Map screen opened with locale: %@", _customLocale);
     }];
