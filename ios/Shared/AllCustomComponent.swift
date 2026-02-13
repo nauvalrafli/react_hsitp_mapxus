@@ -392,7 +392,7 @@ struct PublicCustomBackButton: View {
         Button(action: {
             action()
         }, label: {
-            Image(icon, bundle: Bundle(for: BundleFinder.self))
+          Image(systemName: icon)
                 .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
