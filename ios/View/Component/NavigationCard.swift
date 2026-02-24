@@ -100,7 +100,7 @@ struct NavigationCard: View {
                     
                     Spacer()
                     
-                    Image(getAnIconForEveryDirection(direction: direction), bundle: Bundle(for: BundleFinder.self))
+                    Image(getAnIconForEveryDirection(direction: direction), bundle: Bundle.mapxus)
                         .renderingMode(.template)
                         .resizable()
                         .scaledToFit()

@@ -38,7 +38,7 @@ PODS:
     - YYModel (~> 1.0.6)
   - MapxusComponentKit (8.5.0):
     - MapxusMapSDK (= 8.5.0)
-  - MapxusHsitp (0.1.21):
+  - MapxusHsitp (0.1.24):
     - AFNetworking
     - boost
     - DoubleConversion
@@ -2955,7 +2955,7 @@ SPEC CHECKSUMS:
   hermes-engine: 4f8246b1f6d79f625e0d99472d1f3a71da4d28ca
   MapxusBaseSDK: 5bc594db7f5297334c36cce9168ad4f4876975e2
   MapxusComponentKit: 70b062d044a37cfaf4c3f31f491dba98af1450b9
-  MapxusHsitp: c677b1cd7b402e2be48e7b10ee2ca9f46c999502
+  MapxusHsitp: 73fa0685a6b307bd87813f6278d56a4982aa94bf
   MapxusMapSDK: 9605f83f4aa05d2b78fc38783f8eaeaeab990fe3
   MapxusRenderSDK: 9afa40a07888b84ffe8ccb03b53958fb9e670def
   MapxusVisualSDK: 61d663ea71c012fe7acb40a9d7692153e09c1e6e

@@ -75,13 +75,13 @@ struct RadioButton: View {
             HStack(spacing: 8, content: {
                 ZStack(content: {
                     // Outer Circle
-                    Image("circle", bundle: Bundle(for: BundleFinder.self))
+                    Image("circle", bundle: Bundle.mapxus)
                         .font(.system(size: 18))
                         .foregroundColor(isSelected ? .main : .secondary)
                     
                     // Inner Dot (Only visible when selected)
                     if isSelected {
-                        Image("circle.fill", bundle: Bundle(for: BundleFinder.self))
+                        Image("circle.fill", bundle: Bundle.mapxus)
                             .font(.system(size: 10))
                             .foregroundColor(.main)
                             .transition(.scale.combined(with: .opacity))
@@ -169,7 +169,7 @@ struct CustomMenuButton<Content: View>: View {
                     .foregroundColor(foregroundColor)
                     .minimumScaleFactor(0.7)
             }, icon: {
-                Image(icon, bundle: Bundle(for: BundleFinder.self))
+                Image(icon, bundle: Bundle.mapxus)
                     .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
@@ -200,7 +200,7 @@ struct ContentMenuButton: View {
                 Text(title)
                     .font(.system(size: 16, weight: .semibold))
             }, icon: {
-                Image(icon, bundle: Bundle(for: BundleFinder.self))
+                Image(icon, bundle: Bundle.mapxus)
                     .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
@@ -312,7 +312,7 @@ struct CustomCircleIconButton: View {
         Button(action: {
             action()
         }, label: {
-            Image(icon, bundle: Bundle(for: BundleFinder.self))
+            Image(icon, bundle: Bundle.mapxus)
                     .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
@@ -338,7 +338,7 @@ struct CustomBlueCircleIconButton: View {
         Button(action: {
             action()
         }, label: {
-            Image(icon, bundle: Bundle(for: BundleFinder.self))
+            Image(icon, bundle: Bundle.mapxus)
                 .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
@@ -365,7 +365,7 @@ struct CustomCircleCloseButton: View {
         Button(action: {
             action()
         }, label: {
-            Image(icon, bundle: Bundle(for: BundleFinder.self))
+            Image(icon, bundle: Bundle.mapxus)
                 .resizable()
                 .scaledToFit()
                 .frame(width: 18, height: 18)
@@ -448,7 +448,7 @@ struct CustomRotationAnimationButton: View {
     
     @ViewBuilder
     private var iconView: some View {
-        let image = Image(icon, bundle: Bundle(for: BundleFinder.self)).renderingMode(.template)
+        let image = Image(icon, bundle: Bundle.mapxus).renderingMode(.template)
         
         image
             .resizable()
@@ -467,7 +467,7 @@ struct CustomRefreshButton: View {
         Button(action: {
             action()
         }, label: {
-            Image(icon, bundle: Bundle(for: BundleFinder.self))
+            Image(icon, bundle: Bundle.mapxus)
                 .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
@@ -680,7 +680,7 @@ struct Tooltip: View {
     private func ActivityItem(item: TooltipModel) -> some View {
         HStack(spacing: 2, content: {
             if let icon = item.icon {
-                Image(icon, bundle: Bundle(for: BundleFinder.self))
+                Image(icon, bundle: Bundle.mapxus)
                     .resizable()
                     .frame(width: 16, height: 16)
             }
@@ -1122,7 +1122,7 @@ struct CustomToast: View {
         VStack(content: {
             if isShown {
                 HStack(spacing: 16, content: {
-                    Image(icon ?? "", bundle: Bundle(for: BundleFinder.self))
+                    Image(icon ?? "", bundle: Bundle.mapxus)
                         .renderingMode(.template)
                         .foregroundColor(iconColor)
                     
@@ -1183,12 +1183,24 @@ struct CustomToast: View {
 
 class BundleFinder {}
 
+extension Bundle {
+    static var mapxus: Bundle {
+        let frameworkBundle = Bundle(for: BundleFinder.self)
+        
+        // Now look for the "Box" (the bundle) inside that framework
+        if let resourceBundleURL = frameworkBundle.url(forResource: "MapxusHsitp", withExtension: "bundle"),
+           let resourceBundle = Bundle(url: resourceBundleURL) {
+            return resourceBundle
+        }
+        
+        return frameworkBundle
+    }
+}
+
 extension Color {
-    static let main = Color("MainColor", bundle: Bundle(for: BundleFinder.self))
-    static let mainColor = Color("MainColor", bundle: Bundle(for: BundleFinder.self))
-    static let secondaryMainColor = Color("SecondaryColor", bundle: Bundle(for: BundleFinder.self))
-    static let secondary = Color("SecondaryColor", bundle: Bundle(for: BundleFinder.self))
-    static let whiteOnLightMode = Color("WhiteOnLightMode", bundle: Bundle(for: BundleFinder.self))
+    static let main = Color("MainColor", bundle: Bundle.mapxus)
+    static let mainColor = Color("MainColor", bundle: Bundle.mapxus)
+    static let secondaryMainColor = Color("SecondaryColor", bundle: Bundle.mapxus)
     
     init(hex: Int) {
         let r = Double((hex >> 16) & 0xFF) / 255.0

@@ -247,7 +247,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
       }
     }
 
-    findViewById<TextView>(R.id.version).setText("0.1.22")
+    findViewById<TextView>(R.id.version).setText("0.1.24")
     val boarded = Preference.getOnboardingDone()
     if (!boarded) {
       setupWalkthroughOverlay()
@@ -1041,7 +1041,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
 
   override fun onPause() {
     mapxusSharedViewModel.mapView.value?.onPause()
-    mapxusSharedViewModel.mapxusPositioningClient.stop()
+    mapxusSharedViewModel.stopClientSafely()
     super.onPause()
     compassViewModel.stop()
   }
@@ -1084,7 +1084,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
 
   override fun onDestroy() {
     mapxusSharedViewModel.mapView.value?.onDestroy()
-    mapxusSharedViewModel.mapxusPositioningClient.stop()
+    mapxusSharedViewModel.stopClientSafely()
     // Clean up TTS
     if (::tts.isInitialized) {
       tts.stop()

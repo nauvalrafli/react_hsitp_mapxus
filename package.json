@@ -1,6 +1,6 @@
 {
   "name": "react-native-mapxus-hsitp",
-  "version": "0.1.22",
+  "version": "0.1.24",
   "description": "react native for mapxus hsitp",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -157,12 +157,6 @@
     "jsSrcsDir": "src",
     "android": {
       "javaPackageName": "com.mapxushsitp"
-    },
-    "ios": {
-      "componentProvider": {
-        "MapxusHsitpView": "MapxusHsitpView",
-        "MapxusButtonWrapperView": "MapxusButtonWrapperView"
-      }
     }
   },
   "create-react-native-library": {

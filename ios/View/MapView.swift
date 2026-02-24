@@ -801,7 +801,7 @@ extension MapView {
                                     toggleTooltip(.mapping)
                                 }
                             }, label: {
-                                Image("custom-start-marker-pin-1", bundle: Bundle(for: BundleFinder.self))
+                                Image("custom-start-marker-pin-1", bundle: Bundle.mapxus)
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: 28, height: 28)
@@ -915,7 +915,7 @@ extension MapView {
         })
         .toolbar(content: {
           HStack(spacing: 8, content: {
-              Image("map-pin-2", bundle: Bundle(for: BundleFinder.self))
+            Image("map-pin-2", bundle: Bundle.mapxus)
                   .renderingMode(.template)
                   .resizable()
                   .scaledToFit()
@@ -1252,7 +1252,7 @@ extension MapView {
                                 
                                 if mapxusController.isShowingAnEmptyFacilityCategory {
                                     VStack(alignment: .center, spacing: 12, content: {
-                                        Image("facilities_not_found", bundle: Bundle(for: BundleFinder.self))
+                                        Image("facilities_not_found", bundle: Bundle.mapxus)
                                             .renderingMode(.template)
                                             .resizable()
                                             .scaledToFit()
@@ -1965,7 +1965,7 @@ private struct IntroductionSection: View {
                 ForEach(introductions, id: \.id, content: { section in
                     VStack(alignment: .center, content: {
                         VStack(alignment: .center, spacing: 8, content: {
-                            Image(section.icon, bundle: Bundle(for: BundleFinder.self))
+                            Image(section.icon, bundle: Bundle.mapxus)
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 50, height: 50, alignment: .center)
@@ -2073,7 +2073,7 @@ private struct SpecificSectionBuildingItem: View {
             action()
         }, label: {
             VStack(alignment: .center, spacing: 8, content: {
-                Image(icon, bundle: Bundle(for: BundleFinder.self))
+                Image(icon, bundle: Bundle.mapxus)
                     .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
@@ -2142,7 +2142,7 @@ private struct BuildingFacilityLists: View {
                 HStack(spacing: 16, content: {
                     HStack(content: {
                         VStack(content: {
-                            Image(icon, bundle: Bundle(for: BundleFinder.self))
+                            Image(icon, bundle: Bundle.mapxus)
                                 .renderingMode(.template)
                                 .resizable()
                                 .scaledToFit()
@@ -2305,7 +2305,7 @@ private struct StartDestinationNavigationLabel: View {
                 .foregroundColor(foregroundColor)
                 .minimumScaleFactor(0.3)
         }, icon: {
-            Image(icon, bundle: Bundle(for: BundleFinder.self))
+            Image(icon, bundle: Bundle.mapxus)
                 .renderingMode(.template)
                 .resizable()
                 .scaledToFit()

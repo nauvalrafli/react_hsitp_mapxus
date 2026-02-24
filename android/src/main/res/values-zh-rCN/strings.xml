@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <string name="app_name">AR厕所导航</string>
   <string name="title_activity_home">HomeActivity</string>
   <string name="title_activity_venue">VenueActivity</string>
   <string name="restroom">洗手间</string>

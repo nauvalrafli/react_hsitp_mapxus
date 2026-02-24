@@ -1,5 +1,4 @@
 <resources>
-  <string name="app_name">AR Toilet Navigation</string>
   <string name="title_activity_home">HomeActivity</string>
   <string name="title_activity_venue">VenueActivity</string>
   <string name="restroom">Restroom</string>

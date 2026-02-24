@@ -17,10 +17,15 @@ Pod::Spec.new do |s|
   s.source       = { :git => "https://github.com/nauvalrafli/react-native-mapxus-hsitp.git", :tag => "#{s.version}" }
 
   s.source_files = "ios/**/*.{h,m,mm,cpp,swift}"
-  s.private_header_files = "ios/**/*.h"
-  s.header_mappings_dir = "ios"
+  # s.private_header_files = "ios/**/*.h"
+  # s.header_mappings_dir = "ios"
 
-  s.resources = ['ios/Assets.xcassets']
+  s.static_framework = true
+
+  # s.resources = ['ios/Assets.xcassets']
+  s.resource_bundles = {
+    'MapxusHsitp' => ['ios/mapxus.xcassets']
+  }
   # s.resources = "ios/**/*.{xcassets,json,png}"
 
   s.dependency "MapxusMapSDK"
@@ -30,10 +35,18 @@ Pod::Spec.new do |s|
   s.dependency "Flow"
   s.dependency "AFNetworking"
 
+  # s.pod_target_xcconfig = {
+  #   'DEFINES_MODULE' => 'YES',
+  #   'HEADER_SEARCH_PATHS' => '$(inherited) "${PODS_CONFIGURATION_BUILD_DIR}/MapxusMapSDK/MapxusMapSDK.framework/Headers"',
+  #   'FRAMEWORK_SEARCH_PATHS' => '$(inherited) "${PODS_ROOT}/MapxusMapSDK" "${PODS_ROOT}/MapxusVisualSDK"'
+  # }
+
   s.pod_target_xcconfig = {
-    'DEFINES_MODULE' => 'YES',
-    'HEADER_SEARCH_PATHS' => '$(inherited) "${PODS_CONFIGURATION_BUILD_DIR}/MapxusMapSDK/MapxusMapSDK.framework/Headers"',
-    'FRAMEWORK_SEARCH_PATHS' => '$(inherited) "${PODS_ROOT}/MapxusMapSDK" "${PODS_ROOT}/MapxusVisualSDK"'
+    'HEADER_SEARCH_PATHS' => [
+      '$(inherited)',
+      '"$(PODS_TARGET_SRCROOT)/ios/**"',
+    ].join(' '),
+    'SWIFT_INCLUDE_PATHS' => '"$(PODS_TARGET_SRCROOT)/ios/**"'
   }
 
   install_modules_dependencies(s)

@@ -300,6 +300,12 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
             field = value
         }
 
+    fun stopClientSafely() {
+        if (::mapxusPositioningClient.isInitialized) {
+            mapxusPositioningClient.stop()
+        }
+    }
+
     fun initPositioning() {
         viewModelScope.launch {
             mapxusPositioningClient = MapxusPositioningClient.getInstance(application.applicationContext)
