@@ -12,6 +12,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.location.LocationManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -23,11 +24,13 @@ import android.util.Log
 import android.view.KeyEvent
 import android.view.SurfaceView
 import android.view.View
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -36,6 +39,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.cardview.widget.CardView
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -90,6 +94,8 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
   lateinit var bottomSheet: LinearLayout
   lateinit var bottomSheetBehavior: BottomSheetBehavior<LinearLayout>
   lateinit var fragmentContainer : FragmentContainerView
+  lateinit var toolbar_back_button: ImageButton
+  lateinit var toolbar_title: TextView
   private var navController: NavController? = null
 
   // UI Elements
@@ -140,7 +146,27 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
   ) { permissions ->
     val allGranted = permissions.entries.all { it.value }
     if (!allGranted) {
-      showPermissionDialog()
+      val deniedPermissions = permissions.filter { !it.value }.keys
+
+      val isFatigued = deniedPermissions.any {
+        !ActivityCompat.shouldShowRequestPermissionRationale(this, it)
+      }
+
+      if(isFatigued) {
+        //open settings page of the app
+        showPermissionDialog(
+          callback = {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+              // This dynamically fetches the package name of the app currently running
+              val uri = Uri.fromParts("package", packageName, null)
+              data = uri
+            }
+            startActivity(intent)
+          }
+        )
+      } else {
+        showPermissionDialog(callback = {})
+      }
     } else {
       // After permissions granted, check for precise location on Android 12+
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -225,7 +251,6 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
 
     initializeTTS()
 
-    // Check all required permissions (location fine, coarse, camera) and precise location
     checkAllPermissions()
 
     setupMap()
@@ -247,7 +272,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
       }
     }
 
-    findViewById<TextView>(R.id.version).setText("0.1.24")
+    findViewById<TextView>(R.id.version).setText("0.1.25")
     val boarded = Preference.getOnboardingDone()
     if (!boarded) {
       setupWalkthroughOverlay()
@@ -499,6 +524,14 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     volumeFab = findViewById(R.id.volume_fab)
     arNavigationFab = findViewById(R.id.ar_navigation_fab)
     arFragmentContainer = findViewById(R.id.ar_fragment_container)
+    toolbar_back_button = findViewById(R.id.toolbar_back_button)
+    toolbar_title = findViewById(R.id.toolbar_title)
+
+    toolbar_back_button.setOnClickListener {
+      OnBackPressedDispatcher().onBackPressed()
+    }
+
+    toolbar_title.text = intent.getStringExtra("name") ?: "Wayfinding"
 
     // GPS button - center on user location
     gpsFab.setOnClickListener {
@@ -1261,7 +1294,9 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
     }
   }
 
-  private fun showPermissionDialog() {
+  private fun showPermissionDialog(
+    callback: () -> Unit
+  ) {
     val missingPermissions = mutableListOf<String>()
 
     if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -1290,6 +1325,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
       .setTitle("Permissions Required")
       .setMessage(message)
       .setPositiveButton("Grant Permissions") { _, _ ->
+        callback()
         requestAllPermissions()
       }
       .setNegativeButton("Cancel", null)

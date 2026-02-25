@@ -202,6 +202,9 @@ class CategoryListFragment : Fragment() {
         loadingStateText.visibility = View.VISIBLE
         emptyStateText.visibility = View.GONE
         categoryRecycler.visibility = View.GONE
+        loadingStateText.postDelayed({
+          sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+        }, 100)
     }
 
     private fun showNotFound() {
@@ -209,6 +212,9 @@ class CategoryListFragment : Fragment() {
         loadingStateText.visibility = View.GONE
         emptyStateText.visibility = View.GONE
         categoryRecycler.visibility = View.GONE
+        loadingStateText.postDelayed({
+          sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+        }, 100)
     }
 
     private fun showEmptyState() {
@@ -216,6 +222,9 @@ class CategoryListFragment : Fragment() {
         loadingStateText.visibility = View.GONE
         emptyStateText.visibility = View.VISIBLE
         categoryRecycler.visibility = View.GONE
+        loadingStateText.postDelayed({
+          sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+        }, 100)
     }
 
     private fun showResult() {
@@ -223,6 +232,9 @@ class CategoryListFragment : Fragment() {
         loadingStateText.visibility = View.GONE
         emptyStateText.visibility = View.GONE
         categoryRecycler.visibility = View.VISIBLE
+        loadingStateText.postDelayed({
+          sharedViewModel.bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
+        }, 100)
     }
 
     private fun setupClickListeners() {

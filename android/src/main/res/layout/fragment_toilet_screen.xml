@@ -13,7 +13,14 @@
         android:orientation="horizontal"
         android:paddingHorizontal="16dp"
         android:gravity="center_vertical">
-
+        <ImageButton
+            android:id="@+id/back_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/ic_arrow_back"
+            android:backgroundTint="@color/white"
+            app:tint="@color/black"
+            />
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -23,12 +30,13 @@
             android:textStyle="bold" />
 
         <ImageButton
-            android:id="@+id/close_button"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:src="@drawable/ic_close"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Close" />
+          android:id="@+id/refresh_button"
+          android:layout_width="48dp"
+          android:layout_height="48dp"
+          android:src="@drawable/refresh_24dp_000000_fill0_wght400_grad0_opsz24"
+          android:background="?attr/selectableItemBackgroundBorderless"
+          android:contentDescription="Refresh"
+          />
 
     </LinearLayout>
 

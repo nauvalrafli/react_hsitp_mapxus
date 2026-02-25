@@ -92,23 +92,23 @@ class PrepareNavigationFragment : Fragment() {
             }
         }
         // initialize adsorber seekbar: range 5.0..25.0 with step 0.5 -> seekbar max 40
-        val initial = sharedViewModel.adsorberDistance.value ?: 10.0
-        val progress = ((initial - 5.0) * 2).toInt().coerceIn(0,40)
-        adsorberSeekBar.max = 40
-        adsorberSeekBar.progress = progress
-        adsorberValue.text = String.format("%.1f", 5.0 + progress * 0.5)
-        adsorberSeekBar.setOnSeekBarChangeListener(object: android.widget.SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: android.widget.SeekBar?, p: Int, fromUser: Boolean) {
-                val v = 5.0 + p * 0.5
-                adsorberValue.text = String.format("%.1f", v)
-                if (fromUser) {
-                    sharedViewModel.setAdsorberDistance(v)
-                }
-            }
-
-            override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
-        })
+//        val initial = sharedViewModel.adsorberDistance.value ?: 10.0
+//        val progress = ((initial - 5.0) * 2).toInt().coerceIn(0,40)
+//        adsorberSeekBar.max = 40
+//        adsorberSeekBar.progress = progress
+//        adsorberValue.text = String.format("%.1f", 5.0 + progress * 0.5)
+//        adsorberSeekBar.setOnSeekBarChangeListener(object: android.widget.SeekBar.OnSeekBarChangeListener {
+//            override fun onProgressChanged(seekBar: android.widget.SeekBar?, p: Int, fromUser: Boolean) {
+//                val v = 5.0 + p * 0.5
+//                adsorberValue.text = String.format("%.1f", v)
+//                if (fromUser) {
+//                    sharedViewModel.setAdsorberDistance(v)
+//                }
+//            }
+//
+//            override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
+//            override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
+//        })
     }
 
     override fun onResume() {

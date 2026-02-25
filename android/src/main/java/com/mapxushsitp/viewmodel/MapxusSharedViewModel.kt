@@ -278,7 +278,7 @@ class MapxusSharedViewModel(application: Application) : AndroidViewModel(applica
 
     // Adsorber dialog threshold (meters). Modifiable from PrepareNavigationFragment.
     // Range: 5.0..25.0, step: 0.5
-    private val _adsorberDistance = MutableLiveData<Double>(10.0)
+    private val _adsorberDistance = MutableLiveData<Double>(25.0)
     val adsorberDistance: LiveData<Double> = _adsorberDistance
 
     fun setAdsorberDistance(value: Double) {

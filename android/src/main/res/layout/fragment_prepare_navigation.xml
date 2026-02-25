@@ -197,7 +197,9 @@
 
             <View
                 android:layout_width="match_parent"
-                android:layout_height="16dp" />
+                android:layout_height="16dp"
+                android:visibility="gone"
+              />
             <!-- Adsorber distance control -->
             <TextView
                 android:id="@+id/adsorber_label"
