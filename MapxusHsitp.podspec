@@ -20,7 +20,7 @@ Pod::Spec.new do |s|
   # s.private_header_files = "ios/**/*.h"
   # s.header_mappings_dir = "ios"
 
-  s.static_framework = true
+  # s.static_framework = true
 
   # s.resources = ['ios/Assets.xcassets']
   s.resource_bundles = {
