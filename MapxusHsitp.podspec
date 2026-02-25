@@ -13,14 +13,14 @@ Pod::Spec.new do |s|
   s.license      = package["license"]
   s.authors      = package["author"]
 
-  s.platforms    = { :ios => min_ios_version_supported }
+  s.platforms    = { :ios => '18.0' }
   s.source       = { :git => "https://github.com/nauvalrafli/react-native-mapxus-hsitp.git", :tag => "#{s.version}" }
 
   s.source_files = "ios/**/*.{h,m,mm,cpp,swift}"
-  # s.private_header_files = "ios/**/*.h"
-  # s.header_mappings_dir = "ios"
+  s.private_header_files = "ios/**/*.h"
+  s.header_mappings_dir = "ios"
 
-  # s.static_framework = true
+  s.static_framework = true
 
   # s.resources = ['ios/Assets.xcassets']
   s.resource_bundles = {
