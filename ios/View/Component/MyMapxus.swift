@@ -704,7 +704,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
             var annotationImage = mapView.dequeueReusableAnnotationImage(withIdentifier: "Start")
             
             if annotationImage == nil {
-                let originalImage = UIImage(resource: .customStartMarkerPin1)
+                let originalImage = UIImage(named: "customStartMarkerPin1", in: .main, with: nil) 
                 
                 // 1. Just define the icon size
                 let iconSize = CGSize(width: 28, height: 28)
@@ -712,7 +712,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
                 // 2. Simple resize without extra padding
                 let renderer = UIGraphicsImageRenderer(size: iconSize)
                 let resizedImage = renderer.image { _ in
-                    originalImage.draw(in: CGRect(origin: .zero, size: iconSize))
+                    originalImage?.draw(in: CGRect(origin: .zero, size: iconSize))
                 }
                 
                 annotationImage = MGLAnnotationImage(image: resizedImage, reuseIdentifier: "Start")
@@ -841,11 +841,11 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
             print("🏆 Excellent: Compass accuracy is exellent.")
         } else if gpsAccuracy > 15 {
             // ⚠️ Still use it, but maybe add a "jitter" filter
-            self.compassTruHeadingWarning = ""
+            self.compassTruHeadingWarning = translationClass.compassIsDipping(code: selectedLanguage)
             self.compassTrueHeading = gpsTrueHeading
             print("⚠️ Warning: Compass accuracy is dipping.")
         } else {
-            self.compassTruHeadingWarning = "The Calibration of the Compass is broken. Please try again!."
+            self.compassTruHeadingWarning = translationClass.compassCalibrationIsBroken(code: selectedLanguage)
             self.compassTrueHeading = 0
             // ❌ Negative value: The compass is calibrating or broken
             print("❌ Invalid compass heading data.")
@@ -1946,7 +1946,26 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
 
         if mapState == .navigating && instructionList.isEmpty {
             instructionPointList = firstPath.points?.coordinates ?? []
-            instructionList = firstPath.instructions
+            // 1. Get the raw instructions
+            var rawInstructions = firstPath.instructions
+            
+            // 2. Fill missing floorIds
+            for i in 0..<rawInstructions.count {
+                if rawInstructions[i].floorId == nil || rawInstructions[i].floorId?.isEmpty == true {
+                    
+                    // If "Enter building", the floorId is usually found in the NEXT step
+                    if i + 1 < rawInstructions.count {
+                        rawInstructions[i].floorId = rawInstructions[i-1].floorId
+                    }
+                    // If "Leave building" or at the end, use the PREVIOUS step's floorId
+                    else if i > 0 {
+                        rawInstructions[i].floorId = rawInstructions[i-1].floorId
+                    }
+                }
+            }
+            
+            // 3. Assign the fixed list
+            self.instructionList = rawInstructions
             
             updateRoute(routeOption: selectedRouteType(type: activeRouteType, languageCode: selectedLanguage))
         }

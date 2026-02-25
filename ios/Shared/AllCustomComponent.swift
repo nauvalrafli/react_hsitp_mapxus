@@ -348,7 +348,7 @@ struct CustomCircleIconButton: View {
                     .clipShape(Circle())
                     .shadow(color: Color.gray.opacity(0.3), radius: 3)
             }
-        })
+        )
     }
 }
 
@@ -1144,14 +1144,14 @@ struct CustomToast: View {
         VStack(content: {
             if isShown {
                 HStack(spacing: 16, content: {
-                    if UIImage(systemName: icon ?? "", bundle: Bundle.mapxus) != nil {
-                        Image(systemName: icon ?? "", bundle: Bundle.mapxus)
+                    if UIImage(systemName: icon ?? "") != nil {
+                        Image(systemName: icon ?? "")
                             .resizable()
                             .scaledToFit()
                             .frame(width: 20, height: 20)
                             .foregroundColor(iconColor)
                     } else {
-                        Image(icon ?? "", bundle: Bundle.mapxus)
+                        Image(icon ?? "")
                             .renderingMode(.template)
                             .resizable()
                             .scaledToFit()

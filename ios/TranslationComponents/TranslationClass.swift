@@ -422,11 +422,33 @@ class TranslationClass: ObservableObject {
     func arButtonTooltip(code: String) -> String {
         switch code {
         case "zh-Hant":
-            return "點擊即可開始您的AR導航體驗。"
+            return "點擊即可開始您的擴增實境導航體驗。"
         case "zh-Hans":
-            return "点击即可开始您的AR导航体验。"
+            return "点击即可开始您的增强现实导航体验。"
         default:
             return "Tap to begin your AR navigation experience."
+        }
+    }
+
+    func compassIsDipping(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "指南針方向錯誤。無法啟動擴增實境導航。"
+        case "zh-Hans":
+            return "指南针方向错误。无法启动增强现实导航。"
+        default:
+            return "Compass is dipping.\nCan't start the AR Navigation."
+        }
+    }
+    
+    func compassCalibrationIsBroken(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "指南針校準故障，請重試！"
+        case "zh-Hans":
+            return "指南针校准出现故障，请重试！"
+        default:
+            return "The Calibration of the Compass is broken.\nPlease try again!."
         }
     }
     

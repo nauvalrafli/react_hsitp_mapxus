@@ -638,7 +638,7 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                     guard !Task.isCancelled && isDrawingStarted else { return }
                     
                     var pStart = getRotatedPos(for: points[0])
-                    addJunctionPlate(at: pStart, roadWidth: 0.3, roadThickness: 0.01, roadColor: UIColor(resource: .main), to: arView)
+                    addJunctionPlate(at: pStart, roadWidth: 0.3, roadThickness: 0.01, roadColor: .systemBlue, to: arView)
 
                     for i in 1..<points.count {
                         // CRITICAL: Check if navigation ended while we were looping
@@ -649,8 +649,8 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                         
                         guard isDrawingStarted else { break }
                         let pEnd = getRotatedPos(for: points[i])
-                        addStraightRoad(start: pStart, end: pEnd, roadWidth: 0.3, roadThickness: 0.01, roadColor: UIColor(resource: .main), to: arView)
-                        addJunctionPlate(at: pEnd, roadWidth: 0.3, roadThickness: 0.01, roadColor: UIColor(resource: .main), to: arView)
+                        addStraightRoad(start: pStart, end: pEnd, roadWidth: 0.3, roadThickness: 0.01, roadColor: .systemBlue, to: arView)
+                        addJunctionPlate(at: pEnd, roadWidth: 0.3, roadThickness: 0.01, roadColor: .systemBlue, to: arView)
                         pStart = pEnd
                     }
                 }
