@@ -10,6 +10,7 @@ import CoreLocation
 
 struct SettingsView: View {
     @StateObject var mapxusController: MapxusController
+    @StateObject var translationClass: TranslationClass = TranslationClass()
 //    @StateObject private var locationManagerClass: LocationManagerClass = LocationManagerClass()
     
     @AppStorage("ARNavigation-App-Enabling-Motion-Sensor") private var isEnablingMotionSensor: Bool = false
@@ -84,7 +85,7 @@ struct SettingsView: View {
 //                            })
 //                        })
                     
-                    SettingsListWithSelectingLabel(label: "Language", secondLabel: languagePlaceholder(code: mapxusController.selectedLanguage), action: {
+                    SettingsListWithSelectingLabel(label: translationClass.language(code: mapxusController.selectedLanguage), secondLabel: languagePlaceholder(code: mapxusController.selectedLanguage), action: {
                         isShowingLanguageLists.toggle()
                     })
                     .sheet(isPresented: $isShowingLanguageLists, content: {
@@ -116,7 +117,7 @@ struct SettingsView: View {
                     })
                     
                 }, header: {
-                    Text("General")
+                    Text(translationClass.generalSettings(code: mapxusController.selectedLanguage))
                         .font(.system(size: 12, weight: .light))
                         .textInputAutocapitalization(.words)
                         .textCase(.none)
@@ -134,7 +135,7 @@ struct SettingsView: View {
 //                })
             })
         })
-        .navigationTitle("Settings")
+        .navigationTitle(translationClass.settings(code: mapxusController.selectedLanguage))
         .navigationBarTitleDisplayMode(.large)
         .navigationBarBackButtonHidden(true)
         .toolbar(content: {

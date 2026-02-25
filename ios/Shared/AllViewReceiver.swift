@@ -16,6 +16,12 @@ class AllViewReceiver: ObservableObject {
     @Published var isFillingAnAlertDialogTextAction: String = ""
     @Published var isFillingAnAlertDialogTextCancel: String = ""
     
+    @Published var isShowingACustomToastGeneral: Bool = false
+    @Published var isShowingACustomToastMessageGeneral: String = ""
+    @Published var isShowingACustomToastIconGeneral: String = ""
+    @Published var isShowingACustomToastIconColorGeneral: Color = Color.mainColor
+    @Published var isShowingACustomToastAlignmentGeneral: Alignment = Alignment.top
+    
     @Published var isShowingACustomToastWashroom: Bool = false
     @Published var isShowingACustomToastMessageWashroom: String = ""
     @Published var isShowingACustomToastIconWashroom: String = ""
@@ -31,6 +37,19 @@ class AllViewReceiver: ObservableObject {
     @Published var isEndingTheARNavigationAndTheMapxusMapNavigationAction: () -> Void = { }
     /// Correct way to create a Singleton
     static let shared = AllViewReceiver()
+    
+    func showGeneralToast(message: String, icon: String, iconColor: Color, show: Bool) {
+        self.isShowingACustomToastGeneral = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: {
+            withAnimation(.smooth(), {
+                self.isShowingACustomToastGeneral = show
+                self.isShowingACustomToastMessageGeneral = message
+                self.isShowingACustomToastIconGeneral = icon
+                self.isShowingACustomToastIconColorGeneral = iconColor
+                self.isShowingACustomToastAlignmentGeneral = .top
+            })
+        })
+    }
     
     @MainActor
     func showInternetToast(message: String, icon: String, iconColor: Color) {

@@ -12,7 +12,7 @@ import CoreLocation
 import AVFoundation /// Required for camera checks
 
 private enum ActiveTooltip {
-    case none, mapping, arNavigation, destination, start
+    case none, mapping, arNavigation, destination, start, gps
 }
 
 enum SearchField {
@@ -67,6 +67,7 @@ struct MapView : View {
     
     @State private var isShowingMappinTooltip: Bool = true
     @AppStorage("AR-Navigation-Tooltip-Message") private var isShowingARNavigationTooltip: Bool = true
+    @AppStorage("GPS-Tooltip-Message") private var isShowingGpsTooltip: Bool = true
     @State private var activeTooltip: ActiveTooltip = .none
     
     @AppStorage("MapxusMap-Route-Options") private var selectedRouteType: String = "Shortest Walk" /// The default value
@@ -86,7 +87,7 @@ struct MapView : View {
     
     @FocusState private var focusedState: SearchField?
     
-    @State private var isShowingCurrentStatusOfMapRotation: Bool = false
+//    @State private var isShowingCurrentStatusOfMapRotation: Bool = false
     @State private var isRefreshingTheToiletOccupancy: Bool = false
     
     @State private var foundDeviceIds: [String] = [] /// Add this at the top of your View
@@ -108,13 +109,13 @@ struct MapView : View {
         .overlay(alignment: .topTrailing, content: {
             VStack(spacing: 8, content: {
                 if isShowingARButtons {
-                    CustomCircleCloseButton(icon: "xmark", iconColor: Color.white, backgroundColor: Color.red, action: {
+                    CustomCircleIconButton(icon: "close_2", iconColor: Color.white, backgroundColor: Color.red, action: {
                         withAnimation(.spring, {
                             isShowingEndMapNavigationAndARNavigationAlertDialog = true
                         })
                     })
                     
-                    CustomCircleIconButton(icon: "waveform.path", iconColor: isEnablingTTS ? Color.mainColor : Color.white, backgroundColor: isEnablingTTS ? Color.white : Color.secondary, action: {
+                    CustomCircleIconButton(icon: "text_to_speech", iconColor: isEnablingTTS ? Color.mainColor : Color.white, backgroundColor: isEnablingTTS ? Color.white : Color.secondary, action: {
                         isEnablingTTS.toggle()
                         mapxusController.textToSpeech(isActive: isEnablingTTS)
                     })
@@ -136,11 +137,14 @@ struct MapView : View {
                             })
                         }
                     })
-                    .overlay(alignment: .leading, content: {
+                    .overlay(alignment: .trailing, content: {
                         if activeTooltip == .arNavigation, let items = arButtonTooltip {
                             Tooltip(items: items, type: .left)
                                 .fixedSize()
-                                .offset(x: -300)
+                                .offset(x: -30)
+                                .alignmentGuide(.trailing, computeValue: { d in
+                                    d[.trailing] + 10
+                                })
                                 .transition(.asymmetric(
                                     insertion: .scale(scale: 0.5, anchor: .trailing).combined(with: .opacity),
                                     removal: .opacity.combined(with: .scale(scale: 0.8))
@@ -173,13 +177,54 @@ struct MapView : View {
                 }
                 
                 CustomCircleIconButton(icon: "gps-icon", iconColor: Color.mainColor, action: {
-                    withAnimation(.smooth(), {
-                        isShowingCurrentStatusOfMapRotation.toggle()
-                        mapxusController.showMyLocation()
-                    })
+                    if mapxusController.mapState != .navigating {
+                        // 1. Force it to false first to "reset" the animation state
+                        mapxusController.isShowingCurrentStatusOfMapRotation = false
+                        
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: {
+                            withAnimation(.smooth(), {
+                                mapxusController.isShowingCurrentStatusOfMapRotation.toggle()
+                                mapxusController.showMyLocation()
+                            })
+                        })
+                    }
                 })
                 .transition(.move(edge: mapxusController.isShowingTheSettingsViewButton ? .top : .bottom))
                 .animation(.smooth, value: mapxusController.isShowingTheSettingsViewButton)
+                .onAppear(perform: {
+                    if isShowingGpsTooltip {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: {
+                            withAnimation(.spring(), {
+                                activeTooltip = .gps
+                            })
+                        })
+                    }
+                })
+                .overlay(alignment: .trailing, content: {
+                    if activeTooltip == .gps, let items = gpsTooltip {
+                        Tooltip(items: items, type: .left)
+                            .fixedSize()
+                            .offset(x: -30)
+                            .alignmentGuide(.trailing, computeValue: { d in
+                                d[.trailing] + 10
+                            })
+                            .transition(.asymmetric(
+                                insertion: .scale(scale: 0.5, anchor: .trailing).combined(with: .opacity),
+                                removal: .opacity.combined(with: .scale(scale: 0.8))
+                            ))
+                            .onTapGesture(perform: {
+                                if isShowingGpsTooltip {
+                                    isShowingGpsTooltip = false
+                                }
+                                
+                                toggleTooltip(.gps)
+                            })
+                            .task(id: activeTooltip, {
+                                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                                dismissTooltip()
+                            })
+                    }
+                })
             })
             .offset(y: 100)
             .padding(.horizontal, 7)
@@ -200,8 +245,8 @@ struct MapView : View {
         .onChange(of: mapxusController.isShowingAndClosingTheARNavigation, { oldValue, newValue in
             withAnimation(.easeInOut(duration: 0.6), {
                 if newValue {
-                    arViewHeight = UIScreen.main.bounds.height * 0.5
-                    mapViewHeight = UIScreen.main.bounds.height * 0.5
+                    arViewHeight = UIScreen.main.bounds.height * 0.3
+                    mapViewHeight = UIScreen.main.bounds.height * 0.7
                 } else {
                     arViewHeight = 0
                     mapViewHeight = UIScreen.main.bounds.height
@@ -240,7 +285,6 @@ struct MapView : View {
                     isShowingSheet = true
                     isDisablingClosingTheSheet = true
                 })
-                locationManager.locationManagerDidChangeAuthorization(location, introduction: $isShowingMapxusMapIntroductionSection)
             }
         })
         .onAppear(perform: {
@@ -255,8 +299,12 @@ struct MapView : View {
                     mapxusController.isFoldingFloorBarSection(fold: false)
                     isShowingSheet = true
                     isDisablingClosingTheSheet = true
-                    locationManager.locationManagerDidChangeAuthorization(location, introduction: $isShowingMapxusMapIntroductionSection)
                 })
+            }
+        })
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification), perform: { _ in
+            if !isShowingMapxusMapIntroductionSection {
+                locationManager.locationManagerDidChangeAuthorization(location, introduction: .constant(false))
             }
         })
         .task({
@@ -291,7 +339,8 @@ struct MapView : View {
         }, action: {
             
         })
-        .customToast(isShown: $isShowingCurrentStatusOfMapRotation, message: mapxusController.isRotatingTheMapOnGPSButtonClicked ? "Rotation is active" : "Rotation isn't active", icon: "globe.asia.australia")
+        .customToast(isShown: $allViewReceiver.isShowingACustomToastGeneral, message: allViewReceiver.isShowingACustomToastMessageGeneral, icon: allViewReceiver.isShowingACustomToastIconGeneral, iconColor: allViewReceiver.isShowingACustomToastIconColorGeneral, alignment: allViewReceiver.isShowingACustomToastAlignmentGeneral)
+        .customToast(isShown: $mapxusController.isShowingCurrentStatusOfMapRotation, message: mapxusController.isRotatingTheMapOnGPSButtonClicked ? translationClass.mapRotationIsActive(code: mapxusController.selectedLanguage) : translationClass.mapRotationIsNotActive(code: mapxusController.selectedLanguage), icon: "globe.asia.australia", iconColor: mapxusController.isRotatingTheMapOnGPSButtonClicked ? Color.mainColor : Color.red)
     }
     
     func accessCameraPermission() {
@@ -319,7 +368,6 @@ struct MapView : View {
         case .denied, .restricted:
             // User said no previously, show the UIKit alert
             self.showUIKitPermissionAlert(for: "Camera")
-            
         @unknown default:
             break
         }
@@ -462,6 +510,14 @@ struct MapView : View {
         [TooltipModel(name: "start_label", title: translationClass.startTooltip(code: mapxusController.selectedLanguage))]
     }
     
+    private var tooltipGps: [TooltipModel] {
+        [TooltipModel(name: "gps", title: translationClass.gpsTooltip(code: mapxusController.selectedLanguage))]
+    }
+    
+    private var gpsTooltip: [TooltipModel]? {
+        tooltipGps.first(where: { $0.name == "gps" }).map { [$0] }
+    }
+    
     private var arButtonTooltip: [TooltipModel]? {
         tooltipAR.first(where: { $0.name == "ar_button" }).map { [$0] }
     }
@@ -579,6 +635,8 @@ struct MapView : View {
                 return "食品儲藏室"
             case _ where lowerCode.contains("lab"):
                 return "實驗室"
+            case _ where lowerCode.contains("information"):
+                return "資訊"
                 
             case _ where lowerCode.contains("herbal_tea"):
                 return "花草茶"
@@ -586,6 +644,8 @@ struct MapView : View {
                 return "西"
             case _ where lowerCode.contains("korean"):
                 return "韓國人"
+            case _ where lowerCode.contains("fast_food"):
+                return "速食"
                 
             case _ where lowerCode.contains("laundry_services"):
                 return "洗衣服務"
@@ -595,6 +655,8 @@ struct MapView : View {
                 return "導遊"
             case _ where lowerCode.contains("defibrillator"):
                 return "除顫器"
+            case _ where lowerCode.contains("tactile_map"):
+                return "觸覺地圖"
                 
             default:
                 // Fallback: extracts the last part of "facility.category.item" and capitalizes it
@@ -627,6 +689,8 @@ struct MapView : View {
                 return "食品储藏室"
             case _ where lowerCode.contains("lab"):
                 return "实验室"
+            case _ where lowerCode.contains("information"):
+                return "信息"
                 
             case _ where lowerCode.contains("herbal_tea"):
                 return "花草茶"
@@ -634,6 +698,8 @@ struct MapView : View {
                 return "西"
             case _ where lowerCode.contains("korean"):
                 return "韩国人"
+            case _ where lowerCode.contains("fast_food"):
+                return "快餐"
                 
             case _ where lowerCode.contains("laundry_services"):
                 return "洗衣服务"
@@ -643,6 +709,8 @@ struct MapView : View {
                 return "导游"
             case _ where lowerCode.contains("defibrillator"):
                 return "除颤器"
+            case _ where lowerCode.contains("tactile_map"):
+                return "触觉地图"
                 
             default:
                 // Fallback: extracts the last part of "facility.category.item" and capitalizes it
@@ -885,16 +953,36 @@ extension MapView {
                         })
                         .containerRelativeFrame(.horizontal)
                         .onChange(of: mapxusController.currentBuildingIndex, { oldValue, newValue in
-                            // Ensure the new index is valid
-                            if let index = newValue, mapxusController.buildingLists.indices.contains(index) {
-                                let swipedBuilding = mapxusController.buildingLists[index]
-                                
-                                // Update the map to show the building you just swiped to
-                                mapxusController.isShowingSelectedBuildingBasedOnSwiping(id: swipedBuilding.id)
-                                
-                                print("Swiped to building: \(swipedBuilding.buildingName) at index \(index)")
-                            }
+                            guard let index = newValue,
+                                  mapxusController.buildingLists.indices.contains(index) else { return }
+                            
+                            let swipedBuildingId = mapxusController.buildingLists[index].id
+                            
+                            mapxusController.isShowingSelectedBuildingBasedOnSwiping(id: swipedBuildingId)
+                            
+//                            if mapxusController.gestureSwitchingBuilding() != swipedBuildingId {
+//                                mapxusController.isSwiping = true // 🔒 LOCK
+//                                mapxusController.isShowingSelectedBuildingBasedOnSwiping(id: swipedBuildingId)
+//                                
+//                                // Unlock after a short delay or in a completion handler if available
+//                                if swipedBuildingId == mapxusController.currentBuildingId {
+//                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
+//                                        mapxusController.isSwiping = false // 🔓 UNLOCK
+//                                        print("unlock building")
+//                                    }
+//                                }
+//                            }
                         })
+//                        .onChange(of: mapxusController.gestureSwitchingBuilding()) { oldValue, newValue in
+//                            print("gesture building id: \(newValue), current building id: \(mapxusController.currentBuildingId)")
+//                            // 🛑 ONLY WORK if we are NOT currently swiping
+//                            guard !mapxusController.isSwiping else { return }
+//                            
+//                            print("Map Gestured -> Updating UI to: \(newValue). Swiping: \(mapxusController.isSwiping)")
+//                            if !mapxusController.isSwiping && newValue != mapxusController.currentBuildingId {
+//                                mapxusController.handleBuildingSelection(tappedBuildingId: newValue)
+//                            }
+//                        }
                         .id(index as Int)
                     })
                 }
@@ -914,18 +1002,21 @@ extension MapView {
             }
         })
         .toolbar(content: {
-          HStack(spacing: 8, content: {
-            Image("map-pin-2", bundle: Bundle.mapxus)
-                  .renderingMode(.template)
-                  .resizable()
-                  .scaledToFit()
-                  .frame(width: 26, height: 26)
-                  .foregroundColor(Color.mainColor)
-              
-              Text(translationClass.exploreByMap(code: mapxusController.selectedLanguage))
-                  .font(.system(size: 16, weight: .bold))
-                  .foregroundColor(Color.primary)
-          }).frame(maxWidth: .infinity, alignment: .leading)
+            ToolbarItem(placement: .navigation, content: {
+                HStack(spacing: 8, content: {
+                    Image("map-pin-2", bundle: Bundle.mapxus)
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 26, height: 26)
+                        .foregroundColor(Color.mainColor)
+                    
+                    Text(translationClass.exploreByMap(code: mapxusController.selectedLanguage))
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(Color.primary)
+                })
+                .frame(maxWidth: .infinity, alignment: .leading)
+            })
         })
     }
     
@@ -970,21 +1061,18 @@ extension MapView {
                     let hasText = !newValue.isEmpty
                     isShowingSearchingOption = hasText
                     
-                    Task(operation: {
-                        if mapxusController.isSearchingAllFacilitiesOnEveryBuilding {
-                            if hasText {
-                                await toiletOccupancyClass.getToiletStatusForAllBuildingsWithoutAutomaticRefresh()
-                            }
-                        } else {
-                            if hasText {
-                                await toiletOccupancyClass.getToiletStatusWithoutAutomaticRefresh(buildingId: isGettingBuildingId)
-                            }
-                        }
-                    })
-                    
                     if !hasText {
                         mapxusController.isSearchingAllFacilitiesOnEveryBuilding = false
                     }
+                    
+                    Task(operation: { @MainActor in
+                        if hasText {
+                            await toiletOccupancyClass.toggleGetWashroomOccupancyBasedOnAllBuildingsOrASpecific(
+                                buildingId: isGettingBuildingId,
+                                allBuildings: mapxusController.isSearchingAllFacilitiesOnEveryBuilding
+                            )
+                        }
+                    })
                     
                     mapxusController.findAllIndoorCoordinatesBasedOnBuildingId(
                         buildingId: mapxusController.isSearchingAllFacilitiesOnEveryBuilding ? "" : isGettingBuildingId,
@@ -993,14 +1081,11 @@ extension MapView {
                     )
                 })
                 .onChange(of: mapxusController.isSearchingAllFacilitiesOnEveryBuilding, { _, isSearchingAll in
-                    Task(operation: {
-                        if isSearchingAll {
-                            await toiletOccupancyClass.getToiletStatusForAllBuildingsWithoutAutomaticRefresh()
-                            print("all buildings running: all")
-                        } else {
-                            await toiletOccupancyClass.getToiletStatusWithoutAutomaticRefresh(buildingId: isGettingBuildingId)
-                            print("all buildings running: specific")
-                        }
+                    Task(operation: { @MainActor in
+                        await toiletOccupancyClass.toggleGetWashroomOccupancyBasedOnAllBuildingsOrASpecific(
+                            buildingId: isGettingBuildingId,
+                            allBuildings: isSearchingAll
+                        )
                     })
                 })
             })
@@ -1130,6 +1215,7 @@ extension MapView {
                             isShowingSearchingOption = false
                             mapxusController.isSearchingAllFacilitiesOnEveryBuilding = false
                             mapxusController.isShowingTheSettingsViewButton = true
+                            mapxusController.isFetchingWashroomOccupancy = false
                             mapxusController.isGettingLastBuildingIdOnMapView = isGettingBuildingId
                             mapxusController.isGettingBuildingNumber = ""
                             isSearchingAnythingInTheBuilding = ""
@@ -1139,6 +1225,22 @@ extension MapView {
                     })
                 })
             })
+            
+            /// For testing on TestFlight
+//            ToolbarItem(placement: .topBarTrailing, content: {
+//                // Use a 'let' to capture the results of the tuple
+//                if let result = mapxusController.userInsideTheBuildingStatus(), result.isInside {
+//                    PulseAnimationView(color: result.pulseColor)
+//                        .onTapGesture(perform: {
+//                            allViewReceiver.showGeneralToast(
+//                                message: result.message,
+//                                icon: "building.2.crop.circle.fill",
+//                                iconColor: Color.mainColor,
+//                                show: true
+//                            )
+//                        })
+//                }
+//            })
         })
     }
     
@@ -1236,7 +1338,7 @@ extension MapView {
                         if filteredList.isEmpty {
                             VStack(alignment: .center, spacing: 16, content: {
                                 if mapxusController.isShowingLossInternetConnectionButton {
-                                    SpecificSectionBuildingItem(name: "Refresh Internet Connection", icon: "wifi", action: {
+                                    SpecificSectionBuildingItem(name: "Refresh Building Facility", icon: "wifi", action: {
                                         Task(operation: {
                                             await MainActor.run {
                                                 mapxusController.isShowingLossInternetConnectionButton = false
@@ -1259,7 +1361,7 @@ extension MapView {
                                             .frame(width: 40, height: 40, alignment: .center)
                                             .foregroundColor(.gray.opacity(0.5))
                                         
-                                        Text("No \(category) found in this building")
+                                        Text(translationClass.categoryNotFound(category: category, code: mapxusController.selectedLanguage))
                                             .font(.system(size: 14, weight: .light))
                                             .foregroundColor(Color.secondary)
                                             .multilineTextAlignment(.center)
@@ -1268,7 +1370,7 @@ extension MapView {
                                     .padding()
                                 }
                             })
-                            .frame(maxWidth: .infinity, minHeight: 200)
+                            .frame(maxWidth: .infinity)
                         } else {
                             // 3. If there are items, run the ForEach
                             ForEach(filteredList, id: \.id, content: { facility in
@@ -1427,18 +1529,18 @@ extension MapView {
                     CustomMenuButton(label: translationClass.selectStartPoint(code: mapxusController.selectedLanguage), icon: "user-pin-1", content: {
                         ContentMenuButton(title: translationClass.currentLocation(code: mapxusController.selectedLanguage), icon: "gps-icon", action: {
                             withAnimation(.easeInOut(duration: 0.7), {
-                                mapxusController.mapState = .showingNavigationDetails
                                 mapxusController.createMarkerBasedOnUserGPS()
                                 
                                 mapxusController.isFoldingFloorBarSection(fold: true)
                                 isUsingCurrentLocation = true
-                                isAdjustingSheetHeight(height: 420, isLarge: false)
+                                isAdjustingSheetHeight(height: 360, isLarge: false)
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: {
                                     mapxusController.navigationDestinationPath.append("StartMapxusMapNavigation")
                                 })
                             })
                         })
                         ContentMenuButton(title: translationClass.selectLocationFromMap(code: mapxusController.selectedLanguage), icon: "user-pin-1", action: {
+                            mapxusController.mapState = .selectingCurrentLocationByPinningOnMap
                             mapxusController.navigationDestinationPath.append("SetStartLocation")
                             mapxusController.isSelectingLocationByPIN = true
                             isUsingCurrentLocation = false
@@ -1501,12 +1603,10 @@ extension MapView {
             GeneralStruct(content: {
                 VStack(content: {
                     CustomMainButton(label: translationClass.setStartLocation(code: mapxusController.selectedLanguage), action: {
+                        mapxusController.setStartLocationFromCenterPin()
                         mapxusController.isSelectingLocationByPIN = false
                         
-                        mapxusController.mapState = .showingNavigationDetails
-                        mapxusController.setStartLocationFromCenterPin()
-                        
-                        isAdjustingSheetHeight(height: 420, isLarge: false)
+                        isAdjustingSheetHeight(height: 360, isLarge: false)
                         
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: {
                             mapxusController.navigationDestinationPath.append("StartMapxusMapNavigation")
@@ -1521,6 +1621,7 @@ extension MapView {
                 HStack(spacing: 8, content: {
                     PublicCustomBackButton(icon: "arrow.backward", action: {
                         if !mapxusController.navigationDestinationPath.isEmpty {
+                            mapxusController.mapState = .selectingCurrentLocation
                             isAdjustingSheetHeight(height: 240, isLarge: false)
                             
                             mapxusController.navigationDestinationPath.removeLast() // This pops the view back to the previous page
@@ -1632,29 +1733,29 @@ extension MapView {
                             })
                         })
                         
-                        VStack(alignment: .leading, spacing: 4, content: {
-                            HStack(content: {
-                                Text(translationClass.offRoute(code: mapxusController.selectedLanguage))
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(Color.secondary)
-                                
-                                Spacer()
-                                
-                                Text("\(Int(offRouteThreshold))")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(Color.mainColor)
-                            })
-                            .padding(.horizontal, 12)
-                            
-                            CustomSlider(progress: $offRouteThreshold)
-                        })
-                        .padding(.horizontal, 20)
+//                        VStack(alignment: .leading, spacing: 4, content: {
+//                            HStack(content: {
+//                                Text(translationClass.offRoute(code: mapxusController.selectedLanguage))
+//                                    .font(.system(size: 16, weight: .semibold))
+//                                    .foregroundColor(Color.secondary)
+//                                
+//                                Spacer()
+//                                
+//                                Text("\(Int(offRouteThreshold))\(translationClass.meter(plural: true, code: mapxusController.selectedLanguage))")
+//                                    .font(.system(size: 16, weight: .semibold))
+//                                    .foregroundColor(Color.mainColor)
+//                            })
+//                            .padding(.horizontal, 12)
+//                            
+//                            CustomSlider(progress: $offRouteThreshold)
+//                        })
+//                        .padding(.horizontal, 20)
                     })
                     
                     VStack(spacing: 8, content: {
                         CustomShowRouteButton(label: translationClass.showRoute(code: mapxusController.selectedLanguage, state: false), action: {
                             withAnimation(.smooth, {
-                                mapxusController.mapState = .showingRoute
+//                                mapxusController.mapState = .showingRoute
                                 isAdjustingSheetHeight(height: 240, isLarge: false)
                                 mapxusController.navigationDestinationPath.append("ShowRoute")
                                 
@@ -1806,7 +1907,7 @@ extension MapView {
                                 mapxusController.mapState = .showingNavigationDetails
                                 isShowingRouteOrNot = false
                                 mapxusController.hideRoute()
-                                isAdjustingSheetHeight(height: 420, isLarge: false)
+                                isAdjustingSheetHeight(height: 360, isLarge: false)
                             })
                             
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: {
@@ -1852,6 +1953,7 @@ private struct IntroductionSection: View {
     @Binding var currentPage: Int?
     var action: () -> Void
     
+    @StateObject private var networkMonitorClass: NetworkMonitorClass = NetworkMonitorClass()
     @StateObject private var translationClass: TranslationClass = TranslationClass()
     
     @State private var getStartedOrAccessPermission: String = ""
@@ -1887,73 +1989,152 @@ private struct IntroductionSection: View {
                 heading: translation.permissionScreenHeading(code: code),
                 subHeading: translation.permissionScreenSubHeading(code: code),
                 icon: "permission"
+            ),
+            MapxusMapIntroduction(
+                id: 4,
+                title: translation.wifiIntroduction(code: code),
+                heading: translation.wifiIntroductionHeading(code: code),
+                subHeading: translation.wifiIntroductionSubHeading(code: code),
+                icon: "wi-fi"
             )
         ]
     }
     
-    func checkPermissions(completion: @escaping (Bool) -> Void) {
-        let cameraStatus = AVCaptureDevice.authorizationStatus(for: .video)
-        let locationManager = CLLocationManager()
-        let locationStatus = locationManager.authorizationStatus
-
-        // 1. Handle Camera
-        if cameraStatus == .notDetermined {
-            AVCaptureDevice.requestAccess(for: .video) { granted in
-                if granted {
-                    // After camera is granted, check location
-                    self.checkLocation(locationManager, completion: completion)
-                } else {
-                    self.updateUI(isAuthorized: false)
-                    completion(false)
-                }
+    private var isDisabled: Bool {
+        // 1. Safely unwrap the optional Int
+        guard let page = currentPage else { return true }
+        
+        // 2. Switch on the unwrapped value
+        switch page {
+        case 0...2:
+            return true
+        case 3:
+            return isNavigationAuthorized
+        case 4:
+            if isNavigationAuthorized && networkMonitorClass.isWifi {
+                return false // Enabled: Go to Map
+            } else if !networkMonitorClass.isWifi {
+                return false // Enabled: Click to open Wi-Fi Settings
             }
-        } else if cameraStatus == .authorized {
-            // Camera already okay, check location
-            self.checkLocation(locationManager, completion: completion)
-        } else {
-            // Camera denied
-            self.openSettings()
-            completion(false)
+            return true // Disabled: Still waiting on Permissions
+        default:
+            return true
         }
     }
-
-    private func checkLocation(_ manager: CLLocationManager, completion: @escaping (Bool) -> Void) {
-        let status = manager.authorizationStatus
+    
+    // 1. Unified check for authorization status
+    var isNavigationAuthorized: Bool {
+        let cameraStatus = AVCaptureDevice.authorizationStatus(for: .video)
+        let locationStatus = CLLocationManager().authorizationStatus
         
-        DispatchQueue.main.async {
-            switch status {
-            case .authorizedWhenInUse, .authorizedAlways:
-                self.updateUI(isAuthorized: true)
-                completion(true)
-            case .notDetermined:
+        let cameraOk = cameraStatus == .authorized
+        let locationOk = (locationStatus == .authorizedWhenInUse || locationStatus == .authorizedAlways)
+        
+        return cameraOk && locationOk
+    }
+
+    // 2. Modernized Permission Flow
+    func checkPermissions(completion: @escaping (Bool) -> Void) {
+        Task {
+            // Handle Camera
+            let cameraStatus = AVCaptureDevice.authorizationStatus(for: .video)
+            if cameraStatus == .notDetermined {
+                _ = await AVCaptureDevice.requestAccess(for: .video)
+            }
+            
+            // Handle Location
+            let manager = CLLocationManager()
+            if manager.authorizationStatus == .notDetermined {
                 manager.requestWhenInUseAuthorization()
-                // Note: Location request is async and usually handled via delegate,
-                // but for a simple button flow, we return false so they can click again.
+                // We return here because location request is non-blocking/delegate-based
                 completion(false)
-            default:
-                self.openSettings()
-                completion(false)
+                return
+            }
+            
+            // Final Verification
+            await MainActor.run {
+                // 1. Check Internet First (since you want this to trigger openWifiSettings)
+                if !networkMonitorClass.isWifi {
+                    openAppSettings()
+                    completion(false)
+                    return
+                }
+
+                // 2. Then check Permissions
+                if isNavigationAuthorized {
+//                    updateUI(isAuthorized: true)
+                    completion(true)
+                } else {
+                    // Permissions (Camera/Location) are missing
+                    openAppSettings()
+                    completion(false)
+                }
             }
         }
     }
     
     private func refreshPermissionUI() {
-        let cameraStatus = AVCaptureDevice.authorizationStatus(for: .video)
-        let locationStatus = CLLocationManager().authorizationStatus
+        guard let page = currentPage else { return }
+        let lang = mapxusController.selectedLanguage
         
-        let isBothAuthorized = (cameraStatus == .authorized) &&
-                               (locationStatus == .authorizedWhenInUse || locationStatus == .authorizedAlways)
-        
-        updateUI(isAuthorized: isBothAuthorized)
-    }
-
-    private func updateUI(isAuthorized: Bool) {
-        DispatchQueue.main.async {
-            self.getStartedOrAccessPermission = isAuthorized ? translationClass.getStarted(code: mapxusController.selectedLanguage) : translationClass.openSettings(code: mapxusController.selectedLanguage)
+        switch page {
+        case 0...2:
+            // Pages 0-2: Always show "Get Started"
+            self.getStartedOrAccessPermission = translationClass.getStarted(code: lang)
+            
+        case 3:
+            // Page 3: Focus on Camera/Location Permissions
+            if isNavigationAuthorized {
+                self.getStartedOrAccessPermission = translationClass.getStarted(code: lang)
+            } else {
+                self.getStartedOrAccessPermission = translationClass.openSettings(code: lang)
+            }
+            
+        case 4:
+            // Page 4: Focus on Wi-Fi (assuming Permissions are already handled)
+            if !networkMonitorClass.isWifi {
+                self.getStartedOrAccessPermission = translationClass.enableWiFi(lang: lang)
+            } else {
+                self.getStartedOrAccessPermission = translationClass.getStarted(code: lang)
+            }
+            
+        default:
+            self.getStartedOrAccessPermission = translationClass.getStarted(code: lang)
         }
     }
 
-    private func openSettings() {
+//    private func refreshPermissionUI() {
+//        updateUI(isAuthorized: isNavigationAuthorized)
+//    }
+//
+//    private func updateUI(isAuthorized: Bool) {
+//        let lang = mapxusController.selectedLanguage
+//        self.getStartedOrAccessPermission = isAuthorized ?
+//            translationClass.getStarted(code: lang) :
+//            translationClass.openSettings(code: lang)
+//    }
+//    
+//    private func updateInternetLabel(lang: String) {
+//        if networkMonitorClass.isWifi {
+//            // Connected to Wi-Fi: Best experience
+//            getStartedOrAccessPermission = translationClass.getStarted(code: lang)
+//            print("Connected via Wi-Fi")
+//        } else {
+//            // No connection at all
+//            getStartedOrAccessPermission = lang == "zh-Hant" ? "開啟 Wi-Fi" : (lang == "zh-Hans" ? "开启 Wi-Fi" : "Enable Wi-Fi")
+//        }
+//    }
+    
+    func openWifiSettings() {
+        // Attempt 1: The most direct path to Wi-Fi
+        if let wifiUrl = URL(string: "App-Prefs:root=WIFI") {
+            UIApplication.shared.open(wifiUrl)
+        } else if let settingsUrl = URL(string: "App-Prefs:root") {
+            UIApplication.shared.open(settingsUrl)
+        }
+    }
+
+    private func openAppSettings() {
         if let url = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(url)
         }
@@ -1995,13 +2176,22 @@ private struct IntroductionSection: View {
                 })
             })
             
+//            CustomMainButton(label: getStartedOrAccessPermission, action: {
+//                checkPermissions(completion: { granted in
+//                    if granted {
+//                        action()
+//                    }
+//                })
+//            }, disabled: currentPage != (introductions.count - 1))
+//            .padding(16)
+            
             CustomMainButton(label: getStartedOrAccessPermission, action: {
                 checkPermissions(completion: { granted in
                     if granted {
                         action()
                     }
                 })
-            }, disabled: currentPage != (introductions.count - 1))
+            }, disabled: isDisabled)
             .padding(16)
         })
         .frame(maxWidth: .infinity, minHeight: 400, maxHeight: 400)
@@ -2018,15 +2208,24 @@ private struct IntroductionSection: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification), perform: { _ in
             refreshPermissionUI()
         })
-        .onAppear(perform: {
-            // Initial check to set the button label correctly on load
-            let cameraStatus = AVCaptureDevice.authorizationStatus(for: .video)
-            let locationStatus = CLLocationManager().authorizationStatus
-            
-            let isBothAuthorized = (cameraStatus == .authorized) &&
-                                   (locationStatus == .authorizedWhenInUse || locationStatus == .authorizedAlways)
-            
-            updateUI(isAuthorized: isBothAuthorized)
+        .onChange(of: currentPage, { oldValue, newValue in
+//            let lang = mapxusController.selectedLanguage
+//            
+//            switch newValue {
+//            case 3:
+//                refreshPermissionUI()
+//            case 4:
+//                updateInternetLabel(lang: lang)
+//            default:
+//                getStartedOrAccessPermission = translationClass.getStarted(code: lang)
+//            }
+            refreshPermissionUI()
+        })
+        .onChange(of: networkMonitorClass.isWifi, { _, _ in
+//            if currentPage == 4 {
+//                updateInternetLabel(lang: mapxusController.selectedLanguage)
+//            }
+            refreshPermissionUI()
         })
     }
 }
@@ -2142,13 +2341,22 @@ private struct BuildingFacilityLists: View {
                 HStack(spacing: 16, content: {
                     HStack(content: {
                         VStack(content: {
-                            Image(icon, bundle: Bundle.mapxus)
-                                .renderingMode(.template)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 30, height: 30)
-                                .foregroundColor(.primary)
-                                .padding(16)
+                            if UIImage(systemName: icon) != nil {
+                                Image(systemName: icon)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 30, height: 30)
+                                    .foregroundColor(.primary)
+                                    .padding(16)
+                            } else {
+                                Image(icon)
+                                    .renderingMode(.template)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 30, height: 30)
+                                    .foregroundColor(.primary)
+                                    .padding(16)
+                            }
                         })
                         .frame(width: 44, height: 44)
                         .background(colorScheme == .dark ? Color.black : Color.white)

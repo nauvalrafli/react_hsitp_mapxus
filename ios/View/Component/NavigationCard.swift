@@ -62,7 +62,7 @@ struct NavigationCard: View {
             
         // 6. Fallback
         default:
-            return "map-pin-2"
+            return ""
         }
     }
 
@@ -89,7 +89,8 @@ struct NavigationCard: View {
                         Text(mapxusController.getTranslationInstructionListInMultipleLanguages(instruction: direction, languageCode: mapxusController.selectedLanguage))
                             .font(.system(size: 20, weight: .bold))
                             .foregroundColor(Color.primary)
-                            .minimumScaleFactor(0.7)
+                            .minimumScaleFactor(0.5)
+                            .lineLimit(4)
                         Text("\(mapxusController.calculateEstimationTimeToArriveBasedOnRouteSearcher())")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(Color.secondary)
@@ -100,12 +101,27 @@ struct NavigationCard: View {
                     
                     Spacer()
                     
-                    Image(getAnIconForEveryDirection(direction: direction), bundle: Bundle.mapxus)
-                        .renderingMode(.template)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 50, height: 50)
-                        .foregroundColor(Color.primary)
+                    Group(content: {
+                        if !getAnIconForEveryDirection(direction: direction).isEmpty {
+                            if UIImage(systemName: getAnIconForEveryDirection(direction: direction)) != nil {
+                                Image(systemName: getAnIconForEveryDirection(direction: direction))
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 50, height: 50)
+                            } else {
+                                Image(getAnIconForEveryDirection(direction: direction))
+                                    .renderingMode(.template)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 50, height: 50)
+                                    .foregroundColor(Color.primary)
+                            }
+                        } else {
+                            ProgressView()
+                                .tint(Color.mainColor)
+                                .frame(width: 50, height: 50, alignment: .center)
+                        }
+                    })
                 })
                 
                 Button(action: {

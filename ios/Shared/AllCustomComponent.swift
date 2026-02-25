@@ -11,6 +11,27 @@ import Combine
 import Foundation
 import SDWebImageSwiftUI
 
+struct PulseAnimationView: View {
+    var color: Color
+    @State private var pulse: Bool = false
+
+    var body: some View {
+        Circle()
+            .frame(width: 28, height: 28)
+            .foregroundColor(color)
+            .scaleEffect(pulse ? 1.5 : 1.0) // Scale the circle
+            .opacity(pulse ? 0.3 : 1.0)     // Change opacity
+            .animation(
+                Animation.easeInOut(duration: 1)
+                    .repeatForever(autoreverses: true), // Loop the animation
+                value: pulse // Explicitly tie animation to the 'pulse' state
+            )
+            .onAppear {
+                pulse.toggle() // Start the animation when the view appears
+            }
+    }
+}
+
 struct CustomSlider: View {
     @Binding var progress: CLLocationDistance
     
@@ -326,6 +347,7 @@ struct CustomCircleIconButton: View {
                     })
                     .clipShape(Circle())
                     .shadow(color: Color.gray.opacity(0.3), radius: 3)
+            }
         })
     }
 }
@@ -1103,7 +1125,7 @@ extension View {
 
 extension View {
     func customToast(isShown: Binding<Bool>, message: String, icon: String? = nil, iconColor: Color, alignment: Alignment = .top) -> some View {
-
+        
         ZStack {
             self
             CustomToast(isShown: isShown, message: message, icon: icon, iconColor: iconColor, alignment: alignment)

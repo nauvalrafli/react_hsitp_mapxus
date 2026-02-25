@@ -1,7 +1,7 @@
 //
 //  MyMapxus.swift
 //  mapxus-hsitp-ios
-// 
+//
 //  Created by dev01 on 12/05/25.
 //
 
@@ -62,15 +62,6 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
     @Published var allBuildingFacilities: [AllBuildingFacilityData] = []
     @Published var buildingCategories: [MXMCategory] = []
     
-//    @Published var currentBuildingIndex: Int? {
-//        didSet {
-//            // 2. Save the value whenever it changes
-//            UserDefaults.standard.set(currentBuildingIndex, forKey: "MapxusMap-Building-Index")
-//        }
-//    }
-    
-    
-    
     @Published var foundDeviceIds: [String] = []
     private let userClass: UserClass = UserClass.shared
     var washroomOccupancyClass: TelemetryViewModel?
@@ -107,12 +98,15 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
     @Published var isFetchingWashroomOccupancy: Bool = false
     
     @Published var isOffRoute: Bool = false
-    @AppStorage("Mapxus-Map-Off-Route-Threshold") private var offRouteThreshold: CLLocationDistance = 10.0 // 20 meters
+    @AppStorage("Mapxus-Map-Off-Route-Threshold") private var offRouteThreshold: CLLocationDistance = 25.0 // 20 meters
     
     private var poiRetryCount = 0
     private let maxPoiRetries = 3
     @Published var poiSearch: MXMPoiSearch?
     private var lastPoiRequest: MXMPoiSearchOption? // Store the request to retry it
+    
+    /// Map Rotation
+    @Published var isShowingCurrentStatusOfMapRotation: Bool = false
     
     /// Internet Connection
     @Published var isShowingLossInternetConnectionButton: Bool = false
@@ -125,16 +119,19 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
     /// Radio Button
     @Published var isSearchingAllFacilitiesOnEveryBuilding: Bool = false
     
+    /// TrackingMode
+    @Published private var explorationTimer: Timer?
+    @Published private var explorationTimeInterval: Double = 10.0
+    @Published private var isUserExploring: Bool = false
+    
+    private var tempAccumulatedPois: [MXMPOI] = []
+    private var currentSearchPage: Int = 1
+    
+    /// Swipe the Building lists
+    @Published var isSwiping: Bool = false
+    
     init(poi: MapPoi? = nil) {
         super.init()
-        
-        /// 3. Load the value when the class starts up
-        /// If no value exists, it defaults to 0
-//        if UserDefaults.standard.object(forKey: "MapxusMap-Building-Index") != nil {
-//            self.currentBuildingIndex = UserDefaults.standard.integer(forKey: "MapxusMap-Building-Index")
-//        } else {
-//            self.currentBuildingIndex = 0
-//        }
         
         Task(operation: { @MainActor in
             self.washroomOccupancyClass = TelemetryViewModel()
@@ -142,7 +139,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
         
         if let safePoi = poi {
             self.focusPoi = safePoi
-            mapState = .showingNavigationDetails
+            print("FOCUS POI: \(String(describing: focusPoi))")
         }
     }
     
@@ -151,6 +148,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
         case initial
         case selectingDestinationLocation
         case selectingCurrentLocation
+        case selectingCurrentLocationByPinningOnMap
         case showingRoute
         case showingNavigationDetails
         case navigating
@@ -186,32 +184,72 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
     }
     fileprivate var routePainter: MXMRoutePainter?
     
+    // 2. Define trackingMode as a Computed Property
+    var trackingMode: MGLUserTrackingMode {
+        switch mapState {
+        case .initial,
+             .selectingDestinationLocation,
+             .selectingCurrentLocation:
+            return .follow
+//            return userInsideTheBuilding() ? .follow : .none
+            
+        case .welcoming,
+             .selectingCurrentLocationByPinningOnMap,
+             .showingRoute,
+             .showingNavigationDetails,
+             .navigating:
+            return .none
+        }
+    }
+    var isAnimatedOnFollowMode: Bool {
+        switch mapState {
+        case .welcoming, .selectingCurrentLocationByPinningOnMap, .showingNavigationDetails, .showingRoute, .navigating:
+            true
+        case .initial, .selectingDestinationLocation, .selectingCurrentLocation:
+            false
+//            userInsideTheBuilding() ? false : true
+        }
+    }
+    var zoomModeAnimationOnFollowMode: MXMZoomMode {
+        switch mapState {
+        case .welcoming, .selectingCurrentLocationByPinningOnMap, .showingNavigationDetails, .showingRoute, .navigating:
+            MXMZoomMode.animated
+        case .initial, .selectingDestinationLocation, .selectingCurrentLocation:
+            MXMZoomMode.disable
+//            userInsideTheBuilding() ? MXMZoomMode.disable : MXMZoomMode.animated
+        }
+    }
+    
     @Published var mapState: MapState = .welcoming {
         didSet {
-            // Add this line to catch the "culprit"
-            print("🔄 mapState changed from \(oldValue) to \(mapState). Triggered by: \(Thread.callStackSymbols[1])")
-            
             switch mapState {
             case .welcoming:
-                setCenterView(zoomLevel: 10, bottom: 180)
-                break
+                setMapToCenterView(bottom: 180)
             case .initial:
                 clearAllMarkersAlongWithTheInstructionLists()
                 isDisablingCreatingDestinationMarker = false
-                break
             case .selectingDestinationLocation:
                 isFoldingFloorBarSection(fold: false)
-                break
             case .selectingCurrentLocation:
                 break
+            case .selectingCurrentLocationByPinningOnMap:
+                setMapToCenterView(bottom: 0)
             case .showingRoute:
                 isFoldingFloorBarSection(fold: true)
-                break
             case .showingNavigationDetails:
                 isFoldingFloorBarSection(fold: true)
-                setCenterView(zoomLevel: 19, bottom: 250)
-                break
+                setMapToCenterView(bottom: 280)
             case .navigating: break
+            }
+            
+            // Add this line to catch the "culprit"
+            print("🔄 mapState: \(oldValue) -> \(mapState)")
+            print("user mode status: \(isAnimatedOnFollowMode), zoom mode: \(zoomModeAnimationOnFollowMode.rawValue), tracking mode: \(trackingMode.rawValue)")
+            
+            if trackingMode == .follow {
+                print("✅ Tracking is active")
+            } else {
+                print("❌ Tracking is disabled (Mode: \(trackingMode.rawValue))")
             }
         }
     }
@@ -281,8 +319,8 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
             
             // 5. Move the map to the POI
             if let mapxusMap = self.mapxusMap {
-                mapxusMap.selectFloor(byId: poi.floorId, zoomMode: .animated, edgePadding: .zero)
-                mapView?.setTargetCoordinate(coord, animated: true, completionHandler: nil)
+                mapxusMap.selectFloor(byId: poi.floorId, zoomMode: zoomModeAnimationOnFollowMode, edgePadding: .zero)
+                mapView?.setTargetCoordinate(coord, animated: isAnimatedOnFollowMode, completionHandler: nil)
             }
             
             print("📍 Focused on POI: id: \(poi.id) at Building Id:  Floor: \(poi.floorName) with floor id: \(poi.floorId), lat: \(poi.lat), lon: \(poi.lng)")
@@ -408,21 +446,62 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
     }
     
     // MARK: - Private Helpers
-    private func handleBuildingSelection(tappedBuildingId: String) {
-        if let index = buildingLists.firstIndex(where: { $0.id == tappedBuildingId }) {
-            let tappedTheBuilding = buildingLists[index]
-            
+//    func handleBuildingSelection(tappedBuildingId: String) {
+//        if let index = buildingLists.firstIndex(where: { $0.id == tappedBuildingId }) {
+//            let tappedTheBuilding = buildingLists[index]
+//            
+//            DispatchQueue.main.async {
+//                withAnimation(.smooth()) {
+//                    self.mapxusMap?.gestureSwitchingBuilding = true
+//                    self.currentBuildingIndex = index
+//                }
+//                print("✅ New Welcoming: Selected Building \(tappedTheBuilding.buildingName)")
+//            }
+//        }
+//    }
+    
+    // Helper to get the ID of the current index
+    var currentBuildingId: String {
+        guard let index = currentBuildingIndex, buildingLists.indices.contains(index) else { return "" }
+        return buildingLists[index].id
+    }
+
+//    func handleBuildingSelection(tappedBuildingId: String) {
+//        guard let index = buildingLists.firstIndex(where: { $0.id == tappedBuildingId }),
+//              index != currentBuildingIndex else { return } // 🛑 Stop if already selected
+//
+//        DispatchQueue.main.async {
+//            withAnimation(.smooth()) {
+//                // Set flag if your SDK needs it to prevent camera jumping
+////                self.mapxusMap?.gestureSwitchingBuilding = true
+//                self.currentBuildingIndex = index
+////                self.mapxusMap?.selectBuilding(byId: tappedBuildingId, zoomMode: .animated, edgePadding: .zero)
+////                self.mapxusMap?.autoChangeBuilding = true
+//            }
+//        }
+//    }
+    
+    // In your MapxusController
+    func handleBuildingSelection(tappedBuildingId: String) {
+        // 1. Find index
+        guard let index = buildingLists.firstIndex(where: { $0.id == tappedBuildingId }) else { return }
+        
+        // 2. ONLY update if the index is actually different to prevent loops
+        if self.currentBuildingIndex != index {
             DispatchQueue.main.async {
                 withAnimation(.smooth()) {
+                    // Set flag if your SDK needs it to prevent camera jumping
+//                    self.mapxusMap?.gestureSwitchingBuilding = true
                     self.currentBuildingIndex = index
-                    
-                    /// Trigger the selection logic
-//                    self.selectBuilding(id: tappedTheBuilding.id)
-//                    self.isGettingBuildingNumber = tappedTheBuilding.buildingNumber
+//                    self.mapxusMap?.selectBuilding(byId: tappedBuildingId, zoomMode: .animated, edgePadding: .zero)
+//                    self.mapxusMap?.autoChangeBuilding = true
                 }
-                print("✅ New Welcoming: Selected Building \(tappedTheBuilding.buildingName)")
             }
         }
+    }
+    
+    func gestureSwitchingBuilding() -> String {
+        return mapxusMap?.selectedBuildingId ?? ""
     }
 
     private func handleMarkerCreationOnBlankTapOnMap(coordinate: CLLocationCoordinate2D, floorId: String?, tappedBuildingId: String) {
@@ -504,14 +583,16 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
                 
                 Task { @MainActor in
                     if !isFetchingWashroomOccupancy {
-                        isFetchingWashroomOccupancy = true
-                        print("🚀 Washroom run for building: \(poi.buildingId ?? "")")
+                        self.isGettingWashroomVacantStatusMessage = translationClass.loading(code: selectedLanguage)
                         
+                        // This line now PAUSES here until the network request is 100% finished
                         await washroomOccupancyClass?.getToiletStatusWithoutAutomaticRefresh(buildingId: poi.buildingId)
                         
-                        isFetchingWashroomOccupancy = false
+                        isFetchingWashroomOccupancy = true
+                        print("🚀 Washroom run for building: \(poi.buildingId ?? "")")
                     }
                     
+                    // No more 'while' loop needed! The line above already waited for us.
                     let washroomStatus = washroomOccupancyClass?.getRestroomOccupancyStatusAll(
                         poiId: poi.identifier,
                         statuses: vacantToiletStatuses(languageCode: selectedLanguage),
@@ -530,24 +611,27 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
                 isGettingWashroomVacantStatusColor = .clear
             }
             
-            // 💡 THE FIX: Only append if it's not already the current view
-            if !isDisablingCreatingDestinationMarker {
-                
-                isDisablingCreatingDestinationMarker = true
-                isNavigatingToConfirmingDestinationView = true
-                isShowingTheSettingsViewButton = false
-                withAnimation(.smooth(), {
-                    sheetHeight = 240
-                    presentationActiveDetent = .height(240)
-                })
-                self.navigationDestinationPath.append("ConfirmingDestinationView")
-            }
+            self.triggerNavigationFlowToConfirmingDestinationView()
             
             print("🎯 New Destination POI set: \(poi.nameMap.en ?? "")")
             print("building number updated poi id: \(poi.buildingId ?? "" as String)")
             print("building number updated 2: \(isGettingBuildingNumber)")
         }
         
+    }
+    
+    // Create a helper function to avoid repeating code
+    private func triggerNavigationFlowToConfirmingDestinationView() {
+        if !isDisablingCreatingDestinationMarker {
+            isDisablingCreatingDestinationMarker = true
+            isNavigatingToConfirmingDestinationView = true
+            isShowingTheSettingsViewButton = false
+            withAnimation(.smooth()) {
+                sheetHeight = 240
+                presentationActiveDetent = .height(240)
+            }
+            self.navigationDestinationPath.append("ConfirmingDestinationView")
+        }
     }
 
     private func handleStartPOI(coordinate: CLLocationCoordinate2D, floorId: String?) {
@@ -608,6 +692,38 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
     }
     /// End of the new one
     
+    func mapViewDidFinishLoadingMap(_ mapView: MGLMapView) {
+        /// Set initial center coordinate so the button works immediately
+        self.centerPinCoordinate = mapView.centerCoordinate
+    }
+    
+    /// For customizing start marker
+    func mapView(_ mapView: MGLMapView, imageFor annotation: MGLAnnotation) -> MGLAnnotationImage? {
+        
+        if annotation.title == "Start" {
+            var annotationImage = mapView.dequeueReusableAnnotationImage(withIdentifier: "Start")
+            
+            if annotationImage == nil {
+                let originalImage = UIImage(resource: .customStartMarkerPin1)
+                
+                // 1. Just define the icon size
+                let iconSize = CGSize(width: 28, height: 28)
+                
+                // 2. Simple resize without extra padding
+                let renderer = UIGraphicsImageRenderer(size: iconSize)
+                let resizedImage = renderer.image { _ in
+                    originalImage.draw(in: CGRect(origin: .zero, size: iconSize))
+                }
+                
+                annotationImage = MGLAnnotationImage(image: resizedImage, reuseIdentifier: "Start")
+            }
+            
+            return annotationImage
+        }
+        
+        return nil
+    }
+    
     // Inside MapxusController
     func mapView(_ mapView: MGLMapView, regionDidChangeAnimated animated: Bool) {
         // 1. Get the center point of the map view's frame
@@ -632,162 +748,220 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
         
     }
     
-    // This function runs automatically every time the GPS updates
+    /// This function runs automatically every time the GPS updates
     func mapView(_ mapView: MGLMapView, didUpdate userLocation: MGLUserLocation?) {
-        // 1. ONLY check for valid GPS data.
-        // DO NOT check for 'startPoint == nil' here anymore!
-        guard let location = userLocation?.location,
-              CLLocationCoordinate2DIsValid(location.coordinate) else {
-            return
-        }
-
-        let lat = location.coordinate.latitude
-        let lon = location.coordinate.longitude
-        let userGPS = CLLocation(latitude: lat, longitude: lon)
+        guard let location = userLocation?.location, CLLocationCoordinate2DIsValid(location.coordinate) else { return }
+        let currentLocation = location.coordinate
         
+        let lat = currentLocation.latitude
+        let lon = currentLocation.longitude
+        let userGPS = CLLocation(latitude: lat, longitude: lon)
+
         let gpsTrueHeading = userLocation?.heading?.trueHeading ?? 0 as Double
         let gpsMagneticHeading = userLocation?.heading?.magneticHeading ?? 0 as Double
         let gpsAccuracy = userLocation?.heading?.headingAccuracy ?? -1 as Double
         
-        let userFloorLevel = userLocation?.location?.floor?.level ?? 0 as Int
-        let userFloorLevel2 = userLocation?.location?.myFloor?.level ?? 0 as Int
-        
-        // 2. Initial Setup Logic (Runs only once when startPoint is first found)
-        if startPoint == nil {
-            print("📍 GPS Initialized - Lat: \(lat), Lon: \(lon)")
-        }
 
-        // 3. Navigation Proximity Logic (Now this can run even if startPoint exists!)
         if mapState == .navigating {
-            print("compass user true heading Map: \(gpsTrueHeading)")
-            print("compass user magnetic heading Map: \(gpsMagneticHeading)")
-            print("compass user heading accuracy: \(gpsAccuracy)")
-            
-            if gpsAccuracy > 0 && gpsAccuracy < 15 {
-                // 🏆 Trust this data for AR
-                self.compassTruHeadingWarning = ""
-                self.compassTrueHeading = gpsTrueHeading
-                print("🏆 Excellent: Compass accuracy is exellent.")
-            } else if gpsAccuracy > 15 {
-                // ⚠️ Still use it, but maybe add a "jitter" filter
-                self.compassTruHeadingWarning = ""
-                self.compassTrueHeading = gpsTrueHeading
-                print("⚠️ Warning: Compass accuracy is dipping.")
-            } else {
-                self.compassTruHeadingWarning = "The Calibration of the Compass is broken. Please try again!."
-                self.compassTrueHeading = 0
-                // ❌ Negative value: The compass is calibrating or broken
-                print("❌ Invalid compass heading data.")
-            }
-            
+            isShowingCurrentStatusOfMapRotation = false
             isRotatingTheMapOnGPSButtonClicked = false
+            updateCompassData(gpsAccuracy: gpsAccuracy, gpsTrueHeading: gpsTrueHeading)
             checkUserGPSProximityToNextStep(currentLocation: userGPS)
-            rotatingMapxusMapOnNavigating(map: mapView, userLocation: userLocation)
-//            disablingTrackingUserGpsOnNavigation(map: mapView, userLocation: userLocation)
+            rotatingMapxusMapOnNavigating(map: mapView)
         } else {
-//            followModeOnlyOnNavigating(map: mapView, userLocation: userLocation)
             if isRotatingTheMapOnGPSButtonClicked {
-                rotatingMapxusMapOnNavigating(map: mapView, userLocation: userLocation)
+                rotatingMapxusMapOnNavigating(map: mapView)
+            } else {
+                // 1. Define states that are allowed to "Follow" the user
+                let allowedStates: [MapState] = [.initial, .selectingDestinationLocation, .selectingCurrentLocation]
+                
+                // 2. If exploring in an allowed state, stay locked (don't snap back yet)
+                if isUserExploring && allowedStates.contains(mapState) {
+                    print("User started the exploration.")
+                    return
+                }
+                
+                // 🛑 STOPS THE LOOP: If the current state should be .none,
+                // force the map to stay in .none and exit.
+                if self.trackingMode == .none {
+                    if mapView.userTrackingMode != .none {
+                        mapView.userTrackingMode = .none
+                    }
+                    return
+                }
+                
+                // 3. Only trigger followMode if the state allows it
+                // This prevents GPS jumps in .welcoming or .showingRoute
+                if allowedStates.contains(mapState) {
+                    followMode(map: mapView, mode: trackingMode, currentLocation: currentLocation, state: allowedStates)
+                } else {
+                    self.mapView?.setUserTrackingMode(.none, animated: false, completionHandler: {
+                        /// Ensure exploring is off for static states
+                        self.isUserExploring = false
+                    })
+                }
             }
-            // This print will now keep appearing even after you set a marker!
-            print("DEBUG: User's GPS status: \(lat), \(lon), distance from the target direction: \(location.distance(from: userGPS)), floor level: \(location.floor?.level ?? 0), \(location.myFloor?.level ?? 0). mapState is \(mapState)")
         }
-        
-        print("user floor level changes: \(userFloorLevel)")
     }
     
     /// For User Tracking Mode
     func mapView(_ mapView: MGLMapView, didChange mode: MGLUserTrackingMode, animated: Bool) {
-        // If the user manually drags the map, the system changes mode to .none
-        if mode == .none && mapState == .navigating {
-            print("📍 User manually moved the map. Auto-follow disabled.")
-            // This is a good time to show a 'Recenter' button
-        } else if mode == .followWithHeading {
-            print("🧭 Map is now auto-rotating with user heading. Auto-follow enabled")
-        }
-    }
-    
-    func mapViewDidFinishLoadingMap(_ mapView: MGLMapView) {
-        /// Set initial center coordinate so the button works immediately
-        self.centerPinCoordinate = mapView.centerCoordinate
-    }
-    
-    /// For customizing start marker
-    func mapView(_ mapView: MGLMapView, imageFor annotation: MGLAnnotation) -> MGLAnnotationImage? {
-        
-        if annotation.title == "Start" {
-            var annotationImage = mapView.dequeueReusableAnnotationImage(withIdentifier: "Start")
-            
-            if annotationImage == nil {
-                let originalImage = UIImage(named: "customStartMarkerPin1", in: .main, with: nil)
-                
-                // 1. Just define the icon size
-                let iconSize = CGSize(width: 28, height: 28)
-                
-                // 2. Simple resize without extra padding
-                let renderer = UIGraphicsImageRenderer(size: iconSize)
-                let resizedImage = renderer.image { _ in
-                  originalImage?.draw(in: CGRect(origin: .zero, size: iconSize))
-                }
-                
-                annotationImage = MGLAnnotationImage(image: resizedImage, reuseIdentifier: "Start")
+        Task { @MainActor in
+            // 1. FORCE SYNC: If logic says .none but map says .follow, kill the map tracking immediately.
+//            if mode == .followWithHeading {
+//                return
+//            } else if mode != self.trackingMode {
+//                print("⚠️ Tracking: Desync detected! Map was \(mode.rawValue), forcing to \(self.trackingMode.rawValue)")
+//                mapView.userTrackingMode = self.trackingMode
+//                return // Exit to let the next cycle handle the correct mode
+//            }
+
+            if mode != .none {
+                print("user tracking mode is \(mode)")
             }
-            
-            return annotationImage
+
+            // 2. Exploration Logic
+            let allowed: [MapState] = [.initial, .selectingDestinationLocation, .selectingCurrentLocation]
+            if mode == .none && allowed.contains(mapState) {
+                explorationTimeInterval = 10.0
+                isUserExploring = true
+                startExplorationTimer(timeInterval: explorationTimeInterval)
+                print("⏰ Exploration time started")
+            } else if mode == .none {
+                isUserExploring = false
+            }
+        }
+    }
+    
+    private func updateCompassData(gpsAccuracy: Double, gpsTrueHeading: Double) {
+        if gpsAccuracy > 0 && gpsAccuracy < 15 {
+            // 🏆 Trust this data for AR
+            self.compassTruHeadingWarning = ""
+            self.compassTrueHeading = gpsTrueHeading
+            print("🏆 Excellent: Compass accuracy is exellent.")
+        } else if gpsAccuracy > 15 {
+            // ⚠️ Still use it, but maybe add a "jitter" filter
+            self.compassTruHeadingWarning = ""
+            self.compassTrueHeading = gpsTrueHeading
+            print("⚠️ Warning: Compass accuracy is dipping.")
+        } else {
+            self.compassTruHeadingWarning = "The Calibration of the Compass is broken. Please try again!."
+            self.compassTrueHeading = 0
+            // ❌ Negative value: The compass is calibrating or broken
+            print("❌ Invalid compass heading data.")
         }
         
-        return nil
+        print("compass user true heading Map: \(gpsTrueHeading)")
+        print("compass user heading accuracy: \(gpsAccuracy)")
     }
     
-    func rotatingMapxusMapOnNavigating(map: MGLMapView, userLocation: MGLUserLocation?) {
-        map.allowsRotating = true
-        map.userTrackingMode = .followWithHeading
+    func startExplorationTimer(timeInterval: Double) {
+        // 1. Clean up any existing timer first
+        explorationTimer?.invalidate()
+        
+        // 2. Use the parameter passed to the function
+        explorationTimer = Timer.scheduledTimer(withTimeInterval: timeInterval, repeats: false) { [weak self] _ in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                
+                // Only snap back if we are still exploring AND in a valid state
+                let allowed: [MapState] = [.initial, .selectingDestinationLocation, .selectingCurrentLocation]
+                if self.isUserExploring && allowed.contains(self.mapState) {
+                    print("⏰ Exploration time expired. Snapping back to GPS.")
+                    self.isUserExploring = false
+                    // This 'false' triggers the followMode in your didUpdate logic
+                }
+            }
+        }
+    }
+
+    private func stopExplorationTimer() {
+        explorationTimer?.invalidate()
+        explorationTimer = nil
+        isUserExploring = false
+        print("🛑 Exploration timer stopped.")
     }
     
-    func followModeOnlyOnNavigating(map: MGLMapView, userLocation: MGLUserLocation?) {
-        map.userTrackingMode = .follow
+    func followMode(map: MGLMapView, mode: MGLUserTrackingMode, currentLocation: CLLocationCoordinate2D, state: [MapState]) {
+        guard mode != .none else { return }
+        
+        if state.contains(mapState) {
+            setTrackingMode(mode, currentLocation)
+        }
     }
     
-    func disablingTrackingUserGpsOnNavigation(map: MGLMapView, userLocation: MGLUserLocation?) {
-        map.allowsRotating = true
-        map.userTrackingMode = .none
+    func setTrackingMode(_ mode: MGLUserTrackingMode, _ currentLocation: CLLocationCoordinate2D) {
+        guard let mapView = mapView, mode != .none else { return }
+        
+        // Capture the state at the START of the animation
+        let startingState = self.mapState
+
+        let camera = MGLMapCamera(lookingAtCenter: currentLocation,
+                                  acrossDistance: mapView.camera.viewingDistance,
+                                  pitch: mapView.camera.pitch,
+                                  heading: (mode == .followWithHeading) ? mapView.camera.heading : 0)
+
+        mapView.setCamera(camera, withDuration: 1.2, animationTimingFunction: CAMediaTimingFunction(name: .linear), completionHandler: { [weak self] in
+            guard let self = self else { return }
+
+            // 🛑 CRITICAL CHECK: If the state changed while we were animating, STOP.
+            // This prevents the map from "jumping" back to GPS when you are in .welcoming
+            guard self.mapState == startingState else {
+                print("🚫 State changed during animation. Aborting tracking lock.")
+                return
+            }
+
+            // Only lock tracking if the logic still wants it
+            if self.trackingMode != .none {
+                mapView.setUserTrackingMode(mode, animated: true, completionHandler: nil)
+                print("✨ Smoothly returned to User GPS.")
+            }
+        })
     }
     
-    /// Old code - For backup from me
-//    func checkUserGPSProximityToNextStep(currentLocation: CLLocation) {
-//        print("DEBUG: User's GPS checkProximityToNextStep called. Index: \(instructionIndex), Count: \(instructionPointList.count)")
-//            
-//        guard instructionIndex < instructionPointList.count else {
-//            print("DEBUG: User's GPS Exiting because index is out of bounds.")
-//            return
-//        }
-//        
-//        let currentStepCoord = instructionPointList[instructionIndex]
-//        let stepLocation = CLLocation(latitude: currentStepCoord.latitude,
-//                                      longitude: currentStepCoord.longitude)
-//        
-//        let distance = currentLocation.distance(from: stepLocation)
-//        
-//        // Check floor ID to prevent triggering on different levels
-//        let userFloorId = self.mapxusMap?.userLocationFloor?.floorId
-//        let targetFloorId = instructionList[instructionIndex].floorId
-//        let isSameFloor = userFloorId == targetFloorId
-//
-//        // 0.5 meters is roughly 1.6 feet (arm's length)
-//        if distance <= 1.0 && isSameFloor {
-//            print("🎯 User's GPS Precision Proximity reached (50cm)! Moving to next instruction.")
-//            
-//            // Haptic feedback is helpful when precision is this high
-//            // so the user knows they "hit" the target.
-//            let generator = UIImpactFeedbackGenerator(style: .medium)
-//            generator.impactOccurred()
-//            
-//            nextStep()
-//        } else {
-//            /// Debug print to see how close the user is getting in real-time
-//            print("📏 User's GPS Distance: \(String(format: "%.2f", distance))m. Target: 1.0m")
-//        }
-//    }
+    func rotatingMapxusMapOnNavigating(map: MGLMapView) {
+        map.setUserTrackingMode(.followWithHeading, animated: true, completionHandler: {
+            map.allowsRotating = true
+        })
+    }
+    
+    func disablingTrackingUserGpsOnNavigation(map: MGLMapView) {
+        map.setUserTrackingMode(.none, animated: true, completionHandler: {
+            map.allowsRotating = true
+        })
+    }
+    
+    func userInsideTheBuilding() -> Bool {
+        guard let mapxus = mapxusMap else {
+            return false // Return nil if map isn't ready
+        }
+        
+        let buildingId = mapxus.userLocationBuilding?.identifier ?? ""
+        let floorId = mapxus.userLocationFloor?.floorId ?? ""
+        
+        return !buildingId.isEmpty && !floorId.isEmpty
+    }
+    
+    func userInsideTheBuildingStatus() -> (isInside: Bool, message: String, pulseColor: Color)? {
+        guard let mapxus = mapxusMap else {
+            return nil // Return nil if map isn't ready
+        }
+        
+        let buildingId = mapxus.userLocationBuilding?.identifier ?? ""
+        let buildingName = (mapxus.userLocationBuilding?.nameMap.en ?? "") as String
+        let floorId = mapxus.userLocationFloor?.floorId ?? ""
+        
+        // Check logic
+        if !buildingId.isEmpty && !floorId.isEmpty {
+            return (true, "You're inside: \(buildingId), \(floorId)", .mainColor) // Strong signal
+        } else if !buildingId.isEmpty || !floorId.isEmpty {
+            return (true, "You're inside: \(buildingId), \(floorId)", .yellow)    // Weak signal (building but no floor)
+        } else if buildingId.isEmpty || floorId.isEmpty {
+            return (true, "You're inside: \(buildingId), \(floorId)", .red)
+        } else {
+            return (false, "You're inside: \(buildingId), \(floorId)", .clear)
+        }
+    }
     
     func checkUserGPSProximityToNextStep(currentLocation: CLLocation) {
         print("⚠️ OFF-ROUTE: 📍 Proximity Check Called. Index: \(instructionIndex)/\(instructionPointList.count)")
@@ -796,7 +970,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
             print("⚠️ OFF-ROUTE: 🛑 Guard failed: Index out of bounds.")
             return
         }
-            
+        
         // 1. Current Target Point
         let currentStepCoord = instructionPointList[instructionIndex]
         let stepLocation = CLLocation(latitude: currentStepCoord.latitude,
@@ -814,13 +988,30 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
         let userFloorId = self.mapxusMap?.userLocationFloor?.floorId
         let targetFloorId = instructionList[instructionIndex].floorId
         let isSameFloor = (userFloorId == nil || targetFloorId == nil) ? true : (userFloorId == targetFloorId)
+        
+        print("finish alert dialog: \(distanceToNext)")
 
         // ✅ CASE 1: Reached Point
-        if distanceToNext <= 1.2 && isSameFloor {
+        // 1. FINAL DESTINATION CHECK (The very last point)
+        if instructionIndex == instructionList.count - 2 {
+            if distanceToNext <= 3.0 && isSameFloor {
+                print("🚩 Final Destination Reached. Showing Alert.")
+                self.isShowingArrivedAtTheDestinationAlertDialog = true
+                return // Exit function
+            }
+        }
+        else if distanceToNext <= 1.5 && isSameFloor {
             print("⚠️ OFF-ROUTE: 🎯 Reached Point! Distance: \(distanceToNext)m")
             self.isOffRoute = false
             let generator = UIImpactFeedbackGenerator(style: .medium)
             generator.impactOccurred()
+            
+            // Check if this point is the destination BEFORE incrementing
+            if instructionIndex >= instructionList.count - 2 {
+                print("🚩 Approaching Destination - Triggering Alert")
+                self.isShowingArrivedAtTheDestinationAlertDialog = true
+            }
+            
             nextStep()
         }
         // ✅ CASE 2: Off-Route
@@ -844,6 +1035,46 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
                 }
             }
             print("⚠️ OFF-ROUTE: 📏 Path Check: Next: \(String(format: "%.2f", distanceToNext))m, Prev: \(String(format: "%.2f", distanceToPrevious))m, SameFloor: \(isSameFloor)")
+        }
+    }
+    
+    func showOffRouteAlert() {
+        // 1. Ensure we don't present multiple alerts
+        guard isOffRoute else { return }
+        
+        let alert = UIAlertController(
+            title: translationClass.offRoute(code: selectedLanguage),
+            message: translationClass.offRouteAlertMessage(code: selectedLanguage),
+            preferredStyle: .alert
+        )
+        
+        // 2. Recalculate Action
+        let recalculateAction = UIAlertAction(title: translationClass.offRouteRecalculateButton(code: selectedLanguage), style: .default) { [weak self] _ in
+            self?.recalculateRouteFromCurrentLocation()
+        }
+        
+        // 3. Cancel Action
+        let cancelAction = UIAlertAction(title: translationClass.dismiss(code: selectedLanguage), style: .cancel) { [weak self] _ in
+            // Keep isOffRoute true or handle silence logic here
+        }
+        
+        alert.addAction(recalculateAction)
+        alert.addAction(cancelAction)
+        
+        // 4. Present on Main Thread
+        // 4. Present on Main Thread using WindowScene
+        DispatchQueue.main.async {
+            let keyWindow = UIApplication.shared.connectedScenes
+                .filter { $0.activationState == .foregroundActive }
+                .compactMap { $0 as? UIWindowScene }
+                .first?.windows
+                .filter { $0.isKeyWindow }.first
+
+            if let topVC = keyWindow?.rootViewController {
+                // If the root is a navigation or tab controller, you might need the visible one
+                let presenter = self.getVisibleViewController(topVC)
+                presenter.present(alert, animated: true)
+            }
         }
     }
     
@@ -886,47 +1117,6 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
 //        showRoute(routeOption: routeType)
     }
     
-    func showOffRouteAlert() {
-        // 1. Ensure we don't present multiple alerts
-        guard isOffRoute else { return }
-        
-        let alert = UIAlertController(
-            title: "Off Route",
-            message: "You seem to have moved away from the navigation path. Would you like to recalculate?",
-            preferredStyle: .alert
-        )
-        
-        // 2. Recalculate Action
-        let recalculateAction = UIAlertAction(title: "Recalculate", style: .default) { [weak self] _ in
-            self?.recalculateRouteFromCurrentLocation()
-        }
-        
-        // 3. Cancel Action
-        let cancelAction = UIAlertAction(title: "Dismiss", style: .cancel) { [weak self] _ in
-            // Keep isOffRoute true or handle silence logic here
-            
-        }
-        
-        alert.addAction(recalculateAction)
-        alert.addAction(cancelAction)
-        
-        // 4. Present on Main Thread
-        // 4. Present on Main Thread using WindowScene
-        DispatchQueue.main.async {
-            let keyWindow = UIApplication.shared.connectedScenes
-                .filter { $0.activationState == .foregroundActive }
-                .compactMap { $0 as? UIWindowScene }
-                .first?.windows
-                .filter { $0.isKeyWindow }.first
-
-            if let topVC = keyWindow?.rootViewController {
-                // If the root is a navigation or tab controller, you might need the visible one
-                let presenter = self.getVisibleViewController(topVC)
-                presenter.present(alert, animated: true)
-            }
-        }
-    }
-    
     /// New by me
     func createMarkerBasedOnUserGPS() {
         // 1. Access the location directly from the MapView's userLocation property
@@ -945,6 +1135,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
 
         // 3. Handle Floor ID Logic
         // In Mapxus, it is best to check userLocationFloor first, then fallback to the map's selected floor
+        let selectedBuildingId = mapxusMap.selectedBuildingId ?? ""
         let selectedFloorId = mapxusMap.userLocationFloor?.floorId ?? mapxusMap.selectedFloor?.floorId ?? ""
         let selectedFloorName = mapxusMap.userLocationFloor?.name ?? ""
         let selectedFloorOrdinal = mapxusMap.userLocationFloor?.ordinal?.level
@@ -964,17 +1155,14 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
             startMarker = marker
 
             // 6. Create Waypoint
-            let waypoint = MXMWaypoint()
-            waypoint.latitude = coordinate.latitude
-            waypoint.longitude = coordinate.longitude
-            waypoint.floorId = selectedFloorId
+            let waypoint = markerToWaypoint(marker: marker)
 
             startPoint = waypoint
             print("✅ Created GPS Start Marker and Waypoint: \(String(describing: startPoint))")
 
             // 7. Sync the floor view
-            if !selectedFloorId.isEmpty {
-                mapxusMap.selectFloor(byId: selectedFloorId, zoomMode: .animated, edgePadding: .zero)
+            if !selectedFloorId.isEmpty && !selectedBuildingId.isEmpty && startPoint != nil && startMarker != nil {
+                mapState = .showingNavigationDetails
             }
         } else {
             print("❌ Failed to create marker at GPS location")
@@ -982,52 +1170,70 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
     }
     
     func setStartLocationFromCenterPin() {
-        // 1. Ensure we have a coordinate from the center pin
         guard let coord = centerPinCoordinate else {
-            print("❌ No center coordinate found")
+            print("❌ 1. No center coordinate found")
             return
         }
         
-        // 2. Get the current floor ID from the map
-        // It's important to use the floor the user is currently looking at
-        let floorId = mapxusMap?.selectedFloor?.floorId
-        
-        // 3. Clear any existing Start marker first
-        clearSelectedMarkers(withTitle: "Start")
-        
-        // 4. Create the visual marker
+        let buildingId = mapxusMap?.selectedBuildingId ?? ""
+        let floorId = mapxusMap?.selectedFloor?.floorId ?? ""
+        print("DEBUG: 2. Using floorId: \(floorId)")
+
         let marker = createMarker(at: coord, floorId: floorId, title: "Start")
         
-        // 5. Update the routing properties
-        self.startPoint = markerToWaypoint(marker: marker)
+        // Check if marker created successfully
+        if marker == nil { print("❌ 3. createMarker returned nil") }
+
+        let waypoint = markerToWaypoint(marker: marker)
+        
+        // Check if conversion to waypoint worked
+        if waypoint == nil {
+            print("❌ 4. markerToWaypoint returned nil. Check this function logic!")
+        }
+
+        self.startPoint = waypoint
         self.startMarker = marker
         
-//        self.startLocationCoord = "\(translationClass.latitude(code: selectedLanguage)): \(coord.latitude), \(translationClass.latitude(code: selectedLanguage)): \(coord.longitude)"
+        if !floorId.isEmpty && !buildingId.isEmpty && startMarker != nil && startPoint != nil {
+            mapState = .showingNavigationDetails
+        }
         
-        print("✅ Start Location Set at: \(coord.latitude), \(coord.longitude) on floor: \(floorId ?? "Unknown")")
+        print("✅ Start Location Set at: \(coord.latitude), \(coord.longitude) on floor: \(floorId)")
     }
     
     func createMarker(at coordinate: CLLocationCoordinate2D, floorId: String? = "", title: String = "") -> MXMPointAnnotation? {
-        guard let mapxusMap = mapxusMap else { return nil }
+        // Ensure the coordinate is actually valid before creating anything
+        guard CLLocationCoordinate2DIsValid(coordinate), let mapxusMap = mapxusMap else {
+            print("❌ MapxusMap is nil or Coordinate is invalid")
+            return nil
+        }
         
         let annotation = MXMPointAnnotation()
         annotation.coordinate = coordinate
         annotation.title = title
         annotation.floorId = floorId
+        
         markerPoints.append(annotation)
         mapxusMap.add([annotation])
         return annotation
     }
 
-    func markerToWaypoint(marker : MXMPointAnnotation?) -> MXMWaypoint {
-        return MXMWaypoint.createWaypoint(withLatitude: marker?.coordinate.latitude ?? 0, longitude: marker?.coordinate.longitude ?? 0, floorId: marker?.floorId)
+    func markerToWaypoint(marker: MXMPointAnnotation?) -> MXMWaypoint? {
+        // IMPORTANT: Return optional nil if marker is nil so you don't get (0,0)
+        guard let marker = marker else { return nil }
+        
+        return MXMWaypoint.createWaypoint(
+            withLatitude: marker.coordinate.latitude,
+            longitude: marker.coordinate.longitude,
+            floorId: marker.floorId
+        )
     }
     
     func showMyLocation() {
         guard let mapView = mapView else { return }
         
         let userLocationFloor = mapxusMap?.userLocationFloor?.floorId
-        let userLocationBuilding = mapxusMap?.userLocationBuilding?.floors
+        let userLocationBuilding = (mapxusMap?.userLocationBuilding?.nameMap.en ?? "") as String
         let userLocationVenue = mapxusMap?.userLocationVenue?.buildingIds
         
         if mapState != .navigating {
@@ -1112,7 +1318,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
 
         // 2. Prepare the map state
         if mapState != .navigating {
-//            mapState = .showingRoute
+            mapState = .showingRoute
         }
         
         hideAllMarkerIcons()
@@ -1168,6 +1374,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
             return
         }
         
+        isOffRoute = false
         isFoldingFloorBarSection(fold: true)
         clearAllMarkerIcons()
 
@@ -1198,6 +1405,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
             self.isFoldingFloorBarSection(fold: false)
             self.isSelectingLocationByPIN = false
             self.isOffRoute = false
+            self.isFetchingWashroomOccupancy = false
             
             // 2. Clear visual map elements
             
@@ -1470,23 +1678,6 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
         endPoint = nil
     }
     
-//    func clearSelectedMarkers(withTitle title: String) {
-//        guard let mapxusMap = self.mapxusMap else { return }
-//        
-//        // Find all markers in your local list that match the title
-//        let targets = markerPoints.filter { $0.title == title }
-//        
-//        if !targets.isEmpty {
-//            // Remove from the visual map
-//            mapxusMap.removeMXMPointAnnotaions(targets)
-//            
-//            // Remove from your data array
-//            markerPoints.removeAll { $0.title == title }
-//            
-//            print("🗑️ Removed \(targets.count) markers with title: \(title)")
-//        }
-//    }
-    
     func clearSelectedMarkers(withTitle title: String) {
         guard let mapxusMap = self.mapxusMap else { return }
         
@@ -1542,29 +1733,53 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
         }
     }
     
+//    func nextStep() {
+//        // DEBUG: See the numbers in the console
+//        print("Step Debug: Index is \(instructionIndex), Total instructions: \(instructionList.count)")
+//
+//        // 1. Check if the list is empty first
+//        if instructionList.isEmpty {
+//            print("⚠️ instructionList is empty, cannot proceed.")
+//            return
+//        }
+//
+//        // 2. Check if we are at the end
+//        // Using >= count - 1 means "if this is the last item OR we somehow went past it"
+//        if instructionIndex >= instructionList.count - 1 {
+//            self.mapState = .welcoming
+//            self.endNavigation()
+//            
+//            print("📍 User has arrived at the destination.")
+//            return
+//        } else if instructionIndex >= instructionList.count - 2 {
+//            self.isShowingArrivedAtTheDestinationAlertDialog = true
+//            print("📍 User has arrived at the destination. Alert Dialog")
+//        }
+//
+//        // 3. Increment safely
+//        instructionIndex += 1
+//        updateRoute(routeOption: selectedRouteType(type: activeRouteType, languageCode: selectedLanguage))
+//    }
+    
     func nextStep() {
-        // DEBUG: See the numbers in the console
-        print("Step Debug: Index is \(instructionIndex), Total instructions: \(instructionList.count)")
+        if instructionList.isEmpty { return }
 
-        // 1. Check if the list is empty first
-        if instructionList.isEmpty {
-            print("⚠️ instructionList is empty, cannot proceed.")
-            return
-        }
-
-        // 2. Check if we are at the end
-        // Using >= count - 1 means "if this is the last item OR we somehow went past it"
-        if instructionIndex >= instructionList.count - 1 {
-            self.mapState = .welcoming
-            self.endNavigation()
-            
+        // If we are currently at the last step
+        if instructionIndex >= instructionList.count - 2 {
             print("📍 User has arrived at the destination.")
-            return
-        } else if instructionIndex >= instructionList.count - 2 {
+            
+            // Ensure alert stays visible
             self.isShowingArrivedAtTheDestinationAlertDialog = true
+            
+            // Optional: Delay the state change so the user sees the arrival
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+//                self.endNavigation()
+//                self.mapState = .welcoming
+            }
+//            return
         }
 
-        // 3. Increment safely
+        // Move to next instruction
         instructionIndex += 1
         updateRoute(routeOption: selectedRouteType(type: activeRouteType, languageCode: selectedLanguage))
     }
@@ -1585,23 +1800,18 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
     func selectBuilding(id: String) {
         let option = MXMPoiSearchOption()
         
-        mapxusMap?.selectBuilding(byId: id, zoomMode: .animated, edgePadding: .zero)
-        mapxusMap?.autoChangeBuilding = true
+        let trackingMode = trackingMode == .follow
+        
+        mapxusMap?.selectBuilding(byId: id, zoomMode: zoomModeAnimationOnFollowMode, edgePadding: .zero)
+        mapxusMap?.autoChangeBuilding = isAnimatedOnFollowMode
         poiSearcher?.searchPois(by: option)
         
-//        self.requestCategory(buildingId: id)
         self.findAllIndoorCoordinatesBasedOnBuildingId(buildingId: id, keyword: .constant(""), allBuilding: .constant(false))
-//        self.findAllIndoorCoordinatesBasedOnBuildingId(
-//            buildingId: id,
-//            allBuilding: Binding(
-//                get: { self.isSearchingAllFacilitiesOnEveryBuilding },
-//                set: { self.isSearchingAllFacilitiesOnEveryBuilding = $0 }
-//            )
-//        )
+//        self.requestCategory(buildingId: id)
     }
     
     func isShowingSelectedBuildingBasedOnSwiping(id: String) {
-        if !isRotatingTheMapOnGPSButtonClicked {
+        if !isRotatingTheMapOnGPSButtonClicked && trackingMode == .none {
             mapxusMap?.selectBuilding(byId: id, zoomMode: .animated, edgePadding: .zero)
             mapxusMap?.autoChangeBuilding = true
         }
@@ -1624,29 +1834,99 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
         }
     }
     
-    func setCenterView(zoomLevel: Double, bottom: CGFloat) {
+    func setFloorBarSectionToHorizontal(horizontal: Bool) {
+        guard let map = mapxusMap else {
+            print("⚠️ MapxusMap is nil. Cannot fold floor bar.")
+            return
+        }
+        
+        if horizontal {
+            // Rotate the entire bar 90 degrees counter-clockwise
+            map.floorBar.transform = CGAffineTransform(rotationAngle: -.pi / 2)
+            
+            // You may need to loop through subviews (buttons) to rotate them back
+            // so the text stays upright
+            for subview in map.floorBar.subviews {
+                subview.transform = CGAffineTransform(rotationAngle: .pi / 2)
+            }
+        } else {
+            map.floorBar.transform = .identity
+            for subview in map.floorBar.subviews {
+                subview.transform = .identity
+            }
+        }
+    }
+    
+    func setCenterView(bottom: CGFloat) {
         guard let poi = focusPoi else { return }
         
         let coord = CLLocationCoordinate2D(latitude: poi.lat, longitude: poi.lng)
         
-        // 1. Ensure the map is showing the correct floor for this POI
-        if !poi.floorId.isEmpty {
-            mapxusMap?.selectFloor(byId: poi.floorId)
-        }
-
-        // 2. Set the Camera
-        // Zoom 18-19 is usually better for indoor POIs than 16 (which is quite far out)
-        mapView?.setCenter(coord, animated: true)
-        
-        let camera = MGLMapCamera(lookingAtCenter: coord, acrossDistance: 500, pitch: 45, heading: 0)
-        
         // Offset the center so the POI appears above the bottom sheet
-        mapView?.setContentInset(UIEdgeInsets(top: 0, left: 0, bottom: bottom, right: 0), animated: true, completionHandler: {
+        mapView?.setContentInset(UIEdgeInsets(top: 0, left: 0, bottom: bottom, right: 0), animated: isAnimatedOnFollowMode, completionHandler: {
+            // 1. Ensure the map is showing the correct floor for this POI
+            if !poi.floorId.isEmpty {
+                self.mapxusMap?.selectFloor(byId: poi.floorId)
+            }
             
+            self.mapView?.setCenter(coord, animated: self.isAnimatedOnFollowMode)
+            self.mapxusMap?.autoChangeBuilding = true
         })
+    }
+    
+    func setMapToCenterView(bottom: Double) {
+        let selectedBuildingId = mapxusMap?.selectedBuildingId ?? ""
         
-        /// Animate the Map
-//        mapView?.setCamera(camera, animated: true)
+        mapView?.setContentInset(UIEdgeInsets(top: 0, left: 0, bottom: bottom, right: 0), animated: isAnimatedOnFollowMode, completionHandler: {
+            self.mapxusMap?.selectBuilding(byId: selectedBuildingId, zoomMode: .animated, edgePadding: .zero)
+            self.mapxusMap?.autoChangeBuilding = true
+            self.mapxusMap?.gestureSwitchingBuilding = true
+        })
+    }
+    
+    func setMapToCenterViewBasedOnTwoCoordinates() {
+        // 1. Check if points exist
+        guard let startPoint = startPoint, let endPoint = endPoint else {
+            print("❌ Error: startPoint or endPoint is NIL")
+            return
+        }
+        
+        let start = CLLocationCoordinate2D(latitude: startPoint.latitude, longitude: startPoint.longitude)
+        let end = CLLocationCoordinate2D(latitude: endPoint.latitude, longitude: endPoint.longitude)
+        
+        // 2. Fix the Bounds logic (SW must be smaller than NE)
+        let sw = CLLocationCoordinate2D(latitude: min(start.latitude, end.latitude),
+                                        longitude: min(start.longitude, end.longitude))
+        let ne = CLLocationCoordinate2D(latitude: max(start.latitude, end.latitude),
+                                        longitude: max(start.longitude, end.longitude))
+        
+        let bounds = MGLCoordinateBounds(sw: sw, ne: ne)
+        let navPadding = UIEdgeInsets(top: 25, left: 25, bottom: 240, right: 25)
+
+        print("🛰 Attempting to set bounds between \(sw) and \(ne)")
+
+        // 3. Ensure this runs on the Main Thread
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let mapView = self.mapView else {
+                print("❌ Error: MapView is NIL")
+                return
+            }
+            
+            mapView.setVisibleCoordinateBounds(bounds, edgePadding: navPadding, animated: self.isAnimatedOnFollowMode) {
+                
+                print("✅ showing navigation details 1 (Completion Fired)")
+            }
+            
+            print("🚀 showing navigation details 2 (Call Sent)")
+        }
+    }
+    
+    func set3DViewOnNavigation() {
+        guard let poi = focusPoi else { return }
+        
+        let coord = CLLocationCoordinate2D(latitude: poi.lat, longitude: poi.lng)
+        let camera = MGLMapCamera(lookingAtCenter: coord, acrossDistance: 460, pitch: 45, heading: 0)
+        mapView?.setCamera(camera, animated: true)
     }
     
     func routeSearcher(_ routeSearcher: MXMRouteSearch, didReceiveRouteResult searchResult: MXMRouteSearchResult?, error: (any Error)?) {
@@ -1687,6 +1967,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
         // ✅ Draw with routePainter
         routePainter?.routeStyle.isAddStartDash = true
         routePainter?.routeStyle.dashedLineColor = UIColor(Color.mainColor)
+//        setupRoutePainterStyle(fullCustom: false)
         routePainter?.updateFullPath(firstPath, waypoints: searchResult.waypoints)
         routePainter?.drawRoute(with: firstPath)
 
@@ -1706,18 +1987,66 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
                 
                 print("route searcher ordinal: \(paragraph.ordinal?.level ?? 0 as Int)")
             } else if mapState == .showingRoute {
-                let currentFloorId = ""
-//                if currentFloorId != paragraph.floorId {
-                    if let start = start, let end = end {
-                        let bounds = MGLCoordinateBounds(sw: start, ne: end)
-                        mapView?.setVisibleCoordinateBounds(bounds, edgePadding: navPadding, animated: true, completionHandler: nil)
-                    }
-//                }
+                if let start = start, let end = end {
+                    let bounds = MGLCoordinateBounds(sw: start, ne: end)
+                    mapView?.setVisibleCoordinateBounds(bounds, edgePadding: navPadding, animated: isAnimatedOnFollowMode, completionHandler: nil)
+                }
                 
 //                mapView?.setCenter(startCoord, zoomLevel: 19, animated: true)
                 mapxusMap?.selectFloor(byId: paragraph.floorId, zoomMode: .disable, edgePadding: navPadding)
                 routePainter?.change(onVenue: paragraph.venueId, ordinal: paragraph.ordinal)
             }
+        }
+    }
+    
+    func setupRoutePainterStyle(fullCustom: Bool) {
+        let style = MXMRouteStyle.default()
+        
+        // 1. Create Symbol Info for Directional Arrows
+        let arrowInfo = MXMSymbolInfo()
+        if let originalArrow = UIImage(named: "arrow_triangle_up") {
+            // Make it small (e.g., 8x8 or 10x10) so it fits inside the dashed line
+            arrowInfo.icon = resizeImage(image: originalArrow, targetSize: CGSize(width: 16, height: 16))
+            arrowInfo.icon?.sd_rotatedImage(withAngle: .infinity, fitSize: true)
+//            arrowInfo.icon?
+//            arrowInfo.icon?.imageOrientation.rawValue = .up
+        }
+        style.lineSymbol = arrowInfo
+        style.lineSymbolSpacing = 25
+        
+        if fullCustom {
+            // 2. Setup Waypoint Symbols (Start, Waypoint, End)
+            let startInfo = MXMSymbolInfo()
+            startInfo.icon = UIImage(named: "start_marker")
+            
+            let midInfo = MXMSymbolInfo()
+            midInfo.icon = UIImage(named: "ic_way_point")
+            
+            let endInfo = MXMSymbolInfo()
+            endInfo.icon = UIImage(named: "end_marker")
+            
+            style.waypointSymbols = [startInfo, midInfo, endInfo]
+            
+            // 3. Setup Vertical Movement Symbols
+            let elevatorInfo = MXMSymbolInfo()
+            elevatorInfo.icon = UIImage(named: "icon_elevator")
+            style.elevatorUpSymbol = elevatorInfo
+            style.elevatorDownSymbol = elevatorInfo
+        }
+        
+        // 4. General Style Settings
+        style.indoorLineColor = UIColor(Color.mainColor)
+        style.dashedLineColor = UIColor(Color.mainColor)
+        style.inactiveLineOpacity = 0.2
+        
+        // 5. Assign to Painter
+        self.routePainter?.routeStyle = style
+    }
+    
+    func resizeImage(image: UIImage, targetSize: CGSize) -> UIImage? {
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
         }
     }
 
@@ -1775,98 +2104,6 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
         }
     }
     
-//    func poiSearcher(_ poiSearch: MXMPoiSearch, didReceivePoisWith poiResult: MXMPoiSearchResult?, error: Error?) {
-//        print("📡 POI Searcher DELEGATE TRIGGERED")
-//        
-//        // 1. Handle Error Case with Retry Logic
-//        Task {
-//            if let error = error {
-//                let nsError = error as NSError
-//                
-//                // 1. Check for "No Internet" specifically
-//                if nsError.code == NSURLErrorNotConnectedToInternet {
-//                    print("❌ No Internet Connection. Stopping retries.")
-//                    await MainActor.run {
-//                        self.isShowingLoadingOnBuildingFacilities = false
-//                        self.isShowingLossInternetConnectionButton = true
-//                        self.isShowingAnEmptyFacilityCategory = false
-//                        self.allViewReceiver.isShowingACustomToastInternet = true
-//                        self.allViewReceiver.isShowingACustomToastMessageInternet = "No Internet Connection"
-//                        self.allViewReceiver.isShowingACustomToastIconInternet = "wifi.slash"
-//                        self.allViewReceiver.isShowingACustomToastAlignmentInternet = Alignment.bottom
-//                    }
-//                    
-//                    return
-//                }
-//
-//                // 2. Handle other retriable errors (Timeout, Server Error, etc.)
-//                await handlePoiRetry(poiSearch)
-//                
-//                // Inside your poiSearcher delegate success block:
-//                if self.poiRetryCount > 0 { // Only show if we actually had to retry
-//                    await MainActor.run {
-//                        self.allViewReceiver.isShowingACustomToastInternet = true
-//                        self.allViewReceiver.isShowingACustomToastMessageInternet = "Internet connection refreshed successfully"
-//                        self.allViewReceiver.isShowingACustomToastIconInternet = "wifi"
-//                        self.allViewReceiver.isShowingACustomToastAlignmentInternet = .bottom
-//                    }
-//                }
-//                
-//                return
-//            }
-//
-//            // 3. Success Case
-//            poiRetryCount = 0
-//        }
-//        
-//        // 2. Handle Empty Results Case
-//        guard let pois = poiResult?.pois, !pois.isEmpty else {
-//            print("⚠️ No POIs found.")
-//            DispatchQueue.main.async {
-//                self.buildingFacilities = []
-//                self.allBuildingFacilities = []
-//                self.isShowingLoadingOnBuildingFacilities = false
-//            }
-//            return
-//        }
-//        
-//        // 3. Map the data (Runs on the current background thread)
-//        let mappedFacilities = pois.compactMap { poi -> BuildingFacilityData? in
-//            let associatedBuilding = buildingLists.first(where: { $0.id == poi.buildingId })
-//            let rawCategory = poi.category.first ?? "general"
-//            let category = self.getNormalizedCategory(from: rawCategory.capitalized)
-//            let cleanCategory = self.getNormalizedCategory(from: rawCategory.capitalized).first ?? ""
-//            let fId = poi.floor?.floorId ?? ""
-//            let facilityName = (poi.nameMap.en ?? "Unknown") as String
-//            let localizedName = self.getFacilityNameInMultipleLanguages(from: poi, for: self.selectedLanguage)
-//            
-//            return BuildingFacilityData(
-//                id: poi.poiId,
-//                buildingId: (poi.buildingId ?? "") as String,
-//                buildingName: associatedBuilding?.buildingNumber ?? "Unkown Building",
-//                facilityName: localizedName,
-//                floorName: (poi.floor?.name ?? "Unknown Floor") as String,
-//                floorId: fId,
-//                category: category,
-//                categoryCode: [cleanCategory: poi.category],
-//                lat: poi.location?.latitude ?? 0.0,
-//                lon: poi.location?.longitude ?? 0.0
-//            )
-//        }
-//
-//        // 4. Update UI - Instant update on the Main Thread
-//        DispatchQueue.main.asyncAfter(deadline: .now(), execute: {
-//            self.buildingFacilities = mappedFacilities
-//            self.isShowingLoadingOnBuildingFacilities = false
-//            print("✅ UI Updated with \(self.buildingFacilities.count) facilities.")
-//        })
-//        
-//        if ((self.buildingFacilities.first?.categoryCode.values.isEmpty) == nil) {
-//            self.isShowingLossInternetConnectionButton = false
-//            self.isShowingAnEmptyFacilityCategory = true
-//        }
-//    }
-    
     func poiSearcher(_ poiSearch: MXMPoiSearch, didReceivePoisWith poiResult: MXMPoiSearchResult?, error: Error?) {
         print("📡 POI Searcher DELEGATE TRIGGERED")
         
@@ -1888,32 +2125,18 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
             }
             return
         }
-
-        // 4. Map & Update Based on Mode
-        if isSearchingAllFacilitiesOnEveryBuilding {
-            let mapped = pois.compactMap { self.allBuildingFacilities(poi: $0) }
-            
-            DispatchQueue.main.asyncAfter(deadline: .now(), execute: {
-                self.allBuildingFacilities = mapped
-                self.isShowingLoadingOnBuildingFacilities = false
-                self.isShowingLossInternetConnectionButton = false
-                print("🌍 Global UI Updated: \(mapped.count) facilities.")
-            })
+        
+        // 1. Accumulate the new results
+        self.tempAccumulatedPois.append(contentsOf: pois)
+        
+        // 2. Check if we should fetch the NEXT page
+        // If we received exactly 100, there is likely more data
+        if pois.count == 100 {
+            self.currentSearchPage += 1
+            continueSearch(searcher: poiSearch, result: poiResult)
         } else {
-            let mapped = pois.compactMap { self.specificBuildingFacilities(poi: $0) }
-            
-            DispatchQueue.main.asyncAfter(deadline: .now(), execute: {
-                self.buildingFacilities = mapped
-                self.isShowingLoadingOnBuildingFacilities = false
-                self.isShowingLossInternetConnectionButton = false
-                print("🛰️ Local UI Updated: \(mapped.count) facilities.")
-            })
-            
-            if ((self.buildingFacilities.first?.categoryCode.values.isEmpty) == nil) {
-                self.isShowingLossInternetConnectionButton = false
-                self.isShowingAnEmptyFacilityCategory = true
-                print("specific building facility category is empty \(isShowingAnEmptyFacilityCategory)")
-            }
+            // 3. No more data: Finalize and Map
+            finalizePoiSearch()
         }
     }
 
@@ -1977,23 +2200,6 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
                 
                 await MainActor.run {
                     /// Reset all building facilities
-//                    self.allBuildingFacilities = []
-                    
-                    // 2. Building Match Logic (Only if we have POI data despite the error)
-//                    if let firstPoiBuildingId = pois?.first?.buildingId,
-//                       let associatedBuilding = buildingLists.first(where: { $0.id == firstPoiBuildingId }) {
-//                        
-//                        if associatedBuilding.id != isGettingLastBuildingIdOnMapView {
-//                            // IDs don't match: Clear the list as the user moved to a different building
-//                            self.buildingFacilities = []
-//                            print("⚠️ Building mismatch: clearing facilities. Map: \(isGettingLastBuildingIdOnMapView), POI: \(associatedBuilding.id)")
-//                        } else {
-//                            // IDs match: Try to recover whatever data we did get
-//                            let mapped = pois?.compactMap { self.specificBuildingFacilities(poi: $0) }
-//                            self.buildingFacilities = mapped ?? []
-//                            print("✅ Building match: updated facilities despite error.")
-//                        }
-//                    }
                     self.isShowingLossInternetConnectionButton = true
                     self.isShowingLoadingOnBuildingFacilities = false
                     self.isShowingAnEmptyFacilityCategory = false
@@ -2009,7 +2215,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
             // Inside your poiSearcher delegate success block:
             if self.poiRetryCount > 0 { // Only show if we actually had to retry
                 await MainActor.run {
-                  self.allViewReceiver.showInternetToast(message: translationClass.failedToRefreshInternetConnection(code: selectedLanguage), icon: "wifi", iconColor: Color.main)
+                    self.allViewReceiver.showInternetToast(message: translationClass.failedToRefreshInternetConnection(code: selectedLanguage), icon: "wifi", iconColor: Color.main)
                 }
             }
         })
@@ -2051,33 +2257,6 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
         self.poiSearch?.searchPois(by: request)
     }
     
-//    func findAllIndoorCoordinatesBasedOnBuildingId(buildingId: String) {
-//        // 1. Start the loading spinner immediately
-//        self.isShowingLoadingOnBuildingFacilities = true
-//        
-//        let searcher = MXMPoiSearch()
-//        let option = MXMPoiSearchOption()
-//        
-//        option.buildingId = buildingId
-//        // ✅ FIX: Use 'offset' to set the number of items per page
-//        // Mapxus uses 'offset' as the "Limit" (max 100)
-//        option.offset = 100
-//        
-//        // Start at the first page
-//        option.page = 1
-//        
-//        // Correctly initialize the exclusion array
-//        option.excludeCategories = [
-//            "facility.connector.elevator",
-//            "facility.connector.stairs",
-//            "facility.connector.escalator",
-//            "facility.steps"
-//        ]
-//        
-//        print("🛰️ Requesting first 100 POIs for building: \(buildingId)")
-//        searcher.searchPois(by: option)
-//    }
-    
     func findAllIndoorCoordinatesBasedOnBuildingId(buildingId: String, keyword: Binding<String>, allBuilding: Binding<Bool>) {
         self.isShowingLoadingOnBuildingFacilities = true
         
@@ -2090,12 +2269,13 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
             // Note: You might need to use MXMGlobalSearchOption or
             // a Bound search if you want to limit results to a certain city/area.
             let globalOption = MXMPoiSearchOption()
+            let venueId = mapxusMap?.selectedVenueId ?? ""
             // Leaving buildingId nil in some SDK versions triggers a global search,
             // but verify if your version requires MXMPoiBoundSearchOption for 'All'.
-            globalOption.venueId = "2506d124f4d049fb8b5019ed9d78c309"
+            globalOption.venueId = venueId
             globalOption.keyword = keyword.wrappedValue
-            configureCommonOptions(option: globalOption)
-            print("🌍 Requesting global POI search (All Buildings)")
+            configureCommonOptions(option: globalOption, page: 1)
+            print("🌍 Requesting global POI search (All Buildings). Venue id: \(venueId)")
             searcher.searchPois(by: globalOption)
             
         } else {
@@ -2103,16 +2283,17 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
             let buildingOption = MXMPoiSearchOption()
             buildingOption.buildingId = buildingId
             
-            configureCommonOptions(option: buildingOption)
+            configureCommonOptions(option: buildingOption, page: 1)
             print("🛰️ Requesting first 100 POIs for building: \(buildingId)")
             searcher.searchPois(by: buildingOption)
         }
     }
 
     // 2. Helper to keep code DRY (Don't Repeat Yourself)
-    private func configureCommonOptions(option: MXMPoiSearchOption) {
+    private func configureCommonOptions(option: MXMPoiSearchOption, page: Int) {
         option.offset = 100
-        option.page = 1
+//        option.page = 1
+        option.page = (UInt(page)) as NSNumber
         option.excludeCategories = [
             "facility.connector.elevator",
             "facility.connector.stairs",
@@ -2121,40 +2302,55 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
         ]
     }
     
-//    func onGetPoiResult(_ searcher: MXMPoiSearch!, result: MXMPoiSearchResult!, error: Error!) {
-//        self.isShowingLoadingOnBuildingFacilities = false
-//        
-//        if let results = result?.pois {
-//            let newData = results.map { poi in
-//                let rawCategory = poi.category.first ?? "general"
-//                let category = self.getNormalizedCategory(from: rawCategory.capitalized)
-//                let cleanCategory = self.getNormalizedCategory(from: rawCategory.capitalized).first ?? ""
-//                let fId = poi.floor?.floorId ?? ""
-//                let facilityName = (poi.nameMap.en ?? "Unknown") as String
-//                let localizedName = self.getFacilityNameInMultipleLanguages(from: poi, for: self.selectedLanguage)
-//                
-//                return BuildingFacilityData(
-//                    id: poi.poiId,
-//                    buildingId: (poi.buildingId ?? "") as String,
-//                    facilityName: localizedName,
-//                    floorName: (poi.floor?.name ?? "Unknown Floor") as String,
-//                    floorId: fId,
-//                    category: category,
-//                    categoryCode: [cleanCategory: poi.category],
-//                    lat: poi.location?.latitude ?? 0.0,
-//                    lon: poi.location?.longitude ?? 0.0
-//                )
-//            }
-//            
-//            if isSearchingAllFacilitiesOnEveryBuilding {
-//                // Replace with global results so the list only shows relevant matches
-//                self.buildingFacilities = newData
-//            } else {
-//                // Standard behavior for single building
-//                self.buildingFacilities = newData
-//            }
-//        }
-//    }
+    private func continueSearch(searcher: MXMPoiSearch, result: MXMPoiSearchResult?) {
+        // Re-trigger the search with the incremented page
+        let option = MXMPoiSearchOption()
+        let venueId = mapxusMap?.selectedVenueId ?? ""
+        
+        if isSearchingAllFacilitiesOnEveryBuilding {
+            option.venueId = venueId // Use your actual venue ID property
+        } else {
+            option.buildingId = isGettingBuildingIdOnMapView // Store this when starting search
+        }
+        
+        configureCommonOptions(option: option, page: self.currentSearchPage)
+        searcher.searchPois(by: option)
+    }
+    
+    private func finalizePoiSearch() {
+        let pois = self.tempAccumulatedPois
+        self.poiRetryCount = 0
+        
+        if isSearchingAllFacilitiesOnEveryBuilding {
+            let mapped = pois.compactMap { self.allBuildingFacilities(poi: $0) }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now(), execute: {
+                self.allBuildingFacilities = mapped
+                self.isShowingLoadingOnBuildingFacilities = false
+                self.isShowingLossInternetConnectionButton = false
+                print("🌍 Global UI Updated: \(mapped.count) facilities.")
+            })
+        } else {
+            let mapped = pois.compactMap { self.specificBuildingFacilities(poi: $0) }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now(), execute: {
+                self.buildingFacilities = mapped
+                self.isShowingLoadingOnBuildingFacilities = false
+                self.isShowingLossInternetConnectionButton = false
+                print("🛰️ Local UI Updated: \(mapped.count) facilities.")
+            })
+            
+            if ((self.buildingFacilities.first?.categoryCode.values.isEmpty) == nil) {
+                self.isShowingLossInternetConnectionButton = false
+                self.isShowingAnEmptyFacilityCategory = true
+                print("specific building facility category is empty \(isShowingAnEmptyFacilityCategory)")
+            }
+        }
+        
+        // Reset for next fresh search
+        self.tempAccumulatedPois = []
+        self.currentSearchPage = 1
+    }
     
     func categorySearcher(_ categorySearcher: MXMCategorySearch, didReceivePoiCategoryWith searchResult: MXMPoiCategorySearchResult?, error: Error?) {
         if let error = error {
@@ -2239,13 +2435,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
         let voiceCode = isSelectingAssistantGuideLanguageAVSpeechSynthesisVoiceCode
 
         // 1. Determine the localized string
-        let textToSpeak: String
-        
-        if isActive {
-            textToSpeak = "Text to speech is enabled"
-        } else {
-            textToSpeak = "Text to speech is disabled"
-        }
+        let textToSpeak = translationClass.textToSpeech(code: selectedLanguage, isEnabled: isActive)
         
         // 2. Configure Utterance
         let utterance = AVSpeechUtterance(string: textToSpeak)
@@ -2553,34 +2743,35 @@ struct MyMapxus: UIViewRepresentable {
         
         mapView.showsUserLocation = true
         mapView.showsUserHeadingIndicator = true
-//        mapView.style?.localizeLabels(into: Locale(identifier: controller.selectedLanguage))
-//        mapView.layoutMargins = UIEdgeInsets(top: 0, left: 0, bottom: 180, right: 0)
+        mapView.style?.localizeLabels(into: Locale(identifier: controller.selectedLanguage))
+        
         mapView.setContentInset(UIEdgeInsets(top: 0, left: 0, bottom: 180, right: 0), animated: true, completionHandler: {
-            
+            mapxusMap.autoChangeBuilding = true
+//            mapxusMap.selectVenue(byId: "2506d124f4d049fb8b5019ed9d78c309")
+            mapxusMap.selectBuilding(byId: ((getUserLocationByBuilding?.isEmpty) == nil) ? "996debebfddb4bc2895cdbeb70161d5a" : getUserLocationByBuilding)
+            mapxusMap.selectFloor(byId: ((getUserLocationByFloorId?.isEmpty) == nil) ? "11cb3dd6af214a3e9cba6fd4718b145d" : getUserLocationByFloorId)
         })
         
         mapxusMap.mapxusLogoEnabled = false
-        mapxusMap.autoChangeBuilding = true
-        mapxusMap.selectFloor(byId: getUserLocationByFloorId == nil ? "11cb3dd6af214a3e9cba6fd4718b145d" : getUserLocationByFloorId)
-        mapxusMap.selectBuilding(byId: "996debebfddb4bc2895cdbeb70161d5a")
-        mapxusMap.selectVenue(byId: "2506d124f4d049fb8b5019ed9d78c309")
-//        mapxusMap.setMapLanguage(controller.selectedLanguage)
         
         // ... (start of Floor Bar setup) ...
         DispatchQueue.main.async {
             let bar = mapxusMap.floorBar
             bar.cornerRadius = 16
             bar.selectBoxColor = UIColor(Color.mainColor)
+            
+            mapxusMap.selectorPosition = .topLeft
+            
             bar.translatesAutoresizingMaskIntoConstraints = false
             
-            // 1. Clear ALL existing constraints to stop the "Sticking" behavior
+            /// 1. Clear ALL existing constraints to stop the "Sticking" behavior
             bar.superview?.constraints.forEach { constraint in
                 if constraint.firstItem as? UIView == bar {
                     constraint.isActive = false
                 }
             }
 
-            // 2. Apply New Constraints
+            /// 2. Apply New Constraints
             NSLayoutConstraint.activate([
                 bar.topAnchor.constraint(equalTo: mapView.safeAreaLayoutGuide.topAnchor, constant: 16),
                 bar.leadingAnchor.constraint(equalTo: mapView.safeAreaLayoutGuide.leadingAnchor, constant: 8),
