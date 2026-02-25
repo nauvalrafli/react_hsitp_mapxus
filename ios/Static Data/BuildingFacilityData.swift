@@ -49,14 +49,15 @@ struct BuildingFacilityData: Identifiable, Equatable, Hashable {
         // 1. High Priority: Check raw technical codes first (e.g., Lab)
         for code in rawCodes {
             if code.lowercased().contains("restaurants.herbal_tea") { return "herbal_tea_4" }
-            if code.lowercased().contains("restaurants.western") { return "western_food_3" }
+            if code.lowercased().contains("restaurants.western") { return "smack_2" }
             if code.lowercased().contains("restaurants.korean") { return "korean_food_3" }
+            if code.lowercased().contains("restaurants.fast_food") { return "western_food_3" }
             
             if code.lowercased().contains("laundry_services") { return "laundry_1" }
-            if code.lowercased().contains("tactile_map") { return "utilities" }
+            if code.lowercased().contains("tactile_map") { return "tactile_map_7" }
             if code.lowercased().contains("mothersroom") { return "mothers_room_2" }
-            if code.lowercased().contains("defibrillator") { return "defibrillator" }
-            if code.lowercased().contains("couriers") { return "couriers" }
+            if code.lowercased().contains("defibrillator") { return "defibrillator_1" }
+            if code.lowercased().contains("couriers") { return "couriers_2" }
             
             if code.lowercased().contains("pantry") { return "cup_of_coffee_4_fill" }
             if code.lowercased().contains("meeting_room") { return "meeting_room_3" }

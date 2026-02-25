@@ -23,6 +23,39 @@ class TranslationClass: ObservableObject {
         }
     }
     
+    func settings(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "設定"
+        case "zh-Hans":
+            return "设置"
+        default:
+            return "Settings"
+        }
+    }
+    
+    func generalSettings(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "一般的"
+        case "zh-Hans":
+            return "一般的"
+        default:
+            return "General"
+        }
+    }
+    
+    func language(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "語言"
+        case "zh-Hans":
+            return "语言"
+        default:
+            return "Language"
+        }
+    }
+    
     func indoorMaps(code: String) -> String {
         switch code {
         case "zh-Hant":
@@ -148,7 +181,7 @@ class TranslationClass: ObservableObject {
             return "Enable both permissions to enjoy a seamless Indoor and AR navigation experience."
         }
     }
-  
+    
     func internetIntroduction(code: String) -> String {
         switch code {
         case "zh-Hant": return "網路連線"
@@ -173,6 +206,29 @@ class TranslationClass: ObservableObject {
             return "请连接互联网，享受流畅的室内和增强现实导航体验。"
         default:
             return "Please connect to the internet to enjoy a seamless Indoor and AR navigation experience."
+        }
+    }
+    
+    func wifiIntroduction(code: String) -> String {
+        switch code {
+        case "zh-Hant": return "開啟 Wi-Fi"
+        case "zh-Hans": return "开启 Wi-Fi"
+        default:        return "Enable Wi-Fi"
+        }
+    }
+
+    func wifiIntroductionHeading(code: String) -> String {
+        return "Wi-Fi" // Consistent across all languages
+    }
+
+    func wifiIntroductionSubHeading(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "請啟用室內導航所需的Wi-Fi功能。"
+        case "zh-Hans":
+            return "请启用室内导航所需的Wi-Fi功能。"
+        default:
+            return "Please enable Wi-Fi for Indoor navigation."
         }
     }
     
@@ -395,7 +451,7 @@ class TranslationClass: ObservableObject {
             return "Your current starting location."
         }
     }
-  
+    
     func gpsTooltip(code: String) -> String {
         switch code {
         case "zh-Hant":
@@ -592,6 +648,39 @@ class TranslationClass: ObservableObject {
         }
     }
     
+    func offRouteAlertMessage(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "您似乎偏離了導航路徑。是否要重新計算？"
+        case "zh-Hans":
+            return "您似乎偏离了导航路径。是否要重新计算？"
+        default:
+            return "You seem to have moved away from the navigation path. Would you like to recalculate?"
+        }
+    }
+    
+    func offRouteRecalculateButton(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "重新計算"
+        case "zh-Hans":
+            return "重新计算"
+        default:
+            return "Recalculate"
+        }
+    }
+    
+    func dismiss(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "解僱"
+        case "zh-Hans":
+            return "解雇"
+        default:
+            return "Dismiss"
+        }
+    }
+    
     func allBuildings(code: String) -> String {
         switch code {
         case "zh-Hant":
@@ -617,11 +706,11 @@ class TranslationClass: ObservableObject {
     func washroomOccupancyRefreshedSuccessfully(code: String) -> String {
         switch code {
         case "zh-Hant":
-            return "所有建築"
+            return "洗手間使用情況已成功更新。"
         case "zh-Hans":
-            return "所有建筑"
+            return "洗手间使用情况已成功更新。"
         default:
-            return "Washroom has been refreshed successfully"
+            return "Washroom Occupancy has been refreshed successfully."
         }
     }
     
@@ -643,10 +732,10 @@ class TranslationClass: ObservableObject {
         case "zh-Hans":
             return "无法查看洗手间使用情况！"
         default:
-            return "Couldn't access the Washroom occupancy!."
+            return "Couldn't access the Washroom Occupancy!."
         }
     }
-  
+    
     func mapRotationIsActive(code: String) -> String {
         switch code {
         case "zh-Hant":
@@ -713,6 +802,95 @@ class TranslationClass: ObservableObject {
         default:
             // Format: No [Category] found in this building
             return "No \(category) found in this building"
+        }
+    }
+    
+    func enableWiFi(lang: String) -> String {
+        switch lang {
+        case "zh-Hant": return "開啟 Wi-Fi"
+        case "zh-Hans": return "开启 Wi-Fi"
+        default:        return "Enable Wi-Fi"
+        }
+    }
+    
+    func textToSpeech(code: String, isEnabled: Bool) -> String {
+        switch code {
+        case "zh-Hant":
+            return isEnabled ? "語音朗讀已開啟" : "語音朗讀已關閉"
+        case "zh-Hans":
+            return isEnabled ? "语音朗读已开启" : "语音朗读已关闭"
+        default:
+            return isEnabled ? "Text to speech is enabled" : "Text to speech is disabled"
+        }
+    }
+    
+    func floorChanged(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "樓層已更換"
+        case "zh-Hans":
+            return "楼层已更换"
+        default:
+            return "Floor Changed"
+        }
+    }
+    
+    func floorChangedAlertMessage(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "你已經到達下一層了嗎？"
+        case "zh-Hans":
+            return "你已经到达下一层了吗？"
+        default:
+            return "Have you arrived at the next floor?"
+        }
+    }
+    
+    func buildingChanged(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "建築物已更改"
+        case "zh-Hans":
+            return "建筑已更改"
+        default:
+            return "Building Changed"
+        }
+    }
+    
+    func buildingChangedAlertMessageLeave(code: String, buildingNumber: String) -> String {
+        let formattedName = formatBuildingName(buildingNumber, code: code)
+        
+        switch code {
+        case "zh-Hant":
+            return !buildingNumber.isEmpty ? "您是否已離開\(formattedName)？" : "您是否已離開建築物？"
+        case "zh-Hans":
+            return !buildingNumber.isEmpty ? "您是否已离开\(formattedName)？" : "您是否已离开建筑物？"
+        default:
+            return !buildingNumber.isEmpty ? "Have you left \(formattedName)?" : "Have you left the building?"
+        }
+    }
+    
+    func buildingChangedAlertMessageEnter(code: String, buildingNumber: String) -> String {
+        let formattedName = formatBuildingName(buildingNumber, code: code)
+        
+        switch code {
+        case "zh-Hant":
+            return !buildingNumber.isEmpty ? "您是否已進入\(formattedName)？" : "您是否已進入下一棟建築？"
+        case "zh-Hans":
+            return !buildingNumber.isEmpty ? "您是否已进入\(formattedName)？" : "您是否已进入下一栋建筑？"
+        default:
+            return !buildingNumber.isEmpty ? "Have you entered \(formattedName)?" : "Have you entered the next building?"
+        }
+    }
+    
+    private func formatBuildingName(_ name: String, code: String) -> String {
+        let numberOnly = name.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
+        
+        switch code {
+        case "zh-Hant", "zh-Hans":
+            return !numberOnly.isEmpty ? "\(numberOnly)座" : name
+        default:
+            return name
         }
     }
 }

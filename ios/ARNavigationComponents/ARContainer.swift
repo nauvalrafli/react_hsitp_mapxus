@@ -22,7 +22,6 @@ private enum ARNavigationTransition {
     case none, floorChange, buildingChange
 }
 
-@available(iOS 18.0, *)
 struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
     var instructionList: [MXMInstruction]
     var instructionPointList: [MXMGeoPoint]
@@ -53,18 +52,18 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
 //        if context.coordinator.lastModeIsAllAtOnce != isAllAtOnce {
 //            context.coordinator.lastModeIsAllAtOnce = isAllAtOnce
 //        }
-//
+//        
 //        if isAllAtOnce {
 //            /// Showing AR Navigation one by one based on User Phone Compass
 //            context.coordinator.isShowingTheARNavigationBasedOnCompassDegreesOneByOne(instructionList: instructionList, instructionPoints: instructionPointList, currentIndex: currentInstructionIndex, compassClassDegrees: compassClassDegrees)
-//
+//            
 //            /// For backup from me - Show AR Navigation one by one - Works
 ////            context.coordinator.isShowingTurnArrowsOneByOne(instructions: instructionList, points: instructionPointList, currentIndex: currentInstructionIndex)
 ////            context.coordinator.isShowingCircleDirectionPathOneByOne(from: instructionPointList, instruction: instructionList, currentIndex: currentInstructionIndex)
 //        } else {
 //            /// Show the All AR Navigation all at once based on User Phone Compass
 //            context.coordinator.isShowingTheARNavigationBasedOnCompassDegreesOnceAtAll(currentIndex: currentInstructionIndex, instructionList: instructionList, instructionPoints: instructionPointList, compassClassDegrees: compassClassDegrees)
-//
+//            
 //            /// For backup from me - Show AR Navigation all at once without compass - Works
 ////            context.coordinator.isShowingArrowAllAtOnce(instructions: instructionList, points: instructionPointList)
 ////            context.coordinator.isShowingSmoothRectangleRoadAllAtOnce(instructions: instructionList, points: instructionPointList)
@@ -88,42 +87,39 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
         uiView.removeFromSuperview()
     }
 
-  // Coordinator is used by SwiftUI's UIViewRepresentable makeCoordinator().
-  // Avoid marking the entire class as iOS 18+ so SwiftUI can see the type on older SDKs.
-  // Guard iOS 18+ APIs inside methods where needed with `if #available(iOS 18.0, *)` checks.
-  class Coordinator: NSObject, ARSessionDelegate {
+    class Coordinator: NSObject, ARSessionDelegate {
         weak var arView: ARView?
         var instructionList: [MXMInstruction] = []
         var instructionPointList: [MXMGeoPoint] = []
         var compassClassDegrees: Double = 0.0
-
+        
         // Property to track the road drawing task
         private var roadDrawingTask: Task<Void, Never>?
         private var arrowDrawingTask: Task<Void, Never>? // Add this
-
+        
         var arrowAnchor: AnchorEntity?
         var instructionArrows: [AnchorEntity] = []
         var instructionArrowsByFloor: [String: [AnchorEntity]] = [:]
 
         var cancellables = Set<AnyCancellable>()
-
+        
         /// For Animations
         var blinkingCancellables: [Cancellable] = []
         var animationCancellables: [Cancellable] = []
         var jumpCancellables: [Cancellable] = []
-
+        
         var currentInstructionIndex: Int
         var currentFloorId: String? = nil
         var currentRenderedFloorId: String? = nil
-
+        
         var lastTurnIndex: Int = -1 // put this in Coordinator to persist between calls
-
+        
         var hasStartedARNavigation = false /// For showing the AR Navigation arrow based on Compass
         var hasCompassMatchedFirstSegment = false
-
+        
         var hasRenderedAllAtOnce = false
         var lastModeIsAllAtOnce = false
-
+        
         var arWorldRotationOffset: Float = 0.0
         /// Add this property to your class
         var calibrationAngleCovered: Double = 0.0
@@ -131,17 +127,17 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
         var isCalibrated: Bool = false
         var offsetSamples: [Double] = []
         var lastProcessedIndex: Int = -1
-
+        
         var lastRenderedFloorId: String? = nil
         var isWaitingForFloorConfirmation: Bool = false
         var isDrawingStarted: Bool = false
         var isStopping: Bool = false // Add this property
-
+        
         var alertDialogBuildingTitle: String = ""
         var alertDialogBuildingMessage: String = ""
-
+        
         var languageCode: String = ""
-
+        
         @AppStorage("ARNavigation-App-Enabling-TTS") private var isEnablingTTS: Bool = true
         @AppStorage("ARNavigation-App-Enabling-Motion-Sensor") private var isEnablingMotionSensor: Bool = false
         @AppStorage("ARNavigation-App-Showing-Direction") private var isShowingDirectionDegree: String = ""
@@ -439,6 +435,98 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
         }
 
         /// Start of without View Model
+        /// For backup from me - don't delete this one
+//        func isShowingArrowAllAtOnceGemini(instructions: [MXMInstruction], points: [MXMGeoPoint], arWorldRotation: Float) {
+//            guard let arView = arView else { return }
+//            
+//            // Clear existing immediate sync references
+//            instructionArrows.forEach { arView.scene.removeAnchor($0) }
+//            instructionArrows.removeAll()
+//            
+//            // 1. Cancel any existing arrow task
+//            arrowDrawingTask?.cancel()
+//
+//            arrowDrawingTask = Task {
+//                let baseLat = Float(points[0].latitude)
+//                let baseLon = Float(points[0].longitude)
+//                let cosTheta = cos(arWorldRotation)
+//                let sinTheta = sin(arWorldRotation)
+//                var tempAnchors: [AnchorEntity] = []
+//                
+//                // 2. Initial check
+//                if Task.isCancelled { return }
+//
+//                for i in 0..<instructions.count {
+//                    // 3. Middle loop check
+//                    if Task.isCancelled || !isDrawingStarted { break }
+//                    guard points.indices.contains(i) else { continue }
+//                    
+//                    let text = instructions[i].text?.lowercased() ?? ""
+//                    let keywords = ["straight", "steps ahead", "turn", "keep", "arrive", "stairs", "elevator"]
+//                    if !keywords.contains(where: { text.contains($0) }) { continue }
+//
+//                    let worldX = (Float(points[i].longitude) - baseLon) * 100_000
+//                    let worldZ = (baseLat - Float(points[i].latitude)) * 100_000
+//                    
+//                    let rotatedX = worldX * cosTheta + worldZ * sinTheta
+//                    let rotatedZ = -worldX * sinTheta + worldZ * cosTheta
+//                    let arrowPos = SIMD3<Float>(rotatedX, 0.2, rotatedZ)
+//                    
+//                    let futureIndex = min(i + 1, points.count - 1)
+//                    let dx = Float(points[futureIndex].longitude - points[i].longitude)
+//                    let dz = Float(points[i].latitude - points[futureIndex].latitude)
+//                    
+//                    let segmentAngle = atan2(dx, dz) - .pi / 2
+//                    let finalModelRotation = segmentAngle + arWorldRotation
+//                    let arrowName = text.contains("arrive") ? "arrive_at_destination" : "direction_arrow_horizontal"
+//
+//                    do {
+//                        // 4. Async loading check
+//                        let entity = try await ModelEntity(named: arrowName)
+//                        
+//                        // CRITICAL: Check if navigation ended while the model was loading!
+//                        if Task.isCancelled || !isDrawingStarted { return }
+//
+//                        await MainActor.run {
+//                            // 5. Final UI thread check
+//                            guard !Task.isCancelled && isDrawingStarted else { return }
+//
+//                            entity.scale = (arrowName == "direction_arrow_horizontal") ? [0.03, 0.03, 0.03] : [0.004, 0.004, 0.004]
+//                            
+//                            let headingRotation = simd_quatf(angle: finalModelRotation, axis: [0, 1, 0])
+//                            var tiltRotation = simd_quatf(angle: 0, axis: [1, 0, 0])
+//                            let spinAngle: Float = .pi / 2
+//                            var spinRotation = simd_quatf(angle: 0, axis: [0, 1, 0])
+//
+//                            if text.contains("up") {
+//                                tiltRotation = simd_quatf(angle: .pi / 2, axis: [1, 0, 0])
+//                                spinRotation = simd_quatf(angle: spinAngle, axis: [0, 1, 0])
+//                                startInfiniteRotationForArrowUpAndDown(for: entity, in: arView)
+//                            } else if text.contains("down") {
+//                                tiltRotation = simd_quatf(angle: -.pi / 2, axis: [1, 0, 0])
+//                                spinRotation = simd_quatf(angle: spinAngle, axis: [0, 1, 0])
+//                                startInfiniteRotationForArrowUpAndDown(for: entity, in: arView)
+//                            } else if arrowName == "arrive_at_destination" {
+//                                startInfiniteRotation(for: entity, in: arView)
+//                            }
+//
+//                            entity.orientation = headingRotation * tiltRotation * spinRotation
+//                            
+//                            let anchor = AnchorEntity(world: arrowPos)
+//                            anchor.addChild(entity)
+//                            arView.scene.addAnchor(anchor)
+//                            tempAnchors.append(anchor)
+//                        }
+//                    } catch { print("❌ Error loading \(arrowName)") }
+//                }
+//                
+//                // Final sync of the reference list
+//                if !Task.isCancelled {
+//                    await MainActor.run { self.instructionArrows = tempAnchors }
+//                }
+//            }
+//        }
+        
         func isShowingArrowAllAtOnceGemini(instructions: [MXMInstruction], points: [MXMGeoPoint], arWorldRotation: Float) {
             guard let arView = arView else { return }
             
@@ -446,7 +534,6 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
             instructionArrows.forEach { arView.scene.removeAnchor($0) }
             instructionArrows.removeAll()
             
-            // 1. Cancel any existing arrow task
             arrowDrawingTask?.cancel()
 
             arrowDrawingTask = Task {
@@ -454,13 +541,10 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                 let baseLon = Float(points[0].longitude)
                 let cosTheta = cos(arWorldRotation)
                 let sinTheta = sin(arWorldRotation)
-                var tempAnchors: [AnchorEntity] = []
                 
-                // 2. Initial check
                 if Task.isCancelled { return }
 
                 for i in 0..<instructions.count {
-                    // 3. Middle loop check
                     if Task.isCancelled || !isDrawingStarted { break }
                     guard points.indices.contains(i) else { continue }
                     
@@ -484,14 +568,11 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                     let arrowName = text.contains("arrive") ? "arrive_at_destination" : "direction_arrow_horizontal"
 
                     do {
-                        // 4. Async loading check
                         let entity = try await ModelEntity(named: arrowName)
                         
-                        // CRITICAL: Check if navigation ended while the model was loading!
                         if Task.isCancelled || !isDrawingStarted { return }
 
                         await MainActor.run {
-                            // 5. Final UI thread check
                             guard !Task.isCancelled && isDrawingStarted else { return }
 
                             entity.scale = (arrowName == "direction_arrow_horizontal") ? [0.03, 0.03, 0.03] : [0.004, 0.004, 0.004]
@@ -518,14 +599,11 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                             let anchor = AnchorEntity(world: arrowPos)
                             anchor.addChild(entity)
                             arView.scene.addAnchor(anchor)
-                            tempAnchors.append(anchor)
+                            
+                            // FIX: Append directly to the class property on MainActor
+                            self.instructionArrows.append(anchor)
                         }
                     } catch { print("❌ Error loading \(arrowName)") }
-                }
-                
-                // Final sync of the reference list
-                if !Task.isCancelled {
-                    await MainActor.run { self.instructionArrows = tempAnchors }
                 }
             }
         }
@@ -542,7 +620,7 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                 let cosTheta = cos(arWorldRotation)
                 let sinTheta = sin(arWorldRotation)
                 
-                func getRotatedPos(for point: MXMGeoPoint) -> SIMD3<Float> {
+                @Sendable func getRotatedPos(for point: MXMGeoPoint) -> SIMD3<Float> {
                     // MATH FROM OneByOne
                     let worldX = (Float(point.longitude) - baseLon) * 100_000
                     let worldZ = (baseLat - Float(point.latitude)) * 100_000
@@ -560,7 +638,7 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                     guard !Task.isCancelled && isDrawingStarted else { return }
                     
                     var pStart = getRotatedPos(for: points[0])
-                    addJunctionPlate(at: pStart, roadWidth: 0.3, roadThickness: 0.01, roadColor: .systemBlue, to: arView)
+                    addJunctionPlate(at: pStart, roadWidth: 0.3, roadThickness: 0.01, roadColor: UIColor(resource: .main), to: arView)
 
                     for i in 1..<points.count {
                         // CRITICAL: Check if navigation ended while we were looping
@@ -571,8 +649,8 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                         
                         guard isDrawingStarted else { break }
                         let pEnd = getRotatedPos(for: points[i])
-                        addStraightRoad(start: pStart, end: pEnd, roadWidth: 0.3, roadThickness: 0.01, roadColor: .systemBlue, to: arView)
-                        addJunctionPlate(at: pEnd, roadWidth: 0.3, roadThickness: 0.01, roadColor: .systemBlue, to: arView)
+                        addStraightRoad(start: pStart, end: pEnd, roadWidth: 0.3, roadThickness: 0.01, roadColor: UIColor(resource: .main), to: arView)
+                        addJunctionPlate(at: pEnd, roadWidth: 0.3, roadThickness: 0.01, roadColor: UIColor(resource: .main), to: arView)
                         pStart = pEnd
                     }
                 }
@@ -604,10 +682,16 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                 )
             }
             
+//            let previousInstruction = instructionList[currentIndex].floorId ?? ""
+//            if let nextFloorName = currentInstruction.lowercased().components(separatedBy: "to ").last {
+//                
+//                alertMessage = "Have you arrived at the next floor (\(nextFloorName))?"
+//            }
+            
             // Use the list-wide check to decide the title
             let alertTitle = (hasLeave || hasEnter) ? "Building Changed" : "Floor Changed"
-            let floorChangedTitle = "Floor Changed"
-            var alertMessage = "Have you arrived at the next floor?"
+            let floorChangedTitle = translationClass.floorChanged(code: languageCode)
+            let alertMessage = translationClass.floorChangedAlertMessage(code: languageCode)
             
             if instructionList.indices.contains(currentIndex) {
                 let currentInstruction = instructionList[currentIndex].text?.lowercased() ?? ""
@@ -622,11 +706,11 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                     if let destination = currentInstruction.lowercased().components(separatedBy: "go into the ").last,
                        destination != currentInstruction.lowercased() {
                         let name = destination.trimmingCharacters(in: .punctuationCharacters).capitalized
-                        self.alertDialogBuildingMessage = "Have you entered the \(name)?"
-                        self.alertDialogBuildingTitle = "Building Changed"
+                        self.alertDialogBuildingMessage = translationClass.buildingChangedAlertMessageEnter(code: languageCode, buildingNumber: name)
+                        self.alertDialogBuildingTitle = translationClass.buildingChanged(code: languageCode)
                     } else {
-                        self.alertDialogBuildingMessage = "Have you entered the next building?"
-                        self.alertDialogBuildingTitle = "Building Changed"
+                        self.alertDialogBuildingMessage = translationClass.buildingChangedAlertMessageEnter(code: languageCode, buildingNumber: "")
+                        self.alertDialogBuildingTitle = translationClass.buildingChanged(code: languageCode)
                     }
                 } else if mentionsLeave {
                     if let buildingPart = currentInstruction.lowercased().components(separatedBy: "leave the ").last {
@@ -638,11 +722,11 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                                                    .trimmingCharacters(in: .punctuationCharacters)
                                                    .capitalized
                         
-                        self.alertDialogBuildingMessage = "Have you left the \(name)?"
-                        self.alertDialogBuildingTitle = "Building Changed"
+                        self.alertDialogBuildingMessage = translationClass.buildingChangedAlertMessageLeave(code: languageCode, buildingNumber: name)
+                        self.alertDialogBuildingTitle = translationClass.buildingChanged(code: languageCode)
                     } else {
-                        self.alertDialogBuildingMessage = "Have you left the building?"
-                        self.alertDialogBuildingTitle = "Building Changed"
+                        self.alertDialogBuildingMessage = translationClass.buildingChangedAlertMessageLeave(code: languageCode, buildingNumber: "")
+                        self.alertDialogBuildingTitle = translationClass.buildingChanged(code: languageCode)
                     }
                 }
             }
@@ -1702,13 +1786,30 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                     else if text.contains("take elevator up")     { arrowName = "go_upstair_arrow" }
                     else if text.contains("take elevator down")   { arrowName = "go_downstair_arrow_copy" }
 
+                    if let modelName = arrowName {
+                        do {
+                            let model = try await ModelEntity(named: modelName)
+                            await MainActor.run {
+                                model.scale = [0.009, 0.009, 0.009]
+                                let anchor = AnchorEntity(world: arrowPos)
+                                anchor.addChild(model)
+                                arView.scene.addAnchor(anchor)
+                                newAnchors.append(anchor)
+                            }
+                        } catch { print("❌ Error loading special arrow: \(error)") }
+
+                        continue
+                    }
+
+                    // -------------------------------------------------------
+                    // 4. Default — horizontal arrow
+                    // -------------------------------------------------------
                     do {
-                        let arrow = try await ModelEntity(named: arrowName ?? "direction_arrow_horizontal")
+                        let arrow = try await ModelEntity(named: "direction_arrow_horizontal")
 
                         await MainActor.run {
-                            arrow.scale = (arrowName == "direction_arrow_horizontal") ? [0.1, 0.1, 0.1] : [0.009, 0.009, 0.009]
-                            arrow.position = [0, 0.01, 0]
-                            arrow.orientation = simd_quatf(angle: angle, axis: [0, 1, 0]) // ← FIXED ANGLE
+                            arrow.scale = [0.1, 0.1, 0.1]
+                            arrow.orientation = simd_quatf(angle: angle, axis: [0,1,0])
 
                             let anchor = AnchorEntity(world: arrowPos)
                             anchor.addChild(arrow)
@@ -1717,7 +1818,7 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                         }
 
                     } catch {
-                        print("❌ Failed to load arrow: \(error)")
+                        print("❌ Failed to load default arrow: \(error)")
                     }
                 }
 
@@ -1930,7 +2031,7 @@ struct ARNavigationArrowPointDirectionViewContainer: UIViewRepresentable {
                             let lon = Float(start.longitude) + deltaLon * t
 
                             let worldX = (lon - baseLon) * 100_000
-                            let worldZ = (lat - baseLat) * 100_000
+                            let worldZ = (baseLat - lat) * 100_000
 
                             let circleMaterial = SimpleMaterial(
                                 color: .systemBlue.withAlphaComponent(0.6),

@@ -227,13 +227,75 @@ class TelemetryViewModel: ObservableObject {
             }
         }
     }
-  
-    func getToiletStatusWithoutAutomaticRefreshOnTappingMap(buildingId: String?) async {
+    
+//    func getToiletStatusWithoutAutomaticRefresh(buildingId: String?) async {
+//        // 1. Immediately cancel any fetch currently in progress
+//        fetchTask?.cancel()
+//        
+//        isLoading = true
+//        
+//        // 2. Start a new task
+//        fetchTask = Task { @MainActor in
+//            do {
+//                // Check for cancellation after every major step
+//                try Task.checkCancellation()
+//
+//                // Token refresh logic
+//                let needsRefresh = lastTokenRefresh == nil || Date().timeIntervalSince(lastTokenRefresh!) >= 300
+//                if (self.accessToken ?? "").isEmpty || needsRefresh {
+//                    await requestAuthToken()
+//                    self.lastTokenRefresh = Date()
+//                }
+//                
+//                try Task.checkCancellation()
+//                
+//                let mapping = userClass.getDevicesMappingFromBuildingId(buildingId: buildingId)
+//                guard let token = self.accessToken, !mapping.isEmpty else {
+//                    self.allViewReceiver.showWashroomOccupancyToast(
+//                        message: translationClass.washroomOccupancyCouldntRefresh(code: selectedLanguage),
+//                        icon: "xmark.circle.fill",
+//                        iconColor: Color.red,
+//                        show: true
+//                    )
+//                    isLoading = false
+//                    return
+//                }
+//                
+//                // 3. Perform the fetch
+//                let results = try await self.fetchDeviceStatusesBatch(mapping: mapping, token: token)
+//                
+//                // Final check: if the user clicked again while we were waiting,
+//                // don't save this "old" data.
+//                try Task.checkCancellation()
+//                
+//                self.deviceStatusBatch = results
+//                self.isLoading = false
+//                print("✅ Occupancy: Refresh successful.")
+//                
+//            } catch is CancellationError {
+//                print("🔄 Occupancy: Previous request cancelled by new click.")
+//                // Do NOT set isLoading = false here if you want the spinner to stay
+//                // active while the NEW task starts.
+//            } catch {
+//                self.allViewReceiver.showWashroomOccupancyToast(message: translationClass.washroomOccupancyFailedToRefresh(code: selectedLanguage), icon: "xmark.circle.fill", iconColor: Color.red, show: true)
+//                print("💥 Occupancy Error: \(error.localizedDescription)")
+//                self.isLoading = false
+//            }
+//        }
+//    }
+    
+    func getToiletStatusWithoutAutomaticRefresh(buildingId: String?) async {
         // 1. Cancel previous if any
         fetchTask?.cancel()
         
         // We create a reference to the current task so it can be cancelled later if needed
-        let currentTask = Task { @MainActor in
+        let currentTask: Task<Void, Never> = Task { @MainActor in
+            // 1. Debounce: wait 0.3s before doing work
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            
+            // Use guard to check cancellation early
+            if Task.isCancelled { return }
+            
             isLoading = true
             defer { isLoading = false } // Ensures loading turns off even if code fails or returns early
 
@@ -268,6 +330,13 @@ class TelemetryViewModel: ObservableObject {
             } catch is CancellationError {
                 print("🔄 Occupancy: Task cancelled.")
             } catch {
+                // 💡 THE FIX: Check if the error was actually a cancellation
+                // that missed the first 'is CancellationError' check.
+                if let urlError = error as? URLError, urlError.code == .cancelled {
+                    print("🔄 Occupancy: URL Session cancelled.")
+                    return
+                }
+                
                 self.allViewReceiver.showWashroomOccupancyToast(
                     message: translationClass.washroomOccupancyFailedToRefresh(code: selectedLanguage),
                     icon: "xmark.circle.fill", iconColor: .red, show: true
@@ -281,71 +350,75 @@ class TelemetryViewModel: ObservableObject {
         _ = await currentTask.result
     }
     
-    func getToiletStatusWithoutAutomaticRefresh(buildingId: String?) async {
-        // 1. Immediately cancel any fetch currently in progress
-        fetchTask?.cancel()
-        
-        isLoading = true
-        
-        // 2. Start a new task
-        fetchTask = Task { @MainActor in
-            do {
-                // Check for cancellation after every major step
-                try Task.checkCancellation()
-
-                // Token refresh logic
-                let needsRefresh = lastTokenRefresh == nil || Date().timeIntervalSince(lastTokenRefresh!) >= 300
-                if (self.accessToken ?? "").isEmpty || needsRefresh {
-                    await requestAuthToken()
-                    self.lastTokenRefresh = Date()
-                }
-                
-                try Task.checkCancellation()
-                
-                let mapping = userClass.getDevicesMappingFromBuildingId(buildingId: buildingId)
-                guard let token = self.accessToken, !mapping.isEmpty else {
-                  self.allViewReceiver.showWashroomOccupancyToast(message: translationClass.washroomOccupancyFailedToRefresh(code: selectedLanguage), icon: "xmark.circle.fill", iconColor: Color.red, show: true)
-                    isLoading = false
-                    return
-                }
-                
-                // 3. Perform the fetch
-                let results = try await self.fetchDeviceStatusesBatch(mapping: mapping, token: token)
-                
-                // Final check: if the user clicked again while we were waiting,
-                // don't save this "old" data.
-                try Task.checkCancellation()
-                
-                self.deviceStatusBatch = results
-                self.isLoading = false
-                print("✅ Occupancy: Refresh successful.")
-                
-            } catch is CancellationError {
-                print("🔄 Occupancy: Previous request cancelled by new click.")
-                // Do NOT set isLoading = false here if you want the spinner to stay
-                // active while the NEW task starts.
-            } catch {
-                self.allViewReceiver.showWashroomOccupancyToast(message: translationClass.washroomOccupancyFailedToRefresh(code: selectedLanguage), icon: "xmark.circle.fill",
-                  iconColor: Color.red,
-                  show: true)
-                print("💥 Occupancy Error: \(error.localizedDescription)")
-                self.isLoading = false
-            }
-        }
-    }
+//    func getToiletStatusWithoutAutomaticRefreshForAllBuildings() async {
+//        // 1. Immediately cancel any fetch currently in progress
+//        fetchTask?.cancel()
+//        
+//        isLoading = true
+//        
+//        // 2. Start a new task
+//        fetchTask = Task { @MainActor in
+//            do {
+//                try Task.checkCancellation()
+//
+//                // Token refresh logic
+//                let needsRefresh = lastTokenRefresh == nil || Date().timeIntervalSince(lastTokenRefresh!) >= 300
+//                if (self.accessToken ?? "").isEmpty || needsRefresh {
+//                    await requestAuthToken()
+//                    self.lastTokenRefresh = Date()
+//                }
+//                
+//                try Task.checkCancellation()
+//                
+//                // 🔥 MODIFIED: Get mapping for ALL buildings instead of just one ID
+//                let mapping = userClass.getDevicesMappingFromAllBuildings()
+//                
+//                guard let token = self.accessToken, !mapping.isEmpty else {
+//                    isLoading = false
+//                    return
+//                }
+//                
+//                // 3. Perform the fetch
+//                let results = try await self.fetchDeviceStatusesBatch(mapping: mapping, token: token)
+//                
+//                try Task.checkCancellation()
+//                
+//                self.deviceStatusBatch = results
+//                self.isLoading = false
+//                print("✅ Global Occupancy: Refresh successful for all buildings.")
+//                
+//            } catch is CancellationError {
+//                print("🔄 Occupancy: Previous request cancelled by new click.")
+//            } catch {
+//                self.allViewReceiver.showWashroomOccupancyToast(
+//                    message: translationClass.washroomOccupancyFailedToRefresh(code: selectedLanguage),
+//                    icon: "xmark.circle.fill",
+//                    iconColor: Color.red,
+//                    show: true
+//                )
+//                print("💥 Global Occupancy Error: \(error.localizedDescription)")
+//                self.isLoading = false
+//            }
+//        }
+//    }
     
-    func getToiletStatusForAllBuildingsWithoutAutomaticRefresh() async {
-        // 1. Immediately cancel any fetch currently in progress
+    func getToiletStatusWithoutAutomaticRefreshForAllBuildings() async {
+        // 1. Cancel previous if any
         fetchTask?.cancel()
         
-        isLoading = true
-        
-        // 2. Start a new task
-        fetchTask = Task { @MainActor in
+        // 2. Create the task locally first to resolve "No exact matches" error
+        let newTask: Task<Void, Never> = Task { @MainActor in
+            // Debounce: Wait 0.3s. If the user scrolls/taps again quickly, this task gets cancelled.
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            if Task.isCancelled { return }
+            
+            isLoading = true
+            defer { isLoading = false } // Guarantees loading stops even on failure
+            
             do {
                 try Task.checkCancellation()
 
-                // Token refresh logic
+                // Token refresh logic (5-minute cache)
                 let needsRefresh = lastTokenRefresh == nil || Date().timeIntervalSince(lastTokenRefresh!) >= 300
                 if (self.accessToken ?? "").isEmpty || needsRefresh {
                     await requestAuthToken()
@@ -354,35 +427,51 @@ class TelemetryViewModel: ObservableObject {
                 
                 try Task.checkCancellation()
                 
-                // 🔥 MODIFIED: Get mapping for ALL buildings instead of just one ID
+                // Get mapping for ALL buildings
                 let mapping = userClass.getDevicesMappingFromAllBuildings()
                 
                 guard let token = self.accessToken, !mapping.isEmpty else {
-                    isLoading = false
+                    // We don't show a toast here to avoid spamming the user if mapping is just empty
                     return
                 }
                 
-                // 3. Perform the fetch
+                // Perform the batch fetch
                 let results = try await self.fetchDeviceStatusesBatch(mapping: mapping, token: token)
                 
                 try Task.checkCancellation()
                 
                 self.deviceStatusBatch = results
-                self.isLoading = false
                 print("✅ Global Occupancy: Refresh successful for all buildings.")
                 
             } catch is CancellationError {
-                print("🔄 Occupancy: Previous request cancelled by new click.")
+                print("🔄 Global Occupancy: Task cancelled.")
             } catch {
+                // THE FIX: Ignore URLError.cancelled so the error toast doesn't show during rapid taps
+                if let urlError = error as? URLError, urlError.code == .cancelled {
+                    print("🔄 Global Occupancy: URL Session cancelled.")
+                    return
+                }
+                
                 self.allViewReceiver.showWashroomOccupancyToast(
                     message: translationClass.washroomOccupancyFailedToRefresh(code: selectedLanguage),
                     icon: "xmark.circle.fill",
-                    iconColor: Color.red,
+                    iconColor: .red,
                     show: true
                 )
                 print("💥 Global Occupancy Error: \(error.localizedDescription)")
-                self.isLoading = false
             }
+        }
+        
+        // 3. Assign to the class property and await the result
+        self.fetchTask = newTask
+        _ = await newTask.result
+    }
+    
+    func toggleGetWashroomOccupancyBasedOnAllBuildingsOrASpecific(buildingId: String, allBuildings: Bool) async {
+        if allBuildings {
+            await self.getToiletStatusWithoutAutomaticRefreshForAllBuildings()
+        } else {
+            await self.getToiletStatusWithoutAutomaticRefresh(buildingId: buildingId)
         }
     }
     
@@ -682,7 +771,7 @@ class ApiClient {
             }
             
             await MainActor.run {
-              self.allViewReceiver.showWashroomOccupancyToast(message: translationClass.washroomOccupancyRefreshedSuccessfully(code: selectedLanguage), icon: "checkmark.circle.fill", iconColor: Color.mainColor, show: true)
+                self.allViewReceiver.showWashroomOccupancyToast(message: translationClass.washroomOccupancyRefreshedSuccessfully(code: selectedLanguage), icon: "checkmark.circle.fill", iconColor: Color.mainColor, show: true)
             }
             
             print("✅ Parallel Fetch Complete: \(allResults.count) entries gathered.")
