@@ -148,6 +148,33 @@ class TranslationClass: ObservableObject {
             return "Enable both permissions to enjoy a seamless Indoor and AR navigation experience."
         }
     }
+  
+    func internetIntroduction(code: String) -> String {
+        switch code {
+        case "zh-Hant": return "網路連線"
+        case "zh-Hans": return "网络连接"
+        default:        return "Internet Connection"
+        }
+    }
+
+    func internetIntroductionHeading(code: String) -> String {
+        switch code {
+        case "zh-Hant": return "Wi-Fi 或行動數據"
+        case "zh-Hans": return "Wi-Fi 或移动数据"
+        default:        return "Wi-Fi or Cellular Data"
+        }
+    }
+
+    func internetIntroductionSubHeading(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "請連接互聯網，享受流暢的室內和擴增實境導航體驗。"
+        case "zh-Hans":
+            return "请连接互联网，享受流畅的室内和增强现实导航体验。"
+        default:
+            return "Please connect to the internet to enjoy a seamless Indoor and AR navigation experience."
+        }
+    }
     
     func openSettings(code: String) -> String {
         switch code {
@@ -366,6 +393,17 @@ class TranslationClass: ObservableObject {
             return "您当前的起始位置。"
         default:
             return "Your current starting location."
+        }
+    }
+  
+    func gpsTooltip(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "點擊以顯示您的位置並自動旋轉地圖。"
+        case "zh-Hans":
+            return "点击以显示您的位置并自动旋转地图。"
+        default:
+            return "Tap to show your location and auto-rotate the map."
         }
     }
     
@@ -606,6 +644,75 @@ class TranslationClass: ObservableObject {
             return "无法查看洗手间使用情况！"
         default:
             return "Couldn't access the Washroom occupancy!."
+        }
+    }
+  
+    func mapRotationIsActive(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "地圖旋轉已啟用"
+        case "zh-Hans":
+            return "地图旋转已启用"
+        default:
+            return "Map rotation is active"
+        }
+    }
+    
+    func mapRotationIsNotActive(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "地圖旋轉功能未啟用"
+        case "zh-Hans":
+            return "地图旋转功能未启用"
+        default:
+            return "Map rotation isn't active"
+        }
+    }
+    
+    func noInternetConnection(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "無網路連線"
+        case "zh-Hans":
+            return "无网络连接"
+        default:
+            return "No Internet Connection"
+        }
+    }
+    
+    func failedToRefreshInternetConnection(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "網路連線已成功刷新"
+        case "zh-Hans":
+            return "网络连接已成功刷新"
+        default:
+            return "Internet connection refreshed successfully"
+        }
+    }
+    
+    func failedToRefreshInternetConnectionAfterMultipleAttemps(code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            return "多次嘗試連線後仍然失敗。"
+        case "zh-Hans":
+            return "多次尝试连接后仍然失败。"
+        default:
+            return "Connection failed after multiple attempts."
+        }
+    }
+    
+    func categoryNotFound(category: String, code: String) -> String {
+        switch code {
+        case "zh-Hant":
+            // Format: 此建築物內沒有 [類別]
+            return "此建築物內沒有\(category)"
+        case "zh-Hans":
+            // Format: 此建筑物内没有 [类别]
+            return "此建筑物内没有\(category)"
+        default:
+            // Format: No [Category] found in this building
+            return "No \(category) found in this building"
         }
     }
 }

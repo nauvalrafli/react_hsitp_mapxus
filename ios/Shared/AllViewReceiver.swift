@@ -33,18 +33,30 @@ class AllViewReceiver: ObservableObject {
     static let shared = AllViewReceiver()
     
     @MainActor
-    func showInternetToast(message: String, icon: String) {
-        isShowingACustomToastInternet = true
-        isShowingACustomToastMessageInternet = message
-        isShowingACustomToastIconInternet = icon
-        isShowingACustomToastAlignmentInternet = .bottom
+    func showInternetToast(message: String, icon: String, iconColor: Color) {
+        self.isShowingACustomToastInternet = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: {
+            withAnimation(.smooth(), {
+                self.isShowingACustomToastInternet = true
+                self.isShowingACustomToastMessageInternet = message
+                self.isShowingACustomToastIconInternet = icon
+                self.isShowingACustomToastIconColorInternet = iconColor
+                self.isShowingACustomToastAlignmentInternet = .bottom
+            })
+        })
     }
     
-    func showWashroomOccupancyToast(message: String, icon: String, show: Bool) {
-        isShowingACustomToastWashroom = show
-        isShowingACustomToastMessageWashroom = message
-        isShowingACustomToastIconWashroom = icon
-        isShowingACustomToastAlignmentWashroom = .bottom
+    func showWashroomOccupancyToast(message: String, icon: String, iconColor: Color, show: Bool) {
+        self.isShowingACustomToastWashroom = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: {
+            withAnimation(.smooth(), {
+                self.isShowingACustomToastWashroom = show
+                self.isShowingACustomToastMessageWashroom = message
+                self.isShowingACustomToastIconWashroom = icon
+                self.isShowingACustomToastIconColorWashroom = iconColor
+                self.isShowingACustomToastAlignmentWashroom = .bottom
+            })
+        })
     }
     
 }

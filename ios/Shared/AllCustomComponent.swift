@@ -1102,11 +1102,11 @@ extension View {
 }
 
 extension View {
-    func customToast(isShown: Binding<Bool>, message: String, icon: String? = nil, iconColor: Color = Color.mainColor, alignment: Alignment = .top) -> some View {
-        
+    func customToast(isShown: Binding<Bool>, message: String, icon: String? = nil, iconColor: Color, alignment: Alignment = .top) -> some View {
+
         ZStack {
             self
-            CustomToast(isShown: isShown, message: message, icon: icon, alignment: alignment)
+            CustomToast(isShown: isShown, message: message, icon: icon, iconColor: iconColor, alignment: alignment)
         }
     }
 }
@@ -1115,16 +1115,27 @@ struct CustomToast: View {
     @Binding var isShown: Bool
     var message: String = ""
     var icon: String? = ""
-    var iconColor: Color = Color.mainColor
+    var iconColor: Color
     var alignment: Alignment = .top
 
     var body: some View {
         VStack(content: {
             if isShown {
                 HStack(spacing: 16, content: {
-                    Image(icon ?? "", bundle: Bundle.mapxus)
-                        .renderingMode(.template)
-                        .foregroundColor(iconColor)
+                    if UIImage(systemName: icon ?? "", bundle: Bundle.mapxus) != nil {
+                        Image(systemName: icon ?? "", bundle: Bundle.mapxus)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 20, height: 20)
+                            .foregroundColor(iconColor)
+                    } else {
+                        Image(icon ?? "", bundle: Bundle.mapxus)
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 20, height: 20)
+                            .foregroundColor(iconColor)
+                    }
                     
                     VStack(alignment: .center, spacing: 0, content: {
                         Text(message)
@@ -1153,11 +1164,16 @@ struct CustomToast: View {
         .padding(.horizontal, 16)
         .onChange(of: isShown, { oldValue, newValue in
             if newValue {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
-                    withAnimation(.spring(duration: 0.3, bounce: 0.7), {
-                        isShown = false
-                    })
-                }
+                Task(operation: {
+                    try? await Task.sleep(nanoseconds: 1_600_000_000) // 1.6 seconds
+                    
+                    // Ensure we only hide if it's still shown
+                    if isShown {
+                        withAnimation(.spring(dampingFraction: 1)) {
+                            isShown = false
+                        }
+                    }
+                })
             }
         })
         .onTapGesture(perform: {

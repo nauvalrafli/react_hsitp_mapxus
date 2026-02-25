@@ -227,6 +227,59 @@ class TelemetryViewModel: ObservableObject {
             }
         }
     }
+  
+    func getToiletStatusWithoutAutomaticRefreshOnTappingMap(buildingId: String?) async {
+        // 1. Cancel previous if any
+        fetchTask?.cancel()
+        
+        // We create a reference to the current task so it can be cancelled later if needed
+        let currentTask = Task { @MainActor in
+            isLoading = true
+            defer { isLoading = false } // Ensures loading turns off even if code fails or returns early
+
+            do {
+                try Task.checkCancellation()
+
+                // Token logic
+                let needsRefresh = lastTokenRefresh == nil || Date().timeIntervalSince(lastTokenRefresh!) >= 300
+                if (self.accessToken ?? "").isEmpty || needsRefresh {
+                    await requestAuthToken()
+                    self.lastTokenRefresh = Date()
+                }
+                
+                try Task.checkCancellation()
+                
+                let mapping = userClass.getDevicesMappingFromBuildingId(buildingId: buildingId)
+                guard let token = self.accessToken, !mapping.isEmpty else {
+                    self.allViewReceiver.showWashroomOccupancyToast(
+                        message: translationClass.washroomOccupancyCouldntRefresh(code: selectedLanguage),
+                        icon: "xmark.circle.fill", iconColor: .red, show: true
+                    )
+                    return
+                }
+                
+                let results = try await self.fetchDeviceStatusesBatch(mapping: mapping, token: token)
+                
+                try Task.checkCancellation()
+                
+                self.deviceStatusBatch = results
+                print("✅ Occupancy: Refresh successful.")
+                
+            } catch is CancellationError {
+                print("🔄 Occupancy: Task cancelled.")
+            } catch {
+                self.allViewReceiver.showWashroomOccupancyToast(
+                    message: translationClass.washroomOccupancyFailedToRefresh(code: selectedLanguage),
+                    icon: "xmark.circle.fill", iconColor: .red, show: true
+                )
+                print("💥 Occupancy Error: \(error.localizedDescription)")
+            }
+        }
+        
+        self.fetchTask = currentTask
+        // 关键 (The Key): Wait for the task we just started to actually finish!
+        _ = await currentTask.result
+    }
     
     func getToiletStatusWithoutAutomaticRefresh(buildingId: String?) async {
         // 1. Immediately cancel any fetch currently in progress
@@ -251,11 +304,7 @@ class TelemetryViewModel: ObservableObject {
                 
                 let mapping = userClass.getDevicesMappingFromBuildingId(buildingId: buildingId)
                 guard let token = self.accessToken, !mapping.isEmpty else {
-                    self.allViewReceiver.showWashroomOccupancyToast(
-                        message: translationClass.washroomOccupancyCouldntRefresh(code: selectedLanguage),
-                        icon: "xmark.circle.fill",
-                        show: true
-                    )
+                  self.allViewReceiver.showWashroomOccupancyToast(message: translationClass.washroomOccupancyFailedToRefresh(code: selectedLanguage), icon: "xmark.circle.fill", iconColor: Color.red, show: true)
                     isLoading = false
                     return
                 }
@@ -276,7 +325,9 @@ class TelemetryViewModel: ObservableObject {
                 // Do NOT set isLoading = false here if you want the spinner to stay
                 // active while the NEW task starts.
             } catch {
-                self.allViewReceiver.showWashroomOccupancyToast(message: translationClass.washroomOccupancyFailedToRefresh(code: selectedLanguage), icon: "xmark.circle.fill", show: true)
+                self.allViewReceiver.showWashroomOccupancyToast(message: translationClass.washroomOccupancyFailedToRefresh(code: selectedLanguage), icon: "xmark.circle.fill",
+                  iconColor: Color.red,
+                  show: true)
                 print("💥 Occupancy Error: \(error.localizedDescription)")
                 self.isLoading = false
             }
@@ -326,6 +377,7 @@ class TelemetryViewModel: ObservableObject {
                 self.allViewReceiver.showWashroomOccupancyToast(
                     message: translationClass.washroomOccupancyFailedToRefresh(code: selectedLanguage),
                     icon: "xmark.circle.fill",
+                    iconColor: Color.red,
                     show: true
                 )
                 print("💥 Global Occupancy Error: \(error.localizedDescription)")
@@ -630,7 +682,7 @@ class ApiClient {
             }
             
             await MainActor.run {
-                self.allViewReceiver.showWashroomOccupancyToast(message: translationClass.washroomOccupancyRefreshedSuccessfully(code: selectedLanguage), icon: "checkmark.circle.fill", show: true)
+              self.allViewReceiver.showWashroomOccupancyToast(message: translationClass.washroomOccupancyRefreshedSuccessfully(code: selectedLanguage), icon: "checkmark.circle.fill", iconColor: Color.mainColor, show: true)
             }
             
             print("✅ Parallel Fetch Complete: \(allResults.count) entries gathered.")

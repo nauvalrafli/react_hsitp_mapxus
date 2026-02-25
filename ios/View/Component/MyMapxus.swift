@@ -104,7 +104,6 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
     @Published var isNavigatingToConfirmingDestinationView: Bool = false
     @Published var isGettingWashroomVacantStatusMessage: String = ""
     @Published var isGettingWashroomVacantStatusColor: Color = Color.mainColor
-    @Published var isDisablingGoingToSelectingCurrentLocation: Bool = false
     @Published var isFetchingWashroomOccupancy: Bool = false
     
     @Published var isOffRoute: Bool = false
@@ -495,6 +494,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
             
             if isGettingBuildingIdOnMapView != poi.buildingId {
                 isFetchingWashroomOccupancy = false
+                print("current building is different from selected building")
             }
             
             // Check if the categories contain both required strings
@@ -504,21 +504,20 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
                 
                 Task { @MainActor in
                     if !isFetchingWashroomOccupancy {
-                        print("🚀 Washroom run for building: \(poi.buildingId ?? "")")
                         isFetchingWashroomOccupancy = true
+                        print("🚀 Washroom run for building: \(poi.buildingId ?? "")")
                         
-                        // 1. Await the refresh so the data is actually there before proceeding
-                        // Note: Ensure this function in your class is 'async'
                         await washroomOccupancyClass?.getToiletStatusWithoutAutomaticRefresh(buildingId: poi.buildingId)
                         
-                        var attempts = 0
-                        while washroomOccupancyClass?.isLoading == true && attempts < 50 {
-                            try? await Task.sleep(nanoseconds: 100_000_000) // Sleep 0.1s
-                            attempts += 1
-                        }
+                        isFetchingWashroomOccupancy = false
                     }
                     
-                    let washroomStatus = washroomOccupancyClass?.getRestroomOccupancyStatusAll(poiId: poi.identifier, statuses: vacantToiletStatuses(languageCode: selectedLanguage), languageCode: selectedLanguage, allBuildings: .constant(false))
+                    let washroomStatus = washroomOccupancyClass?.getRestroomOccupancyStatusAll(
+                        poiId: poi.identifier,
+                        statuses: vacantToiletStatuses(languageCode: selectedLanguage),
+                        languageCode: selectedLanguage,
+                        allBuildings: .constant(false)
+                    )
                     
                     self.isGettingWashroomVacantStatusMessage = washroomStatus?.message ?? "Unavailable"
                     self.isGettingWashroomVacantStatusColor = vacantToiletStatusColor(
@@ -529,10 +528,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
             } else {
                 isGettingWashroomVacantStatusMessage = ""
                 isGettingWashroomVacantStatusColor = .clear
-                isDisablingGoingToSelectingCurrentLocation = false
             }
-            
-            print("is disabling going to current location: \(isDisablingGoingToSelectingCurrentLocation)")
             
             // 💡 THE FIX: Only append if it's not already the current view
             if !isDisablingCreatingDestinationMarker {
@@ -1984,24 +1980,24 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
 //                    self.allBuildingFacilities = []
                     
                     // 2. Building Match Logic (Only if we have POI data despite the error)
-                    if let firstPoiBuildingId = pois?.first?.buildingId,
-                       let associatedBuilding = buildingLists.first(where: { $0.id == firstPoiBuildingId }) {
-                        
-                        if associatedBuilding.id != isGettingLastBuildingIdOnMapView {
-                            // IDs don't match: Clear the list as the user moved to a different building
-                            self.buildingFacilities = []
-                            print("⚠️ Building mismatch: clearing facilities. Map: \(isGettingLastBuildingIdOnMapView), POI: \(associatedBuilding.id)")
-                        } else {
-                            // IDs match: Try to recover whatever data we did get
-                            let mapped = pois?.compactMap { self.specificBuildingFacilities(poi: $0) }
-                            self.buildingFacilities = mapped ?? []
-                            print("✅ Building match: updated facilities despite error.")
-                        }
-                    }
+//                    if let firstPoiBuildingId = pois?.first?.buildingId,
+//                       let associatedBuilding = buildingLists.first(where: { $0.id == firstPoiBuildingId }) {
+//                        
+//                        if associatedBuilding.id != isGettingLastBuildingIdOnMapView {
+//                            // IDs don't match: Clear the list as the user moved to a different building
+//                            self.buildingFacilities = []
+//                            print("⚠️ Building mismatch: clearing facilities. Map: \(isGettingLastBuildingIdOnMapView), POI: \(associatedBuilding.id)")
+//                        } else {
+//                            // IDs match: Try to recover whatever data we did get
+//                            let mapped = pois?.compactMap { self.specificBuildingFacilities(poi: $0) }
+//                            self.buildingFacilities = mapped ?? []
+//                            print("✅ Building match: updated facilities despite error.")
+//                        }
+//                    }
                     self.isShowingLossInternetConnectionButton = true
                     self.isShowingLoadingOnBuildingFacilities = false
                     self.isShowingAnEmptyFacilityCategory = false
-                    self.allViewReceiver.showInternetToast(message: "No Internet Connection", icon: "wifi.slash")
+                    self.allViewReceiver.showInternetToast(message: translationClass.noInternetConnection(code: selectedLanguage), icon: "wifi.slash", iconColor: Color.red)
                 }
                 
                 return
@@ -2013,7 +2009,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
             // Inside your poiSearcher delegate success block:
             if self.poiRetryCount > 0 { // Only show if we actually had to retry
                 await MainActor.run {
-                    self.allViewReceiver.showInternetToast(message: "Internet connection refreshed successfully", icon: "wifi")
+                  self.allViewReceiver.showInternetToast(message: translationClass.failedToRefreshInternetConnection(code: selectedLanguage), icon: "wifi", iconColor: Color.main)
                 }
             }
         })
@@ -2045,7 +2041,7 @@ class MapxusController: NSObject, ObservableObject, MapxusMapDelegate, MGLMapVie
                 // Notify user that retries failed
                 self.isShowingAnEmptyFacilityCategory = false
                 self.isShowingLoadingOnBuildingFacilities = true
-                self.allViewReceiver.showInternetToast(message: "Connection failed after multiple attempts.", icon: "wifi.exclamationmark")
+                self.allViewReceiver.showInternetToast(message: translationClass.failedToRefreshInternetConnectionAfterMultipleAttemps(code: selectedLanguage), icon: "wifi.exclamationmark", iconColor: Color.red)
             }
         }
     }
