@@ -1002,21 +1002,19 @@ extension MapView {
             }
         })
         .toolbar(content: {
-            ToolbarItem(placement: .navigation, content: {
-                HStack(spacing: 8, content: {
-                    Image("map-pin-2", bundle: Bundle.mapxus)
-                        .renderingMode(.template)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 26, height: 26)
-                        .foregroundColor(Color.mainColor)
-                    
-                    Text(translationClass.exploreByMap(code: mapxusController.selectedLanguage))
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(Color.primary)
-                })
-                .frame(maxWidth: .infinity, alignment: .leading)
-            })
+            HStack(spacing: 8, content: {
+                Image("map-pin-2", bundle: Bundle.mapxus)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 26, height: 26)
+                    .foregroundColor(Color.mainColor)
+                
+                Text(translationClass.exploreByMap(code: mapxusController.selectedLanguage))
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(Color.primary)
+            }).frame(maxWidth: .infinity, alignment: .leading)
+
         })
     }
     
