@@ -272,7 +272,7 @@ class XmlActivity : AppCompatActivity(), SensorEventListener {
       }
     }
 
-    findViewById<TextView>(R.id.version).setText("0.1.25")
+    findViewById<TextView>(R.id.version).setText("0.1.26")
     val boarded = Preference.getOnboardingDone()
     if (!boarded) {
       setupWalkthroughOverlay()
